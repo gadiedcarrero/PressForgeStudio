@@ -32,6 +32,16 @@ from .subtitles import build_ass
 
 _OUTPUT_ROOT = Path("output")
 
+_MONTHS_ES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+]
+
+
+def _human_date(day: int, month: int, year: int | None) -> str:
+    base = f"{day} de {_MONTHS_ES[month - 1]}"
+    return f"{base} de {year}" if year else base
+
 
 def _slug(text: str, maxlen: int = 40) -> str:
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
@@ -154,7 +164,12 @@ def generate_stories(
         if not events:
             raise ValueError("No encontré efemérides para esa fecha.")
         idxs = get_script_provider().select_events(events, theme=niche or "", count=count)
-        return [generate_story_from_fact(events[i], scenes=eff, extra=extra) for i in idxs]
+        stories = []
+        for i in idxs:
+            story = generate_story_from_fact(events[i], scenes=eff, extra=extra)
+            story.source_date = _human_date(d, m, events[i].year)
+            stories.append(story)
+        return stories
 
     # mode == "invent"
     return [

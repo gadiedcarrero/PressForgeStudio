@@ -266,10 +266,24 @@ $('genBtn').addEventListener('click', async () => {
   finally { $('genBtn').disabled = false; }
 });
 
+let ACTIVE = 0;  // índice del guion desplegado (acordeón)
+
+function toggleCard(i) {
+  ACTIVE = (ACTIVE === i) ? -1 : i;
+  SCRIPTS.forEach((s, idx) => {
+    const body = $('body-' + cssId(s.id));
+    const chev = $('chev-' + cssId(s.id));
+    if (body) body.classList.toggle('hidden', idx !== ACTIVE);
+    if (chev) chev.classList.toggle('rotate-180', idx === ACTIVE);
+  });
+}
+
 function renderScripts() {
+  ACTIVE = 0;
   $('emptyScripts').classList.toggle('hidden', SCRIPTS.length > 0);
   $('scripts').innerHTML = SCRIPTS.map((s, idx) => {
     const k = cssId(s.id);
+    const open = idx === 0;
     const scenes = s.scenes.map((sc, i) => `
       <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-950/40">
         <div class="text-[11px] text-zinc-500 mb-1">Escena ${i+1} · narración</div>
@@ -277,20 +291,31 @@ function renderScripts() {
         <div class="text-[11px] text-zinc-500 mb-1">prompt de imagen (inglés)</div>
         <textarea id="img-${k}-${i}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(sc.image_prompt)}</textarea>
       </div>`).join('');
+    const dateBadge = s.source_date ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">📅 ${esc(s.source_date)}</span>` : '';
+    const moodBadge = s.music_mood ? `<span class="text-[11px] text-zinc-500">🎵 ${esc(s.music_mood)}</span>` : '';
     return `
-    <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5" data-sid="${esc(s.id)}">
-      <div class="flex items-center justify-between gap-3 mb-3">
-        <span class="text-[11px] uppercase tracking-wider text-indigo-400">Guion ${SCRIPTS.length>1?(idx+1):''} ${s.music_mood?('· 🎵 '+esc(s.music_mood)):''}</span>
-        <button type="button" onclick="produce('${esc(s.id)}')" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold">🎬 Producir reel</button>
+    <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden" data-sid="${esc(s.id)}">
+      <button type="button" onclick="toggleCard(${idx})" class="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-zinc-800/30 transition">
+        <div class="min-w-0">
+          <div class="text-[11px] uppercase tracking-wider text-indigo-400 mb-0.5">Guion ${SCRIPTS.length>1?(idx+1):''}</div>
+          <div id="hdr-${k}" class="font-medium truncate">${esc(s.title)}</div>
+          <div class="flex flex-wrap items-center gap-2 mt-1">${dateBadge}${moodBadge}</div>
+        </div>
+        <span id="chev-${k}" class="shrink-0 text-zinc-500 transition-transform ${open?'rotate-180':''}">▾</span>
+      </button>
+      <div id="body-${k}" class="${open?'':'hidden'} px-4 pb-4 border-t border-zinc-800">
+        <div class="flex items-center justify-between gap-3 my-3">
+          ${s.source_url ? `<a href="${esc(s.source_url)}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-sky-400 hover:underline">🔗 Fuente: ${esc(s.source_title||'Wikipedia')}${s.source_date?(' · '+esc(s.source_date)):''}</a>` : '<span></span>'}
+          <button type="button" onclick="produce('${esc(s.id)}')" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold shrink-0">🎬 Producir reel</button>
+        </div>
+        <label class="block text-[11px] text-zinc-500 mb-1">Título</label>
+        <input id="title-${k}" value="${esc(s.title)}" oninput="document.getElementById('hdr-${k}').textContent=this.value" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+        <label class="block text-[11px] text-zinc-500 mb-1">Hook</label>
+        <input id="hook-${k}" value="${esc(s.hook)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+        <div class="space-y-2 mb-3">${scenes}</div>
+        <label class="block text-[11px] text-zinc-500 mb-1">Cierre (CTA)</label>
+        <input id="cta-${k}" value="${esc(s.cta)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500" />
       </div>
-      ${s.source_url ? `<a href="${esc(s.source_url)}" target="_blank" class="inline-flex items-center gap-1 mb-3 text-[11px] text-sky-400 hover:underline">🔗 Fuente real: ${esc(s.source_title||'Wikipedia')}</a>` : ''}
-      <label class="block text-[11px] text-zinc-500 mb-1">Título</label>
-      <input id="title-${k}" value="${esc(s.title)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-      <label class="block text-[11px] text-zinc-500 mb-1">Hook</label>
-      <input id="hook-${k}" value="${esc(s.hook)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-      <div class="space-y-2 mb-3">${scenes}</div>
-      <label class="block text-[11px] text-zinc-500 mb-1">Cierre (CTA)</label>
-      <input id="cta-${k}" value="${esc(s.cta)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500" />
     </div>`;
   }).join('');
 }
@@ -300,7 +325,7 @@ function collectScript(sid) {
   const k = cssId(sid);
   return {
     niche: s.niche, music_mood: s.music_mood,
-    source_title: s.source_title || '', source_url: s.source_url || '',
+    source_title: s.source_title || '', source_url: s.source_url || '', source_date: s.source_date || '',
     title: $('title-'+k).value, hook: $('hook-'+k).value, cta: $('cta-'+k).value,
     scenes: s.scenes.map((_, i) => ({ narration: $(`nar-${k}-${i}`).value, image_prompt: $(`img-${k}-${i}`).value })),
   };

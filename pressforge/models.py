@@ -78,6 +78,7 @@ class Story:
     music_mood: str = ""
     source_title: str = ""
     source_url: str = ""
+    source_date: str = ""  # fecha legible del hecho (ej. "14 de junio de 1945")
 
     @property
     def full_narration(self) -> str:
@@ -95,6 +96,7 @@ def story_to_dict(story: "Story") -> dict:
         "music_mood": story.music_mood,
         "source_title": story.source_title,
         "source_url": story.source_url,
+        "source_date": story.source_date,
         "scenes": [
             {"index": s.index, "narration": s.narration, "image_prompt": s.image_prompt}
             for s in story.scenes
@@ -116,6 +118,7 @@ def story_from_dict(d: dict) -> "Story":
         music_mood=d.get("music_mood", ""),
         source_title=d.get("source_title", ""),
         source_url=d.get("source_url", ""),
+        source_date=d.get("source_date", ""),
         scenes=scenes,
     )
 
