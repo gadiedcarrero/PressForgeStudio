@@ -135,6 +135,18 @@
 
         <!-- Guiones + producción -->
         <div>
+          <!-- Lista de noticias/eventos para elegir (Histórico / Efemérides) -->
+          <div id="candidates" class="hidden mb-4">
+            <div class="flex items-center justify-between gap-3 mb-2">
+              <input id="candFilter" type="text" placeholder="filtrar resultados…" oninput="drawCandList()"
+                class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <button id="genSelBtn" type="button" onclick="generateSelected()" disabled
+                class="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg px-4 py-2 text-sm font-semibold shrink-0">Generar guion (0)</button>
+            </div>
+            <p class="text-[11px] text-zinc-500 mb-3">Marca las que te interesen — la IA solo trabaja en esas, no en las que descartes.</p>
+            <div id="candList" class="space-y-2"></div>
+          </div>
+
           <div id="scripts" class="space-y-4"></div>
 
           <!-- Panel de producción (progreso + resultado) -->
@@ -254,8 +266,8 @@ document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', 
 const MODE_CFG = {
   invent:    { label: 'Nicho / tema', ph: 'muertes absurdas de reyes', count: 'Variantes', hint: '', btn: 'Generar guion' },
   mine:      { label: '', ph: '', hint: 'Pega tu guion: la IA solo lo pule y divide en escenas, sin inventar hechos.', btn: 'Corregir y dividir' },
-  historic:  { label: 'Tema histórico (busca en Wikipedia)', ph: 'imperio romano, peste negra, Tesla…', count: 'Resultados', hint: 'Busca artículos REALES en Wikipedia. Cada resultado es un guion citando su fuente.', btn: 'Buscar y generar' },
-  onthisday: { label: 'Tema (ciencia, arte, historia… o vacío)', ph: 'ciencia', count: 'Efemérides', hint: 'Eventos reales de un día como hoy en otros años, filtrados por tu tema.', btn: 'Buscar efemérides' },
+  historic:  { label: 'Tema histórico (busca en Wikipedia)', ph: 'imperio romano, peste negra, Tesla…', count: 'Resultados', hint: 'Busca en Wikipedia y elige TÚ cuáles convertir en guion (la IA no trabaja en las que descartes).', btn: 'Buscar en Wikipedia' },
+  onthisday: { label: 'Filtro (opcional)', ph: 'filtra por texto al elegir…', count: 'Efemérides', hint: 'Eventos reales de un día como hoy. Elige cuáles convertir en guion; la IA solo trabaja en esos.', btn: 'Ver efemérides de hoy' },
 };
 let MODE = 'invent';
 document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click', () => {
@@ -263,20 +275,24 @@ document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click',
   document.querySelectorAll('.mode-pill').forEach(x => x.classList.remove('active'));
   p.classList.add('active');
   const c = MODE_CFG[MODE];
-  $('field-niche').classList.toggle('hidden', MODE === 'mine');
+  const noNiche = (MODE === 'mine' || MODE === 'onthisday');
+  $('field-niche').classList.toggle('hidden', noNiche);
   $('field-script').classList.toggle('hidden', MODE !== 'mine');
-  $('field-count').classList.toggle('hidden', MODE === 'mine');
-  if (MODE !== 'mine') { $('nicheLabel').textContent = c.label; $('niche').placeholder = c.ph; }
-  if (c.count) $('field-count').querySelector('label').textContent = c.count;
+  $('field-count').classList.toggle('hidden', MODE !== 'invent');  // variantes solo en Inventar
+  if (!noNiche) { $('nicheLabel').textContent = c.label; $('niche').placeholder = c.ph; }
   $('modeHint').textContent = c.hint;
   $('modeHint').classList.toggle('hidden', !c.hint);
   $('genBtn').textContent = c.btn;
   $('genBtn').disabled = false;
+  $('candidates').classList.add('hidden');  // limpia la lista al cambiar de modo
 }));
 
 // ─── Generar guion(es) ───
 let SCRIPTS = [];
 $('genBtn').addEventListener('click', async () => {
+  // Histórico / Efemérides: primero BUSCAR (sin IA), luego el usuario elige.
+  if (MODE === 'historic' || MODE === 'onthisday') return searchCandidates();
+
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
                     niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value };
   if (MODE === 'invent' && !payload.niche.trim()) { $('niche').focus(); return; }
@@ -288,11 +304,77 @@ $('genBtn').addEventListener('click', async () => {
     const j = await r.json();
     if (j.error) { $('genStatus').textContent = '✗ ' + j.error; return; }
     SCRIPTS = j.scripts;
+    $('candidates').classList.add('hidden');
     renderScripts();
     $('genStatus').textContent = '✓ ' + SCRIPTS.length + ' guion(es). Revisa y edita antes de producir.';
   } catch (e) { $('genStatus').textContent = '✗ error generando'; }
   finally { $('genBtn').disabled = false; }
 });
+
+// ─── Candidatos (Histórico / Efemérides): buscar → elegir → generar ───
+let CANDIDATES = [], SELECTED = new Set();
+
+async function searchCandidates() {
+  const niche = $('niche').value.trim();
+  if (MODE === 'historic' && !niche) { $('niche').focus(); return; }
+  $('genBtn').disabled = true;
+  $('genStatus').textContent = 'Buscando en Wikipedia…';
+  try {
+    const r = await fetch('/api/research', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mode: MODE, niche }) });
+    const j = await r.json();
+    if (j.error) { $('genStatus').textContent = '✗ ' + j.error; return; }
+    CANDIDATES = j.candidates; SELECTED = new Set();
+    SCRIPTS = []; $('scripts').innerHTML = ''; $('prod').classList.add('hidden'); $('emptyScripts').classList.add('hidden');
+    $('candFilter').value = '';
+    $('candidates').classList.remove('hidden');
+    drawCandList(); updateSelCount();
+    $('genStatus').textContent = '✓ ' + CANDIDATES.length + ' resultados. Marca los que te interesen.';
+  } catch (e) { $('genStatus').textContent = '✗ error buscando'; }
+  finally { $('genBtn').disabled = false; }
+}
+
+function drawCandList() {
+  const q = ($('candFilter').value || '').toLowerCase();
+  const items = CANDIDATES.filter(c => !q || (c.title + ' ' + c.snippet).toLowerCase().includes(q));
+  $('candList').innerHTML = items.length ? items.map(c => `
+    <div onclick="toggleCand('${c.id}')" class="flex gap-3 items-start rounded-xl p-3 cursor-pointer border ${SELECTED.has(c.id)?'border-indigo-500/60 bg-indigo-500/5':'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'}">
+      <input type="checkbox" ${SELECTED.has(c.id)?'checked':''} class="mt-1 accent-indigo-500 pointer-events-none" />
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-medium text-sm">${esc(c.title)}</span>
+          ${c.date?`<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">${esc(c.date)}</span>`:''}
+        </div>
+        <p class="text-xs text-zinc-400 mt-1">${esc(c.snippet)}</p>
+        ${c.url?`<a href="${esc(c.url)}" target="_blank" onclick="event.stopPropagation()" class="inline-block mt-1 text-[11px] text-sky-400 hover:underline">ver fuente ↗</a>`:''}
+      </div>
+    </div>`).join('') : '<p class="text-zinc-600 text-sm">Sin resultados para el filtro.</p>';
+}
+
+function toggleCand(id) {
+  SELECTED.has(id) ? SELECTED.delete(id) : SELECTED.add(id);
+  updateSelCount(); drawCandList();
+}
+function updateSelCount() {
+  const n = SELECTED.size;
+  $('genSelBtn').textContent = 'Generar guion' + (n>1?'es':'') + ' (' + n + ')';
+  $('genSelBtn').disabled = n === 0;
+}
+
+async function generateSelected() {
+  if (!SELECTED.size) return;
+  $('genSelBtn').disabled = true;
+  $('genStatus').textContent = 'Generando ' + SELECTED.size + ' guion(es)… (la IA solo procesa lo elegido)';
+  try {
+    const r = await fetch('/api/scripts', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ candidate_ids: [...SELECTED], scenes: +$('scenes').value, extra: $('extra').value }) });
+    const j = await r.json();
+    if (j.error) { $('genStatus').textContent = '✗ ' + j.error; updateSelCount(); return; }
+    SCRIPTS = j.scripts;
+    $('candidates').classList.add('hidden');
+    renderScripts();
+    $('genStatus').textContent = '✓ ' + SCRIPTS.length + ' guion(es). Revisa, edita y produce.';
+  } catch (e) { $('genStatus').textContent = '✗ error generando'; updateSelCount(); }
+}
 
 let ACTIVE = 0;  // índice del guion desplegado (acordeón)
 

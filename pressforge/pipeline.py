@@ -38,7 +38,7 @@ _MONTHS_ES = [
 ]
 
 
-def _human_date(day: int, month: int, year: int | None) -> str:
+def human_date(day: int, month: int, year: int | None) -> str:
     base = f"{day} de {_MONTHS_ES[month - 1]}"
     return f"{base} de {year}" if year else base
 
@@ -167,7 +167,7 @@ def generate_stories(
         stories = []
         for i in idxs:
             story = generate_story_from_fact(events[i], scenes=eff, extra=extra)
-            story.source_date = _human_date(d, m, events[i].year)
+            story.source_date = human_date(d, m, events[i].year)
             stories.append(story)
         return stories
 

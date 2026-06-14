@@ -13,14 +13,21 @@ from __future__ import annotations
 import json
 import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..models import story_from_dict, story_to_dict
-from ..pipeline import generate_stories, produce_reel
+from ..models import SourceFact, story_from_dict, story_to_dict
+from ..pipeline import (
+    auto_scene_count,
+    generate_stories,
+    generate_story_from_fact,
+    human_date,
+    produce_reel,
+)
 
 OUTPUT = Path("output")
 WEB_DIR = Path(__file__).parent
@@ -33,6 +40,7 @@ app = FastAPI(title="PressForge Studio")
 # Estado en memoria (suficiente para uso local de 1 usuario).
 _jobs: dict[str, dict] = {}        # render jobs en curso/terminados
 _scripts: dict[str, dict] = {}     # guiones generados (editables antes de producir)
+_candidates: dict[str, dict] = {}  # noticias/eventos encontrados (antes de gastar IA)
 _lock = threading.Lock()
 
 
@@ -57,7 +65,52 @@ def favicon():
     return FileResponse(ico) if ico.exists() else JSONResponse({}, status_code=404)
 
 
-# ─── Paso 1: generar guion(es) para revisar/editar ───────────────────────────
+# ─── Paso 1a (solo Histórico/Efemérides): buscar SIN gastar IA ───────────────
+@app.post("/api/research")
+def research(payload: dict = Body(...)):
+    """Devuelve la lista de noticias/eventos reales encontrados, para que el
+    usuario elija ANTES de gastar IA generando guiones."""
+    from ..registry import get_research_provider
+
+    mode = (payload.get("mode") or "").strip()
+    niche = (payload.get("niche") or "").strip()
+    rp = get_research_provider()
+    try:
+        if mode == "historic":
+            if not niche:
+                return JSONResponse({"error": "Escribe un tema a buscar."}, status_code=400)
+            facts = rp.search(niche, limit=10)
+            dates = ["" for _ in facts]
+        elif mode == "onthisday":
+            today = datetime.now()
+            facts = rp.on_this_day(today.month, today.day, limit=60)
+            dates = [human_date(today.day, today.month, f.year) for f in facts]
+        else:
+            return JSONResponse({"error": "Este modo no usa búsqueda."}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"error": f"Error consultando Wikipedia: {exc}"}, status_code=502)
+
+    cands = []
+    for f, date in zip(facts, dates):
+        if not (f.title or f.extract):
+            continue
+        cid = uuid.uuid4().hex[:12]
+        with _lock:
+            _candidates[cid] = {
+                "title": f.title, "extract": f.extract, "url": f.url,
+                "year": f.year, "date": date,
+            }
+        snippet = f.extract.strip()
+        if len(snippet) > 240:
+            snippet = snippet[:240].rsplit(" ", 1)[0] + "…"
+        cands.append({
+            "id": cid, "title": f.title, "date": date, "year": f.year,
+            "snippet": snippet, "url": f.url,
+        })
+    return {"candidates": cands}
+
+
+# ─── Paso 1b: generar guion(es) para revisar/editar ──────────────────────────
 @app.post("/api/scripts")
 def create_scripts(payload: dict = Body(...)):
     mode = (payload.get("mode") or "invent").strip()
@@ -67,7 +120,36 @@ def create_scripts(payload: dict = Body(...)):
     niche = (payload.get("niche") or "").strip() or None
     extra = (payload.get("extra") or "").strip() or None
     user_script = (payload.get("user_script") or "").strip() or None
+    candidate_ids = payload.get("candidate_ids") or []
 
+    # Camino Histórico/Efemérides: generar SOLO de lo que el usuario eligió.
+    if candidate_ids:
+        eff = scenes if scenes else auto_scene_count(mode="historic")
+        drafts = []
+        for cid in candidate_ids[:6]:
+            with _lock:
+                cand = _candidates.get(cid)
+            if not cand:
+                continue
+            fact = SourceFact(
+                title=cand["title"], extract=cand["extract"],
+                url=cand["url"], year=cand.get("year"),
+            )
+            try:
+                story = generate_story_from_fact(fact, scenes=eff, extra=extra)
+            except Exception as exc:  # noqa: BLE001
+                return JSONResponse({"error": str(exc)}, status_code=400)
+            story.source_date = cand.get("date", "")
+            sid = uuid.uuid4().hex[:12]
+            data = story_to_dict(story)
+            with _lock:
+                _scripts[sid] = data
+            drafts.append({"id": sid, **data})
+        if not drafts:
+            return JSONResponse({"error": "No pude generar guiones de lo seleccionado."}, status_code=400)
+        return {"scripts": drafts}
+
+    # Camino Inventar / Mi guion.
     try:
         stories = generate_stories(
             mode=mode,
