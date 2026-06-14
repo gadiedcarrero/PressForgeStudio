@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PressForge Studio</title>
+  <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
   <style>
@@ -22,7 +23,7 @@
   <!-- ════════════════ SIDEBAR ════════════════ -->
   <aside class="w-60 shrink-0 border-r border-zinc-800/80 bg-zinc-950/60 flex flex-col p-3 fixed h-screen">
     <div class="flex items-center gap-2.5 px-2 py-3 mb-3">
-      <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 grid place-items-center font-black text-sm">P</div>
+      <img src="/assets/IsoTipo.png" alt="PressForge" class="h-9 w-9 rounded-lg bg-white object-contain p-0.5 shrink-0" />
       <div class="leading-tight">
         <div class="font-bold text-sm tracking-tight">PressForge</div>
         <div class="text-[10px] text-zinc-500">Studio · V1</div>
@@ -31,15 +32,15 @@
 
     <button type="button" data-view="create"
       class="nav-item active flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-300 mb-1 transition">
-      <span class="text-base">✨</span> Crear
+      Crear
     </button>
     <button type="button" data-view="library"
       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
-      <span class="text-base">🎞️</span> Library
+      Library
     </button>
     <button type="button" data-view="music"
       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
-      <span class="text-base">🎵</span> Música
+      Música
     </button>
 
     <div class="mt-auto px-3 py-2 text-[11px] text-zinc-600 border-t border-zinc-800/80">
@@ -57,10 +58,10 @@
 
       <!-- Modos -->
       <div class="flex flex-wrap gap-2 mb-5">
-        <button type="button" data-mode="invent"   class="mode-pill active px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">✍️ Inventar</button>
-        <button type="button" data-mode="mine"      class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">📝 Mi guion</button>
-        <button type="button" data-mode="historic"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">🏛️ Histórico</button>
-        <button type="button" data-mode="onthisday"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">📅 Qué pasó hoy</button>
+        <button type="button" data-mode="invent"   class="mode-pill active inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Inventar</button>
+        <button type="button" data-mode="mine"      class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Mi guion</button>
+        <button type="button" data-mode="historic"  class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Histórico</button>
+        <button type="button" data-mode="onthisday"  class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Qué pasó hoy</button>
       </div>
 
       <div class="grid lg:grid-cols-[400px_1fr] gap-6 items-start">
@@ -163,7 +164,7 @@
     <section id="view-library" class="hidden">
       <div class="flex items-center justify-between mb-5">
         <h1 class="text-2xl font-bold tracking-tight">Library</h1>
-        <button id="refreshReels" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+        <button id="refreshReels" type="button" class="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"><span data-ic="refresh" class="w-3.5 h-3.5"></span> refrescar</button>
       </div>
       <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <p class="text-zinc-600 text-sm col-span-full">Cargando…</p>
@@ -184,8 +185,8 @@
             class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           <div class="flex flex-wrap gap-1.5 mb-4" id="tagSuggest"></div>
           <button id="upBtn" type="button"
-            class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 rounded-lg py-2.5 font-semibold text-sm transition">
-            ⬆ Subir a la biblioteca
+            class="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 rounded-lg py-2.5 font-semibold text-sm transition">
+            <span data-ic="upload" class="w-4 h-4"></span> Subir a la biblioteca
           </button>
           <p id="upStatus" class="text-xs text-zinc-500 mt-2"></p>
           <p class="text-[11px] text-zinc-600 mt-4 leading-relaxed">
@@ -197,7 +198,7 @@
         <div>
           <div class="flex items-center justify-between mb-3">
             <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400">Biblioteca</h2>
-            <button id="refreshMusic" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+            <button id="refreshMusic" type="button" class="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"><span data-ic="refresh" class="w-3.5 h-3.5"></span> refrescar</button>
           </div>
           <div id="library" class="space-y-3"><p class="text-zinc-600 text-sm">Cargando…</p></div>
         </div>
@@ -213,6 +214,33 @@ const esc = (s) => (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(
 const cssId = (s) => String(s).replace(/[^a-zA-Z0-9]/g,'_');
 const TAG_VOCAB = ['epic','war','battle','mystery','suspense','tense','tragic','sad','dark','horror','ancient','medieval','wonder','curious','triumphant','dramatic'];
 
+// ─── Iconos outline monocromos (heredan el color del texto vía currentColor) ───
+const IC = {
+  create:'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z',
+  library:'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z',
+  music:'M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 1 1-.99-3.467l2.31-.66a2.25 2.25 0 0 0 1.632-2.163Zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 0 1-1.632 2.163l-1.32.377a1.803 1.803 0 0 1-.99-3.467l2.31-.66A2.25 2.25 0 0 0 9 15.553Z',
+  invent:'M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10',
+  mine:'M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z',
+  historic:'M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0 0 12 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z',
+  onthisday:'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5',
+  calendar:'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5',
+  video:'M15.75 10.5l4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z',
+  upload:'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 7.5 12 3m0 0L7.5 7.5M12 3v13.5',
+  link:'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244',
+  trash:'m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0',
+  refresh:'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
+};
+function icon(name, cls='w-4 h-4') {
+  const d = IC[name]; if (!d) return '';
+  return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+}
+function injectIcons() {
+  const NAV = { create:'create', library:'library', music:'music' };
+  document.querySelectorAll('.nav-item').forEach(b => b.insertAdjacentHTML('afterbegin', icon(NAV[b.dataset.view], 'w-[18px] h-[18px] shrink-0')));
+  document.querySelectorAll('.mode-pill').forEach(b => b.insertAdjacentHTML('afterbegin', icon(b.dataset.mode, 'w-4 h-4 shrink-0')));
+  document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.className));
+}
+
 // ─── Navegación entre vistas ───
 document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
@@ -225,9 +253,9 @@ document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', 
 // ─── Modos ───
 const MODE_CFG = {
   invent:    { label: 'Nicho / tema', ph: 'muertes absurdas de reyes', count: 'Variantes', hint: '', btn: 'Generar guion' },
-  mine:      { label: '', ph: '', hint: '📝 Pega tu guion: la IA solo lo pule y divide en escenas, sin inventar hechos.', btn: 'Corregir y dividir' },
-  historic:  { label: 'Tema histórico (busca en Wikipedia)', ph: 'imperio romano, peste negra, Tesla…', count: 'Resultados', hint: '🏛️ Busca artículos REALES en Wikipedia. Cada resultado es un guion citando su fuente.', btn: 'Buscar y generar' },
-  onthisday: { label: 'Tema (ciencia, arte, historia… o vacío)', ph: 'ciencia', count: 'Efemérides', hint: '📅 Eventos reales de un día como hoy en otros años, filtrados por tu tema.', btn: 'Buscar efemérides' },
+  mine:      { label: '', ph: '', hint: 'Pega tu guion: la IA solo lo pule y divide en escenas, sin inventar hechos.', btn: 'Corregir y dividir' },
+  historic:  { label: 'Tema histórico (busca en Wikipedia)', ph: 'imperio romano, peste negra, Tesla…', count: 'Resultados', hint: 'Busca artículos REALES en Wikipedia. Cada resultado es un guion citando su fuente.', btn: 'Buscar y generar' },
+  onthisday: { label: 'Tema (ciencia, arte, historia… o vacío)', ph: 'ciencia', count: 'Efemérides', hint: 'Eventos reales de un día como hoy en otros años, filtrados por tu tema.', btn: 'Buscar efemérides' },
 };
 let MODE = 'invent';
 document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click', () => {
@@ -291,8 +319,8 @@ function renderScripts() {
         <div class="text-[11px] text-zinc-500 mb-1">prompt de imagen (inglés)</div>
         <textarea id="img-${k}-${i}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(sc.image_prompt)}</textarea>
       </div>`).join('');
-    const dateBadge = s.source_date ? `<span class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">📅 ${esc(s.source_date)}</span>` : '';
-    const moodBadge = s.music_mood ? `<span class="text-[11px] text-zinc-500">🎵 ${esc(s.music_mood)}</span>` : '';
+    const dateBadge = s.source_date ? `<span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">${icon('calendar','w-3 h-3')} ${esc(s.source_date)}</span>` : '';
+    const moodBadge = s.music_mood ? `<span class="inline-flex items-center gap-1 text-[11px] text-zinc-500">${icon('music','w-3 h-3')} ${esc(s.music_mood)}</span>` : '';
     return `
     <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden" data-sid="${esc(s.id)}">
       <button type="button" onclick="toggleCard(${idx})" class="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-zinc-800/30 transition">
@@ -305,8 +333,8 @@ function renderScripts() {
       </button>
       <div id="body-${k}" class="${open?'':'hidden'} px-4 pb-4 border-t border-zinc-800">
         <div class="flex items-center justify-between gap-3 my-3">
-          ${s.source_url ? `<a href="${esc(s.source_url)}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-sky-400 hover:underline">🔗 Fuente: ${esc(s.source_title||'Wikipedia')}${s.source_date?(' · '+esc(s.source_date)):''}</a>` : '<span></span>'}
-          <button type="button" onclick="produce('${esc(s.id)}')" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold shrink-0">🎬 Producir reel</button>
+          ${s.source_url ? `<a href="${esc(s.source_url)}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-sky-400 hover:underline">${icon('link','w-3 h-3')} Fuente: ${esc(s.source_title||'Wikipedia')}${s.source_date?(' · '+esc(s.source_date)):''}</a>` : '<span></span>'}
+          <button type="button" onclick="produce('${esc(s.id)}')" class="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold shrink-0">${icon('video','w-4 h-4')} Producir reel</button>
         </div>
         <label class="block text-[11px] text-zinc-500 mb-1">Título</label>
         <input id="title-${k}" value="${esc(s.title)}" oninput="document.getElementById('hdr-${k}').textContent=this.value" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500" />
@@ -379,7 +407,7 @@ async function loadMusic() {
 function renderMusicSelect() {
   const sel = $('music'); const prev = sel.value;
   let o = '<option value="">(sin música)</option>';
-  if (TRACKS.length) o += '<option value="auto">🎲 Auto (la IA elige por tags)</option>';
+  if (TRACKS.length) o += '<option value="auto">Auto (la IA elige por tags)</option>';
   o += TRACKS.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
   sel.innerHTML = o; sel.value = prev;
 }
@@ -389,8 +417,8 @@ function renderLibrary() {
   lib.innerHTML = TRACKS.map(t => `
     <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
       <div class="flex items-center justify-between gap-3 mb-2">
-        <span class="font-medium text-sm truncate">🎵 ${esc(t.name)}</span>
-        <button type="button" onclick="delTrack('${esc(t.name)}')" class="text-xs text-red-400/70 hover:text-red-400">eliminar</button>
+        <span class="inline-flex items-center gap-1.5 min-w-0 font-medium text-sm">${icon('music','w-4 h-4 shrink-0 text-zinc-400')}<span class="truncate">${esc(t.name)}</span></span>
+        <button type="button" onclick="delTrack('${esc(t.name)}')" class="inline-flex items-center gap-1 text-xs text-red-400/70 hover:text-red-400 shrink-0">${icon('trash','w-3.5 h-3.5')} eliminar</button>
       </div>
       <audio controls preload="none" src="${esc(t.url)}" class="w-full h-8 mb-3"></audio>
       <div class="flex flex-wrap gap-1.5 mb-2">${(t.tags||[]).map(x=>`<span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">${esc(x)}</span>`).join('') || '<span class="text-[11px] text-zinc-600">sin tags</span>'}</div>
@@ -444,6 +472,7 @@ async function loadReels() {
 
 $('refreshReels').addEventListener('click', loadReels);
 $('refreshMusic').addEventListener('click', loadMusic);
+injectIcons();
 loadMusic();
 </script>
 </body>

@@ -36,15 +36,25 @@ _scripts: dict[str, dict] = {}     # guiones generados (editables antes de produ
 _lock = threading.Lock()
 
 
+ASSETS_DIR = Path("assets")
+
 OUTPUT.mkdir(exist_ok=True)
 MUSIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/output", StaticFiles(directory=str(OUTPUT)), name="output")
 app.mount("/music", StaticFiles(directory=str(MUSIC_DIR)), name="music")
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 
 
 @app.get("/")
 def index():
     return FileResponse(WEB_DIR / "index.html")
+
+
+@app.get("/favicon.ico")
+def favicon():
+    ico = ASSETS_DIR / "favicon.ico"
+    return FileResponse(ico) if ico.exists() else JSONResponse({}, status_code=404)
 
 
 # ─── Paso 1: generar guion(es) para revisar/editar ───────────────────────────
