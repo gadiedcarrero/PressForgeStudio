@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PressForge Studio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <style>
+    body { background: #0b0d12; }
+    .reel-vid { aspect-ratio: 9 / 16; }
+    .tab-btn.active { background: #18181b; color: #fff; }
+  </style>
+</head>
+<body class="text-zinc-100 min-h-screen">
+  <div class="max-w-6xl mx-auto px-5 py-8">
+    <!-- Header -->
+    <header class="flex items-center gap-3 mb-6">
+      <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 grid place-items-center font-black">P</div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight">PressForge&nbsp;Studio</h1>
+        <p class="text-xs text-zinc-500">Fábrica de reels históricos con IA · V1</p>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="flex gap-1 mb-6 bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 w-fit">
+      <button type="button" data-tab="generate" class="tab-btn active px-4 py-1.5 rounded-lg text-sm font-medium text-zinc-400 transition">🎬 Generar</button>
+      <button type="button" data-tab="music" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium text-zinc-400 transition">🎵 Música</button>
+    </nav>
+
+    <!-- ════════════════ TAB: GENERAR ════════════════ -->
+    <div id="tab-generate" class="grid lg:grid-cols-[380px_1fr] gap-6">
+      <section class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 h-fit">
+        <h2 class="font-semibold mb-4 text-sm uppercase tracking-wider text-zinc-400">Generar reel</h2>
+
+        <label class="block text-sm mb-1 text-zinc-400">Nicho / tema</label>
+        <input id="niche" type="text" placeholder="muertes absurdas de reyes"
+          class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+
+        <div class="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label class="block text-sm mb-1 text-zinc-400">Escenas</label>
+            <input id="scenes" type="number" min="3" max="12" value="5" title="Número de escenas"
+              class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div>
+            <label class="block text-sm mb-1 text-zinc-400">Voz</label>
+            <select id="voice" title="Voz del narrador"
+              class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="">(por defecto)</option>
+              <option>onyx</option><option>nova</option><option>echo</option>
+              <option>fable</option><option>shimmer</option><option>alloy</option>
+              <option>ash</option><option>ballad</option><option>coral</option><option>sage</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="block text-sm mb-1 text-zinc-400">Música de fondo</label>
+        <select id="music" title="Música de fondo"
+          class="w-full mb-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="">(sin música)</option>
+        </select>
+        <p class="text-[11px] text-zinc-600 mb-4">Sube y etiqueta pistas en la pestaña <b>Música</b>. Con <b>Auto</b>, la IA elige según los tags.</p>
+
+        <label class="block text-sm mb-1 text-zinc-400">Indicaciones extra <span class="text-zinc-600">(opcional)</span></label>
+        <textarea id="extra" rows="2" placeholder="tono, época, enfoque…"
+          class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+
+        <button id="go" type="button"
+          class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg py-2.5 font-semibold text-sm transition">
+          Generar reel
+        </button>
+
+        <div id="progress" class="hidden mt-5">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></div>
+            <span id="progressLabel" class="text-sm text-zinc-300">Trabajando…</span>
+          </div>
+          <pre id="events" class="text-xs text-zinc-500 bg-zinc-950 rounded-lg p-3 max-h-48 overflow-auto whitespace-pre-wrap"></pre>
+        </div>
+      </section>
+
+      <section>
+        <div id="result" class="hidden mb-8 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5">
+          <div class="grid sm:grid-cols-[240px_1fr] gap-5 items-start">
+            <video id="resultVideo" controls class="reel-vid w-full rounded-xl bg-black"></video>
+            <div>
+              <h3 id="resultTitle" class="font-bold text-lg mb-1"></h3>
+              <p id="resultHook" class="text-zinc-400 text-sm mb-3"></p>
+              <p id="resultMeta" class="text-xs text-zinc-500"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400">Reels generados</h2>
+          <button id="refresh" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+        </div>
+        <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          <p class="text-zinc-600 text-sm col-span-full">Cargando…</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ════════════════ TAB: MÚSICA ════════════════ -->
+    <div id="tab-music" class="hidden grid lg:grid-cols-[380px_1fr] gap-6">
+      <!-- Subir -->
+      <section class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 h-fit">
+        <h2 class="font-semibold mb-4 text-sm uppercase tracking-wider text-zinc-400">Añadir música</h2>
+
+        <label class="block text-sm mb-1 text-zinc-400">Archivo de audio</label>
+        <input id="upFile" type="file" title="Archivo de audio" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac"
+          class="w-full mb-4 text-sm text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:text-zinc-200 file:text-sm hover:file:bg-zinc-700" />
+
+        <label class="block text-sm mb-1 text-zinc-400">Tags <span class="text-zinc-600">(separados por espacio o coma)</span></label>
+        <input id="upTags" type="text" placeholder="epic war battle dramatic"
+          class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div class="flex flex-wrap gap-1.5 mb-4" id="tagSuggest"></div>
+
+        <button id="upBtn" type="button"
+          class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 rounded-lg py-2.5 font-semibold text-sm transition">
+          ⬆ Subir a la biblioteca
+        </button>
+        <p id="upStatus" class="text-xs text-zinc-500 mt-2"></p>
+
+        <p class="text-[11px] text-zinc-600 mt-4 leading-relaxed">
+          Los tags le dicen a la IA de qué va cada pista. Cuando un reel use música
+          <b>Auto</b>, se elige la pista cuyos tags mejor casan con el tono de la historia.
+        </p>
+      </section>
+
+      <!-- Biblioteca -->
+      <section>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400">Biblioteca</h2>
+          <button id="refreshMusic" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+        </div>
+        <div id="library" class="space-y-3">
+          <p class="text-zinc-600 text-sm">Cargando…</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const TAG_VOCAB = ['epic','war','battle','mystery','suspense','tense','tragic','sad','dark','horror','ancient','medieval','wonder','curious','triumphant','dramatic'];
+const esc = (s) => (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+// ─── Tabs ───
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    $('tab-generate').classList.toggle('hidden', btn.dataset.tab !== 'generate');
+    $('tab-music').classList.toggle('hidden', btn.dataset.tab !== 'music');
+  });
+});
+
+// ─── Música: estado compartido ───
+let TRACKS = [];
+
+async function loadMusic() {
+  try {
+    const r = await fetch('/api/music');
+    TRACKS = (await r.json()).tracks || [];
+  } catch (e) { TRACKS = []; }
+  renderMusicSelect();
+  renderLibrary();
+}
+
+function renderMusicSelect() {
+  const sel = $('music');
+  const prev = sel.value;
+  let opts = '<option value="">(sin música)</option>';
+  if (TRACKS.length) opts += '<option value="auto">🎲 Auto (la IA elige por tags)</option>';
+  opts += TRACKS.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
+  sel.innerHTML = opts;
+  sel.value = prev;
+}
+
+function renderLibrary() {
+  const lib = $('library');
+  if (!TRACKS.length) {
+    lib.innerHTML = '<p class="text-zinc-600 text-sm">Biblioteca vacía. Sube tu primera pista ←</p>';
+    return;
+  }
+  lib.innerHTML = TRACKS.map(t => `
+    <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <span class="font-medium text-sm truncate">🎵 ${esc(t.name)}</span>
+        <button type="button" onclick="delTrack('${esc(t.name)}')" class="text-xs text-red-400/70 hover:text-red-400">eliminar</button>
+      </div>
+      <audio controls preload="none" src="${esc(t.url)}" class="w-full h-8 mb-3"></audio>
+      <div class="flex flex-wrap gap-1.5 mb-2" id="tags-${cssId(t.name)}">${(t.tags||[]).map(tag=>tagChip(tag)).join('') || '<span class="text-[11px] text-zinc-600">sin tags</span>'}</div>
+      <div class="flex gap-2">
+        <input type="text" value="${esc((t.tags||[]).join(' '))}" id="edit-${cssId(t.name)}" placeholder="añade tags…"
+          class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <button type="button" onclick="saveTags('${esc(t.name)}')" class="text-xs px-3 rounded-lg bg-zinc-800 hover:bg-zinc-700">Guardar</button>
+      </div>
+    </div>`).join('');
+}
+
+const cssId = (s) => s.replace(/[^a-zA-Z0-9]/g,'_');
+const tagChip = (t) => `<span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">${esc(t)}</span>`;
+
+async function saveTags(name) {
+  const val = $('edit-' + cssId(name)).value;
+  const r = await fetch('/api/music/tags', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name, tags: val })
+  });
+  TRACKS = (await r.json()).tracks || TRACKS;
+  renderMusicSelect(); renderLibrary();
+}
+
+async function delTrack(name) {
+  if (!confirm('¿Eliminar "' + name + '" de la biblioteca?')) return;
+  const r = await fetch('/api/music/delete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ name })
+  });
+  TRACKS = (await r.json()).tracks || TRACKS;
+  renderMusicSelect(); renderLibrary();
+}
+
+// Sugerencias de tags al subir
+$('tagSuggest').innerHTML = TAG_VOCAB.map(t =>
+  `<button type="button" class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300" onclick="addTag('${t}')">${t}</button>`
+).join('');
+function addTag(t) {
+  const inp = $('upTags');
+  const set = new Set(inp.value.split(/[\s,]+/).filter(Boolean));
+  set.add(t);
+  inp.value = [...set].join(' ');
+}
+
+$('upBtn').addEventListener('click', async () => {
+  const f = $('upFile').files[0];
+  if (!f) { $('upStatus').textContent = 'Elige un archivo primero.'; return; }
+  $('upBtn').disabled = true;
+  $('upStatus').textContent = 'Subiendo…';
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('tags', $('upTags').value);
+  try {
+    const r = await fetch('/api/music/upload', { method:'POST', body: fd });
+    const j = await r.json();
+    if (j.error) { $('upStatus').textContent = '✗ ' + j.error; return; }
+    TRACKS = j.tracks || TRACKS;
+    renderMusicSelect(); renderLibrary();
+    $('upStatus').textContent = '✓ ' + j.saved + ' añadida';
+    $('upFile').value = ''; $('upTags').value = '';
+  } catch (e) {
+    $('upStatus').textContent = '✗ error de subida';
+  } finally {
+    $('upBtn').disabled = false;
+  }
+});
+
+// ─── Reels ───
+async function loadReels() {
+  const r = await fetch('/api/reels');
+  const reels = await r.json();
+  const g = $('gallery');
+  if (!reels.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">Aún no hay reels. Genera el primero ←</p>'; return; }
+  g.innerHTML = reels.map(x => `
+    <div class="group cursor-pointer" onclick="playReel('${x.video}','${esc(x.title)}','${esc(x.hook)}', ${x.duration||0})">
+      <div class="reel-vid rounded-xl overflow-hidden bg-zinc-800 border border-zinc-800 relative">
+        ${x.thumb ? `<img src="${x.thumb}" class="w-full h-full object-cover group-hover:scale-105 transition" alt=""/>` : ''}
+        <div class="absolute inset-0 grid place-items-center bg-black/20 opacity-0 group-hover:opacity-100 transition">
+          <div class="h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center">▶</div>
+        </div>
+      </div>
+      <p class="text-xs mt-1.5 line-clamp-2 text-zinc-300">${esc(x.title)||x.id}</p>
+      <p class="text-[11px] text-zinc-600">${x.duration ? x.duration.toFixed(1)+'s' : ''}</p>
+    </div>`).join('');
+}
+
+function playReel(video, title, hook, duration) {
+  $('result').classList.remove('hidden');
+  $('resultVideo').src = video;
+  $('resultTitle').textContent = title;
+  $('resultHook').textContent = hook;
+  $('resultMeta').textContent = duration ? duration.toFixed(1)+'s · 1080×1920' : '';
+  $('result').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+async function poll(jobId) {
+  const r = await fetch('/api/jobs/' + jobId);
+  const j = await r.json();
+  $('events').textContent = (j.events || []).join('\n');
+  $('events').scrollTop = $('events').scrollHeight;
+  if (j.status === 'running') { setTimeout(() => poll(jobId), 1500); return; }
+  $('go').disabled = false;
+  $('progressLabel').textContent = j.status === 'done' ? '✓ Listo' : '✗ Error';
+  if (j.status === 'done') { playReel(j.video, j.title, j.hook, j.duration); loadReels(); }
+  else { $('events').textContent += '\n\nERROR: ' + (j.error || 'desconocido'); }
+}
+
+$('go').addEventListener('click', async () => {
+  const niche = $('niche').value.trim();
+  if (!niche) { $('niche').focus(); return; }
+  $('go').disabled = true;
+  $('progress').classList.remove('hidden');
+  $('progressLabel').textContent = 'Trabajando…';
+  $('events').textContent = 'Enviando…';
+  const r = await fetch('/api/generate', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ niche, scenes:+$('scenes').value, voice:$('voice').value, music:$('music').value, extra:$('extra').value })
+  });
+  const j = await r.json();
+  if (j.error) { $('events').textContent = 'ERROR: ' + j.error; $('go').disabled = false; return; }
+  poll(j.job_id);
+});
+
+$('refresh').addEventListener('click', loadReels);
+$('refreshMusic').addEventListener('click', loadMusic);
+loadMusic();
+loadReels();
+</script>
+</body>
+</html>
