@@ -26,7 +26,11 @@ class SceneDraft(BaseModel):
 
 class StoryDraft(BaseModel):
     title: str = Field(description="Título interno de la historia.")
-    hook: str = Field(description="Gancho de 0-3s que crea curiosidad extrema.")
+    hook: str = Field(
+        description="Pattern interrupt de 0-3s que abre un bucle de curiosidad. "
+        "Empieza por lo más impactante/contradictorio, NUNCA por contexto o "
+        "fecha. Debe coincidir con la narración de la escena 1."
+    )
     cta: str = Field(description="Cierre sorprendente con payoff.")
     music_mood: str = Field(
         description="2-5 etiquetas en inglés, separadas por espacios, que "

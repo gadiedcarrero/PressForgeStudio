@@ -19,6 +19,38 @@ class _EventSelection(BaseModel):
         "interés viral, los que mejor encajen con el tema pedido."
     )
 
+
+# Inyectada en TODOS los prompts de guion. El hook es ~50% del éxito del reel.
+_HOOK_DOCTRINE = """
+
+═══ DOCTRINA DEL HOOK (lo más importante de todo) ═══
+La narración de la PRIMERA escena ES el hook: lo primero que se oye y se lee
+(0-3 s). Debe ser un "pattern interrupt" que rompa el scroll y abra un bucle de
+curiosidad que OBLIGUE a quedarse. El hook decide si el algoritmo muestra el
+vídeo o no.
+
+PROHIBIDO empezar lento o con contexto/fecha/preámbulo. Nada de:
+"Era el año…", "En julio de 1945…", "Había una vez…", "Esta es la historia
+de…", "Muy triste.". Esos arranques pierden a la gente en el segundo 2.
+
+Empieza por lo MÁS impactante, raro o contradictorio. El quién/cuándo/dónde va
+DESPUÉS, en las siguientes escenas. El hook debe provocar "espera… ¿qué?".
+
+Técnicas (elige la que mejor encaje con la historia):
+- Brecha de curiosidad: "La historia detrás de esta foto es peor de lo que imaginas."
+- Shock / contradicción: "No era nieve." · "La cosa blanca con la que jugaban era radiactiva."
+- Todos menos uno: "Todas las niñas de esta foto murieron jóvenes… excepto una."
+- In media res (acción ya empezada): "Unas niñas nadaban en un río cuando el cielo cambió de golpe."
+- Pregunta que abre bucle: "¿Por qué estas niñas jugaron con polvo nuclear creyendo que era nieve?"
+
+Comparación real:
+✗ MALO (lento):  "Muy triste. En julio de 1945, un grupo de niñas fue de campamento…"
+✓ BUENO (hook):  "Estas niñas pensaron que jugaban con nieve… pero era polvo de una bomba nuclear."
+
+El campo `hook` y la narración de la escena 1 deben COINCIDIR: ambos son ese
+pattern interrupt. Mantén el resto de escenas con ritmo alto y un cierre con payoff."""
+
+
 _SYSTEM = """Eres un guionista experto en contenido viral histórico para reels \
 verticales (TikTok/Reels/Shorts). Escribes en {language}.
 
@@ -39,7 +71,7 @@ Reglas de los image_prompt (en INGLÉS):
 - Estilo "cinematic historical realism", iluminación dramática, 9:16 vertical.
 - Coherencia visual entre escenas (misma época, paleta, calidad).
 - Describe la escena concreta, sin texto ni letras en la imagen, sin marcas \
-modernas si la época no corresponde."""
+modernas si la época no corresponde.""" + _HOOK_DOCTRINE
 
 _REFINE_SYSTEM = """Eres un editor de guiones para reels históricos verticales \
 (TikTok/Reels/Shorts). Escribes en {language}.
@@ -55,7 +87,10 @@ aporta.
 - Divide el guion en escenas (la 1ª es el hook, la última el cierre).
 - Crea un image_prompt en INGLÉS por escena: "cinematic historical realism", \
 9:16 vertical, sin texto en la imagen, coherente entre escenas.
-- Sugiere music_mood acorde al tono del guion del usuario."""
+- Sugiere music_mood acorde al tono del guion del usuario.
+- IMPORTANTE: aunque el usuario empiece lento, REESCRIBE el arranque como un \
+hook potente usando el dato más fuerte que ÉL aporta (no inventes datos \
+nuevos).""" + _HOOK_DOCTRINE
 
 _SOURCE_SYSTEM = """Eres un guionista de reels históricos virales. Escribes en \
 {language}.
@@ -77,7 +112,7 @@ es el hook, la última el cierre).
 
 image_prompt en INGLÉS por escena: "cinematic historical realism", 9:16 \
 vertical, sin texto en la imagen, coherente y fiel a la época real del hecho.
-Sugiere music_mood acorde."""
+Sugiere music_mood acorde.""" + _HOOK_DOCTRINE
 
 
 class OpenAIScriptProvider:
