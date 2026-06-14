@@ -67,6 +67,37 @@ class Story:
         return " ".join(s.narration.strip() for s in self.scenes)
 
 
+def story_to_dict(story: "Story") -> dict:
+    """Serializa el guion para enviarlo a la UI (editable antes de producir)."""
+    return {
+        "niche": story.niche,
+        "title": story.title,
+        "hook": story.hook,
+        "cta": story.cta,
+        "music_mood": story.music_mood,
+        "scenes": [
+            {"index": s.index, "narration": s.narration, "image_prompt": s.image_prompt}
+            for s in story.scenes
+        ],
+    }
+
+
+def story_from_dict(d: dict) -> "Story":
+    """Reconstruye un Story desde el dict (posiblemente editado) de la UI."""
+    scenes = [
+        Scene(index=i, narration=s.get("narration", ""), image_prompt=s.get("image_prompt", ""))
+        for i, s in enumerate(d.get("scenes", []))
+    ]
+    return Story(
+        niche=d.get("niche", ""),
+        title=d.get("title", ""),
+        hook=d.get("hook", ""),
+        cta=d.get("cta", ""),
+        music_mood=d.get("music_mood", ""),
+        scenes=scenes,
+    )
+
+
 @dataclass
 class Word:
     """Palabra con timestamps (del SubtitleProvider)."""

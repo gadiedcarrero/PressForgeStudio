@@ -19,7 +19,8 @@ from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..pipeline import generate_reel
+from ..models import story_from_dict, story_to_dict
+from ..pipeline import generate_story, produce_reel
 
 OUTPUT = Path("output")
 WEB_DIR = Path(__file__).parent
@@ -29,8 +30,9 @@ _MAX_MUSIC_BYTES = 50 * 1024 * 1024  # 50 MB
 
 app = FastAPI(title="PressForge Studio")
 
-# Estado de los jobs en memoria (suficiente para uso local de 1 usuario).
-_jobs: dict[str, dict] = {}
+# Estado en memoria (suficiente para uso local de 1 usuario).
+_jobs: dict[str, dict] = {}        # render jobs en curso/terminados
+_scripts: dict[str, dict] = {}     # guiones generados (editables antes de producir)
 _lock = threading.Lock()
 
 
@@ -45,17 +47,61 @@ def index():
     return FileResponse(WEB_DIR / "index.html")
 
 
-def _run_job(job_id: str, niche: str, scenes: int, voice: str, extra: str, music: str) -> None:
+# ─── Paso 1: generar guion(es) para revisar/editar ───────────────────────────
+@app.post("/api/scripts")
+def create_scripts(payload: dict = Body(...)):
+    mode = (payload.get("mode") or "invent").strip()
+    scenes = max(3, min(12, int(payload.get("scenes") or 5)))
+    count = max(1, min(3, int(payload.get("count") or 1)))
+    niche = (payload.get("niche") or "").strip() or None
+    extra = (payload.get("extra") or "").strip() or None
+    user_script = (payload.get("user_script") or "").strip() or None
+
+    # 'Mi guion' siempre produce 1 (es el guion del usuario).
+    if mode == "mine":
+        count = 1
+
+    drafts = []
+    try:
+        for _ in range(count):
+            story = generate_story(
+                mode=mode, niche=niche, scenes=scenes, extra=extra, user_script=user_script
+            )
+            sid = uuid.uuid4().hex[:12]
+            data = story_to_dict(story)
+            with _lock:
+                _scripts[sid] = data
+            drafts.append({"id": sid, **data})
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"scripts": drafts}
+
+
+@app.post("/api/scripts/{sid}")
+def update_script(sid: str, payload: dict = Body(...)):
+    """Guarda las ediciones del usuario sobre un guion."""
+    with _lock:
+        if sid not in _scripts:
+            return JSONResponse({"error": "guion no encontrado"}, status_code=404)
+        current = _scripts[sid]
+    for key in ("title", "hook", "cta", "music_mood", "niche", "scenes"):
+        if key in payload:
+            current[key] = payload[key]
+    with _lock:
+        _scripts[sid] = current
+    return {"id": sid, **current}
+
+
+# ─── Paso 2: producir el reel desde un guion (ya editado) ─────────────────────
+def _run_job(job_id: str, story_dict: dict, voice: str, music: str) -> None:
     def on_event(msg: str) -> None:
         with _lock:
             _jobs[job_id]["events"].append(msg)
 
     try:
-        result = generate_reel(
-            niche,
-            scenes=scenes,
+        result = produce_reel(
+            story_from_dict(story_dict),
             voice=voice or None,
-            extra=extra or None,
             music=music or None,
             on_event=on_event,
         )
@@ -73,21 +119,25 @@ def _run_job(job_id: str, niche: str, scenes: int, voice: str, extra: str, music
             _jobs[job_id].update(status="error", error=str(exc))
 
 
-@app.post("/api/generate")
-def generate(payload: dict = Body(...)):
-    niche = (payload.get("niche") or "").strip()
-    if not niche:
-        return JSONResponse({"error": "Falta el nicho/tema."}, status_code=400)
-    scenes = max(3, min(12, int(payload.get("scenes") or 5)))
-    voice = (payload.get("voice") or "").strip()
-    extra = (payload.get("extra") or "").strip()
-    music = (payload.get("music") or "").strip()
+@app.post("/api/produce")
+def produce(payload: dict = Body(...)):
+    sid = (payload.get("id") or "").strip()
+    inline = payload.get("script")  # opcional: guion editado enviado directo
+    with _lock:
+        story_dict = inline or _scripts.get(sid)
+    if not story_dict:
+        return JSONResponse({"error": "guion no encontrado; genéralo primero"}, status_code=404)
+    if sid and inline:  # persistir la última edición
+        with _lock:
+            _scripts[sid] = inline
 
+    voice = (payload.get("voice") or "").strip()
+    music = (payload.get("music") or "").strip()
     job_id = uuid.uuid4().hex[:12]
     with _lock:
-        _jobs[job_id] = {"status": "running", "events": [], "niche": niche}
+        _jobs[job_id] = {"status": "running", "events": [], "title": story_dict.get("title", "")}
     threading.Thread(
-        target=_run_job, args=(job_id, niche, scenes, voice, extra, music), daemon=True
+        target=_run_job, args=(job_id, dict(story_dict), voice, music), daemon=True
     ).start()
     return {"job_id": job_id}
 

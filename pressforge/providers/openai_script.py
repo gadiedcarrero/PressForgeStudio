@@ -32,6 +32,22 @@ Reglas de los image_prompt (en INGLÉS):
 - Describe la escena concreta, sin texto ni letras en la imagen, sin marcas \
 modernas si la época no corresponde."""
 
+_REFINE_SYSTEM = """Eres un editor de guiones para reels históricos verticales \
+(TikTok/Reels/Shorts). Escribes en {language}.
+
+Recibes el guion que ESCRIBIÓ EL USUARIO. Tu trabajo es PULIRLO, no reescribir \
+la historia:
+- NO inventes hechos, fechas, nombres ni datos nuevos. Respeta el contenido del \
+usuario. Si algo es ambiguo, mantenlo, no lo rellenes con invención.
+- Mejora redacción, claridad y ritmo. Hazlo conciso, sin relleno.
+- Convierte el inicio en un HOOK potente (0-3s) usando SOLO lo que el usuario \
+aporta.
+- Asegura un cierre con payoff.
+- Divide el guion en escenas (la 1ª es el hook, la última el cierre).
+- Crea un image_prompt en INGLÉS por escena: "cinematic historical realism", \
+9:16 vertical, sin texto en la imagen, coherente entre escenas.
+- Sugiere music_mood acorde al tono del guion del usuario."""
+
 
 class OpenAIScriptProvider:
     def __init__(self) -> None:
@@ -59,6 +75,34 @@ class OpenAIScriptProvider:
         if draft is None:
             raise RuntimeError("El modelo no devolvió un guion válido.")
 
+        return self._to_story(draft, niche=niche)
+
+    def refine(self, user_script: str, *, scenes: int, extra: str | None = None) -> Story:
+        """Modo 'Mi guion': pule el texto del usuario sin inventar hechos."""
+        user = (
+            f"Guion del usuario:\n\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
+            f"Optimízalo y divídelo en ~{scenes} escenas "
+            f"(la 1ª es el hook, la última el cierre).\n"
+        )
+        if extra:
+            user += f"Indicaciones extra: {extra}\n"
+
+        completion = client().beta.chat.completions.parse(
+            model=self.settings.script_model,
+            messages=[
+                {"role": "system", "content": _REFINE_SYSTEM.format(language=self.settings.language)},
+                {"role": "user", "content": user},
+            ],
+            response_format=StoryDraft,
+            temperature=0.4,  # más fiel al original que en modo inventar
+        )
+        draft = completion.choices[0].message.parsed
+        if draft is None:
+            raise RuntimeError("El modelo no devolvió un guion válido.")
+        return self._to_story(draft, niche="Mi guion")
+
+    @staticmethod
+    def _to_story(draft: StoryDraft, *, niche: str) -> Story:
         return Story(
             niche=niche,
             title=draft.title,

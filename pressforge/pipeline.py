@@ -65,11 +65,36 @@ def _assign_durations(story: Story, total: float) -> None:
         scene.duration = round(total * w / wsum, 3)
 
 
-def generate_reel(
-    niche: str,
+# ─── Paso 1 (rápido): generar el guion para revisar/editar ───────────────────
+def generate_story(
     *,
+    mode: str = "invent",
+    niche: str | None = None,
     scenes: int = 6,
     extra: str | None = None,
+    user_script: str | None = None,
+) -> Story:
+    """Devuelve solo el guion + storyboard (sin imágenes/voz/render).
+
+    mode:
+      - "invent": la IA inventa una historia a partir de `niche`.
+      - "mine":   la IA pule/corrige el `user_script` sin inventar hechos.
+    """
+    provider = get_script_provider()
+    if mode == "mine":
+        if not user_script or not user_script.strip():
+            raise ValueError("El modo 'Mi guion' necesita un texto de guion.")
+        return provider.refine(user_script, scenes=scenes, extra=extra)
+    # mode == "invent"
+    if not niche or not niche.strip():
+        raise ValueError("El modo 'Inventar' necesita un nicho/tema.")
+    return provider.generate(niche, scenes=scenes, extra=extra)
+
+
+# ─── Paso 2 (pesado): producir el reel desde un guion (ya editado) ───────────
+def produce_reel(
+    story: Story,
+    *,
     music: str | None = None,
     voice: str | None = None,
     console: Console | None = None,
@@ -81,38 +106,28 @@ def generate_reel(
     console = console or Console()
 
     def step(rich_msg: str, plain_msg: str) -> None:
-        """Loguea a la consola (CLI) y emite el evento limpio (Web UI)."""
         console.print(rich_msg)
         if on_event:
             on_event(plain_msg)
 
     # --- Carpeta de trabajo ---
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    workdir = _OUTPUT_ROOT / f"{stamp}-{_slug(niche)}"
+    workdir = _OUTPUT_ROOT / f"{stamp}-{_slug(story.niche or story.title)}"
     (workdir / "images").mkdir(parents=True, exist_ok=True)
 
-    # --- 1. Guion + storyboard ---
-    step("[bold cyan]1/6[/] Generando guion y storyboard…", "1/6 · Generando guion y storyboard…")
-    story = get_script_provider().generate(niche, scenes=scenes, extra=extra)
-    console.print(f"    [green]✓[/] «{story.title}» · {len(story.scenes)} escenas")
-    console.print(f"    [dim]Hook:[/] {story.hook}")
-    if on_event:
-        on_event(f"    ✓ «{story.title}» · {len(story.scenes)} escenas")
-
-    # --- 2. Imágenes ---
-    step("[bold cyan]2/6[/] Generando imágenes…", "2/6 · Generando imágenes…")
+    # --- 1. Imágenes ---
+    step("[bold cyan]1/5[/] Generando imágenes…", "1/5 · Generando imágenes…")
     image_provider = get_image_provider()
     for scene in story.scenes:
         path = workdir / "images" / f"scene_{scene.index:02d}.png"
         image_provider.generate(scene.image_prompt, path)
         scene.image_path = path
-        msg = f"    ✓ imagen {scene.index + 1}/{len(story.scenes)}"
         console.print(f"    [green]✓[/] escena {scene.index + 1}/{len(story.scenes)}")
         if on_event:
-            on_event(msg)
+            on_event(f"    ✓ imagen {scene.index + 1}/{len(story.scenes)}")
 
-    # --- 3. Voz ---
-    step("[bold cyan]3/6[/] Generando narración…", "3/6 · Generando narración…")
+    # --- 2. Voz ---
+    step("[bold cyan]2/5[/] Generando narración…", "2/5 · Generando narración…")
     audio_path = get_voice_provider().synthesize(story.full_narration, workdir / "narration.mp3")
     total = ffprobe_duration(audio_path)
     _assign_durations(story, total)
@@ -120,23 +135,22 @@ def generate_reel(
     if on_event:
         on_event(f"    ✓ {total:.1f}s de audio")
 
-    # --- 4. Subtítulos ---
-    step("[bold cyan]4/6[/] Transcribiendo para subtítulos…", "4/6 · Transcribiendo para subtítulos…")
+    # --- 3. Subtítulos ---
+    step("[bold cyan]3/5[/] Transcribiendo para subtítulos…", "3/5 · Transcribiendo para subtítulos…")
     words = get_subtitle_provider().transcribe(audio_path)
     subs_path = build_ass(words, workdir / "subs.ass", width=settings.video_width, height=settings.video_height)
     console.print(f"    [green]✓[/] {len(words)} palabras sincronizadas")
     if on_event:
         on_event(f"    ✓ {len(words)} palabras sincronizadas")
 
-    # --- 5. Persistir guion ---
     _save_story(story, workdir, total)
 
-    # --- 6. Render ---
+    # --- 4. Render ---
     step(
-        "[bold cyan]5/6[/] Renderizando vídeo (Ken Burns + subtítulos + audio)…",
-        "5/6 · Renderizando vídeo (Ken Burns + subtítulos + audio)…",
+        "[bold cyan]4/5[/] Renderizando vídeo (Ken Burns + subtítulos + audio)…",
+        "4/5 · Renderizando vídeo (Ken Burns + subtítulos + audio)…",
     )
-    music_path = _resolve_music(music, story.music_mood or niche)
+    music_path = _resolve_music(music, story.music_mood or story.niche)
     if music:
         if music_path:
             mood = f" (mood: {story.music_mood})" if music.lower() == "auto" and story.music_mood else ""
@@ -162,9 +176,28 @@ def generate_reel(
         music_volume=settings.music_volume,
     )
     get_render_provider().render(job)
-    step("[bold cyan]6/6[/] [green]✓ Reel listo[/]", "6/6 · ✓ Reel listo")
+    step("[bold cyan]5/5[/] [green]✓ Reel listo[/]", "5/5 · ✓ Reel listo")
 
     return ReelResult(story=story, video_path=output_path, workdir=workdir, duration=total)
+
+
+# ─── Conveniencia: guion + producción en un paso (usado por la CLI) ──────────
+def generate_reel(
+    niche: str,
+    *,
+    scenes: int = 6,
+    extra: str | None = None,
+    music: str | None = None,
+    voice: str | None = None,
+    console: Console | None = None,
+    on_event: Callable[[str], None] | None = None,
+) -> ReelResult:
+    if on_event:
+        on_event("0/5 · Generando guion…")
+    story = generate_story(mode="invent", niche=niche, scenes=scenes, extra=extra)
+    if console:
+        console.print(f"[bold cyan]Guion[/] «{story.title}» · {len(story.scenes)} escenas")
+    return produce_reel(story, music=music, voice=voice, console=console, on_event=on_event)
 
 
 def _save_story(story: Story, workdir: Path, duration: float) -> None:

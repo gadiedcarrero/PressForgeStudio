@@ -7,193 +7,353 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' };</script>
   <style>
-    body { background: #0b0d12; }
+    body { background: #0a0b0f; }
     .reel-vid { aspect-ratio: 9 / 16; }
-    .tab-btn.active { background: #18181b; color: #fff; }
+    .nav-item.active { background: #1e1e24; color: #fff; }
+    .mode-pill.active { background: linear-gradient(to right, #6366f1, #d946ef); color: #fff; border-color: transparent; }
+    textarea { resize: vertical; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: #2a2a32; border-radius: 6px; }
   </style>
 </head>
 <body class="text-zinc-100 min-h-screen">
-  <div class="max-w-6xl mx-auto px-5 py-8">
-    <!-- Header -->
-    <header class="flex items-center gap-3 mb-6">
-      <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 grid place-items-center font-black">P</div>
-      <div>
-        <h1 class="text-xl font-bold tracking-tight">PressForge&nbsp;Studio</h1>
-        <p class="text-xs text-zinc-500">Fábrica de reels históricos con IA · V1</p>
+<div class="flex min-h-screen">
+
+  <!-- ════════════════ SIDEBAR ════════════════ -->
+  <aside class="w-60 shrink-0 border-r border-zinc-800/80 bg-zinc-950/60 flex flex-col p-3 fixed h-screen">
+    <div class="flex items-center gap-2.5 px-2 py-3 mb-3">
+      <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 grid place-items-center font-black text-sm">P</div>
+      <div class="leading-tight">
+        <div class="font-bold text-sm tracking-tight">PressForge</div>
+        <div class="text-[10px] text-zinc-500">Studio · V1</div>
       </div>
-    </header>
+    </div>
 
-    <!-- Tabs -->
-    <nav class="flex gap-1 mb-6 bg-zinc-900/60 border border-zinc-800 rounded-xl p-1 w-fit">
-      <button type="button" data-tab="generate" class="tab-btn active px-4 py-1.5 rounded-lg text-sm font-medium text-zinc-400 transition">🎬 Generar</button>
-      <button type="button" data-tab="music" class="tab-btn px-4 py-1.5 rounded-lg text-sm font-medium text-zinc-400 transition">🎵 Música</button>
-    </nav>
+    <button type="button" data-view="create"
+      class="nav-item active flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-300 mb-1 transition">
+      <span class="text-base">✨</span> Crear
+    </button>
+    <button type="button" data-view="library"
+      class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
+      <span class="text-base">🎞️</span> Library
+    </button>
+    <button type="button" data-view="music"
+      class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
+      <span class="text-base">🎵</span> Música
+    </button>
 
-    <!-- ════════════════ TAB: GENERAR ════════════════ -->
-    <div id="tab-generate" class="grid lg:grid-cols-[380px_1fr] gap-6">
-      <section class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 h-fit">
-        <h2 class="font-semibold mb-4 text-sm uppercase tracking-wider text-zinc-400">Generar reel</h2>
+    <div class="mt-auto px-3 py-2 text-[11px] text-zinc-600 border-t border-zinc-800/80">
+      Recursos · OpenAI + FFmpeg
+    </div>
+  </aside>
 
-        <label class="block text-sm mb-1 text-zinc-400">Nicho / tema</label>
-        <input id="niche" type="text" placeholder="muertes absurdas de reyes"
-          class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+  <!-- ════════════════ MAIN ════════════════ -->
+  <main class="flex-1 ml-60 px-6 py-7 max-w-[1400px]">
 
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label class="block text-sm mb-1 text-zinc-400">Escenas</label>
-            <input id="scenes" type="number" min="3" max="12" value="5" title="Número de escenas"
-              class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <!-- ─────────── VISTA: CREAR ─────────── -->
+    <section id="view-create">
+      <h1 class="text-2xl font-bold tracking-tight mb-1">Crear reel</h1>
+      <p class="text-sm text-zinc-500 mb-5">Genera el guion, revísalo y edítalo, y luego produce el reel.</p>
+
+      <!-- Modos -->
+      <div class="flex flex-wrap gap-2 mb-5">
+        <button type="button" data-mode="invent"   class="mode-pill active px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">✍️ Inventar</button>
+        <button type="button" data-mode="mine"      class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">📝 Mi guion</button>
+        <button type="button" data-mode="historic"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-500">🏛️ Histórico</button>
+        <button type="button" data-mode="onthisday"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-500">📅 Qué pasó hoy</button>
+      </div>
+
+      <div class="grid lg:grid-cols-[400px_1fr] gap-6 items-start">
+        <!-- Formulario -->
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+          <div id="soonNote" class="hidden mb-4 text-xs bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg p-3">
+            🚧 Este modo (historia real desde Wikipedia) llega en la próxima etapa. Por ahora usa <b>Inventar</b> o <b>Mi guion</b>.
           </div>
-          <div>
-            <label class="block text-sm mb-1 text-zinc-400">Voz</label>
-            <select id="voice" title="Voz del narrador"
-              class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">(por defecto)</option>
-              <option>onyx</option><option>nova</option><option>echo</option>
-              <option>fable</option><option>shimmer</option><option>alloy</option>
-              <option>ash</option><option>ballad</option><option>coral</option><option>sage</option>
-            </select>
+
+          <!-- Inventar -->
+          <div id="field-niche">
+            <label class="block text-sm mb-1 text-zinc-400">Nicho / tema</label>
+            <input id="niche" type="text" placeholder="muertes absurdas de reyes"
+              class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
-        </div>
 
-        <label class="block text-sm mb-1 text-zinc-400">Música de fondo</label>
-        <select id="music" title="Música de fondo"
-          class="w-full mb-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="">(sin música)</option>
-        </select>
-        <p class="text-[11px] text-zinc-600 mb-4">Sube y etiqueta pistas en la pestaña <b>Música</b>. Con <b>Auto</b>, la IA elige según los tags.</p>
-
-        <label class="block text-sm mb-1 text-zinc-400">Indicaciones extra <span class="text-zinc-600">(opcional)</span></label>
-        <textarea id="extra" rows="2" placeholder="tono, época, enfoque…"
-          class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-
-        <button id="go" type="button"
-          class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg py-2.5 font-semibold text-sm transition">
-          Generar reel
-        </button>
-
-        <div id="progress" class="hidden mt-5">
-          <div class="flex items-center gap-2 mb-2">
-            <div class="h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></div>
-            <span id="progressLabel" class="text-sm text-zinc-300">Trabajando…</span>
+          <!-- Mi guion -->
+          <div id="field-script" class="hidden">
+            <label class="block text-sm mb-1 text-zinc-400">Tu guion (la IA solo lo corrige, no inventa)</label>
+            <textarea id="userScript" rows="6" placeholder="Pega o escribe aquí tu guion…"
+              class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
           </div>
-          <pre id="events" class="text-xs text-zinc-500 bg-zinc-950 rounded-lg p-3 max-h-48 overflow-auto whitespace-pre-wrap"></pre>
-        </div>
-      </section>
 
-      <section>
-        <div id="result" class="hidden mb-8 bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5">
-          <div class="grid sm:grid-cols-[240px_1fr] gap-5 items-start">
-            <video id="resultVideo" controls class="reel-vid w-full rounded-xl bg-black"></video>
+          <div class="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <h3 id="resultTitle" class="font-bold text-lg mb-1"></h3>
-              <p id="resultHook" class="text-zinc-400 text-sm mb-3"></p>
-              <p id="resultMeta" class="text-xs text-zinc-500"></p>
+              <label class="block text-sm mb-1 text-zinc-400">Escenas</label>
+              <input id="scenes" type="number" min="3" max="12" value="5" title="Número de escenas"
+                class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            </div>
+            <div id="field-count">
+              <label class="block text-sm mb-1 text-zinc-400">Variantes</label>
+              <input id="count" type="number" min="1" max="3" value="1" title="Cuántos guiones generar para elegir"
+                class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
+
+          <label class="block text-sm mb-1 text-zinc-400">Indicaciones extra <span class="text-zinc-600">(opcional)</span></label>
+          <textarea id="extra" rows="2" placeholder="tono, época, enfoque…"
+            class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+
+          <div class="border-t border-zinc-800 pt-4 mb-4">
+            <p class="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">Producción</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm mb-1 text-zinc-400">Voz</label>
+                <select id="voice" title="Voz" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="">(por defecto)</option>
+                  <option>onyx</option><option>nova</option><option>echo</option>
+                  <option>fable</option><option>shimmer</option><option>alloy</option>
+                  <option>ash</option><option>ballad</option><option>coral</option><option>sage</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm mb-1 text-zinc-400">Música</label>
+                <select id="music" title="Música" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  <option value="">(sin música)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <button id="genBtn" type="button"
+            class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg py-2.5 font-semibold text-sm transition">
+            Generar guion
+          </button>
+          <p id="genStatus" class="text-xs text-zinc-500 mt-2"></p>
         </div>
 
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400">Reels generados</h2>
-          <button id="refresh" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+        <!-- Guiones + producción -->
+        <div>
+          <div id="scripts" class="space-y-4"></div>
+
+          <!-- Panel de producción (progreso + resultado) -->
+          <div id="prod" class="hidden bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mt-4">
+            <div class="flex items-center gap-2 mb-2">
+              <div id="prodDot" class="h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></div>
+              <span id="prodLabel" class="text-sm text-zinc-300">Produciendo…</span>
+            </div>
+            <pre id="prodEvents" class="text-xs text-zinc-500 bg-zinc-950 rounded-lg p-3 max-h-44 overflow-auto whitespace-pre-wrap"></pre>
+            <div id="prodResult" class="hidden grid sm:grid-cols-[220px_1fr] gap-4 mt-4 items-start">
+              <video id="prodVideo" controls class="reel-vid w-full rounded-xl bg-black"></video>
+              <div>
+                <h3 id="prodTitle" class="font-bold mb-1"></h3>
+                <p id="prodMeta" class="text-xs text-zinc-500"></p>
+              </div>
+            </div>
+          </div>
+
+          <div id="emptyScripts" class="text-zinc-600 text-sm border border-dashed border-zinc-800 rounded-2xl p-10 text-center">
+            Genera un guion para empezar. Aparecerá aquí, editable, antes de producir el reel.
+          </div>
         </div>
-        <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          <p class="text-zinc-600 text-sm col-span-full">Cargando…</p>
+      </div>
+    </section>
+
+    <!-- ─────────── VISTA: LIBRARY ─────────── -->
+    <section id="view-library" class="hidden">
+      <div class="flex items-center justify-between mb-5">
+        <h1 class="text-2xl font-bold tracking-tight">Library</h1>
+        <button id="refreshReels" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+      </div>
+      <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <p class="text-zinc-600 text-sm col-span-full">Cargando…</p>
+      </div>
+    </section>
+
+    <!-- ─────────── VISTA: MÚSICA ─────────── -->
+    <section id="view-music" class="hidden">
+      <h1 class="text-2xl font-bold tracking-tight mb-5">Música</h1>
+      <div class="grid lg:grid-cols-[380px_1fr] gap-6 items-start">
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+          <h2 class="font-semibold mb-4 text-sm uppercase tracking-wider text-zinc-400">Añadir música</h2>
+          <label class="block text-sm mb-1 text-zinc-400">Archivo de audio</label>
+          <input id="upFile" type="file" title="Archivo de audio" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac"
+            class="w-full mb-4 text-sm text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:text-zinc-200 file:text-sm hover:file:bg-zinc-700" />
+          <label class="block text-sm mb-1 text-zinc-400">Tags <span class="text-zinc-600">(espacio o coma)</span></label>
+          <input id="upTags" type="text" placeholder="epic war battle dramatic"
+            class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <div class="flex flex-wrap gap-1.5 mb-4" id="tagSuggest"></div>
+          <button id="upBtn" type="button"
+            class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 rounded-lg py-2.5 font-semibold text-sm transition">
+            ⬆ Subir a la biblioteca
+          </button>
+          <p id="upStatus" class="text-xs text-zinc-500 mt-2"></p>
+          <p class="text-[11px] text-zinc-600 mt-4 leading-relaxed">
+            Los tags le dicen a la IA de qué va cada pista. Con música <b>Auto</b>, se elige
+            la que mejor casa con el tono de la historia.
+          </p>
         </div>
-      </section>
-    </div>
 
-    <!-- ════════════════ TAB: MÚSICA ════════════════ -->
-    <div id="tab-music" class="hidden grid lg:grid-cols-[380px_1fr] gap-6">
-      <!-- Subir -->
-      <section class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5 h-fit">
-        <h2 class="font-semibold mb-4 text-sm uppercase tracking-wider text-zinc-400">Añadir música</h2>
-
-        <label class="block text-sm mb-1 text-zinc-400">Archivo de audio</label>
-        <input id="upFile" type="file" title="Archivo de audio" accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.aac"
-          class="w-full mb-4 text-sm text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:text-zinc-200 file:text-sm hover:file:bg-zinc-700" />
-
-        <label class="block text-sm mb-1 text-zinc-400">Tags <span class="text-zinc-600">(separados por espacio o coma)</span></label>
-        <input id="upTags" type="text" placeholder="epic war battle dramatic"
-          class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <div class="flex flex-wrap gap-1.5 mb-4" id="tagSuggest"></div>
-
-        <button id="upBtn" type="button"
-          class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 rounded-lg py-2.5 font-semibold text-sm transition">
-          ⬆ Subir a la biblioteca
-        </button>
-        <p id="upStatus" class="text-xs text-zinc-500 mt-2"></p>
-
-        <p class="text-[11px] text-zinc-600 mt-4 leading-relaxed">
-          Los tags le dicen a la IA de qué va cada pista. Cuando un reel use música
-          <b>Auto</b>, se elige la pista cuyos tags mejor casan con el tono de la historia.
-        </p>
-      </section>
-
-      <!-- Biblioteca -->
-      <section>
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400">Biblioteca</h2>
-          <button id="refreshMusic" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400">Biblioteca</h2>
+            <button id="refreshMusic" type="button" class="text-xs text-zinc-500 hover:text-zinc-300">↻ refrescar</button>
+          </div>
+          <div id="library" class="space-y-3"><p class="text-zinc-600 text-sm">Cargando…</p></div>
         </div>
-        <div id="library" class="space-y-3">
-          <p class="text-zinc-600 text-sm">Cargando…</p>
-        </div>
-      </section>
-    </div>
-  </div>
+      </div>
+    </section>
+
+  </main>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
+const esc = (s) => (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const cssId = (s) => String(s).replace(/[^a-zA-Z0-9]/g,'_');
 const TAG_VOCAB = ['epic','war','battle','mystery','suspense','tense','tragic','sad','dark','horror','ancient','medieval','wonder','curious','triumphant','dramatic'];
-const esc = (s) => (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
-// ─── Tabs ───
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    $('tab-generate').classList.toggle('hidden', btn.dataset.tab !== 'generate');
-    $('tab-music').classList.toggle('hidden', btn.dataset.tab !== 'music');
-  });
+// ─── Navegación entre vistas ───
+document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  ['create','library','music'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
+  if (b.dataset.view === 'library') loadReels();
+  if (b.dataset.view === 'music') loadMusic();
+}));
+
+// ─── Modos ───
+let MODE = 'invent';
+document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click', () => {
+  MODE = p.dataset.mode;
+  document.querySelectorAll('.mode-pill').forEach(x => x.classList.remove('active'));
+  p.classList.add('active');
+  const soon = (MODE === 'historic' || MODE === 'onthisday');
+  $('soonNote').classList.toggle('hidden', !soon);
+  $('field-niche').classList.toggle('hidden', MODE !== 'invent');
+  $('field-script').classList.toggle('hidden', MODE !== 'mine');
+  $('field-count').classList.toggle('hidden', MODE === 'mine');
+  $('genBtn').disabled = soon;
+}));
+
+// ─── Generar guion(es) ───
+let SCRIPTS = [];
+$('genBtn').addEventListener('click', async () => {
+  const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
+                    niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value };
+  if (MODE === 'invent' && !payload.niche.trim()) { $('niche').focus(); return; }
+  if (MODE === 'mine' && !payload.user_script.trim()) { $('userScript').focus(); return; }
+  $('genBtn').disabled = true;
+  $('genStatus').textContent = 'Generando guion…';
+  try {
+    const r = await fetch('/api/scripts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const j = await r.json();
+    if (j.error) { $('genStatus').textContent = '✗ ' + j.error; return; }
+    SCRIPTS = j.scripts;
+    renderScripts();
+    $('genStatus').textContent = '✓ ' + SCRIPTS.length + ' guion(es). Revisa y edita antes de producir.';
+  } catch (e) { $('genStatus').textContent = '✗ error generando'; }
+  finally { $('genBtn').disabled = false; }
 });
 
-// ─── Música: estado compartido ───
+function renderScripts() {
+  $('emptyScripts').classList.toggle('hidden', SCRIPTS.length > 0);
+  $('scripts').innerHTML = SCRIPTS.map((s, idx) => {
+    const k = cssId(s.id);
+    const scenes = s.scenes.map((sc, i) => `
+      <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-950/40">
+        <div class="text-[11px] text-zinc-500 mb-1">Escena ${i+1} · narración</div>
+        <textarea id="nar-${k}-${i}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(sc.narration)}</textarea>
+        <div class="text-[11px] text-zinc-500 mb-1">prompt de imagen (inglés)</div>
+        <textarea id="img-${k}-${i}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(sc.image_prompt)}</textarea>
+      </div>`).join('');
+    return `
+    <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5" data-sid="${esc(s.id)}">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <span class="text-[11px] uppercase tracking-wider text-indigo-400">Guion ${SCRIPTS.length>1?(idx+1):''} ${s.music_mood?('· 🎵 '+esc(s.music_mood)):''}</span>
+        <button type="button" onclick="produce('${esc(s.id)}')" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold">🎬 Producir reel</button>
+      </div>
+      <label class="block text-[11px] text-zinc-500 mb-1">Título</label>
+      <input id="title-${k}" value="${esc(s.title)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+      <label class="block text-[11px] text-zinc-500 mb-1">Hook</label>
+      <input id="hook-${k}" value="${esc(s.hook)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+      <div class="space-y-2 mb-3">${scenes}</div>
+      <label class="block text-[11px] text-zinc-500 mb-1">Cierre (CTA)</label>
+      <input id="cta-${k}" value="${esc(s.cta)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+    </div>`;
+  }).join('');
+}
+
+function collectScript(sid) {
+  const s = SCRIPTS.find(x => x.id === sid);
+  const k = cssId(sid);
+  return {
+    niche: s.niche, music_mood: s.music_mood,
+    title: $('title-'+k).value, hook: $('hook-'+k).value, cta: $('cta-'+k).value,
+    scenes: s.scenes.map((_, i) => ({ narration: $(`nar-${k}-${i}`).value, image_prompt: $(`img-${k}-${i}`).value })),
+  };
+}
+
+// ─── Producir reel ───
+async function produce(sid) {
+  const script = collectScript(sid);
+  $('prod').classList.remove('hidden');
+  $('prodResult').classList.add('hidden');
+  $('prodDot').className = 'h-2 w-2 rounded-full bg-indigo-400 animate-pulse';
+  $('prodLabel').textContent = 'Produciendo…';
+  $('prodEvents').textContent = 'Enviando…';
+  $('prod').scrollIntoView({behavior:'smooth', block:'center'});
+  const r = await fetch('/api/produce', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ id: sid, script, voice: $('voice').value, music: $('music').value })
+  });
+  const j = await r.json();
+  if (j.error) { $('prodEvents').textContent = 'ERROR: ' + j.error; return; }
+  pollJob(j.job_id);
+}
+
+async function pollJob(jobId) {
+  const r = await fetch('/api/jobs/' + jobId);
+  const j = await r.json();
+  $('prodEvents').textContent = (j.events || []).join('\n');
+  $('prodEvents').scrollTop = $('prodEvents').scrollHeight;
+  if (j.status === 'running') { setTimeout(() => pollJob(jobId), 1500); return; }
+  if (j.status === 'done') {
+    $('prodDot').className = 'h-2 w-2 rounded-full bg-green-400';
+    $('prodLabel').textContent = '✓ Reel listo';
+    $('prodResult').classList.remove('hidden');
+    $('prodVideo').src = j.video;
+    $('prodTitle').textContent = j.title;
+    $('prodMeta').textContent = (j.duration ? j.duration.toFixed(1)+'s · ' : '') + '1080×1920';
+    loadReels();
+  } else {
+    $('prodDot').className = 'h-2 w-2 rounded-full bg-red-400';
+    $('prodLabel').textContent = '✗ Error';
+    $('prodEvents').textContent += '\n\nERROR: ' + (j.error || 'desconocido');
+  }
+}
+
+// ─── Música ───
 let TRACKS = [];
-
 async function loadMusic() {
-  try {
-    const r = await fetch('/api/music');
-    TRACKS = (await r.json()).tracks || [];
-  } catch (e) { TRACKS = []; }
-  renderMusicSelect();
-  renderLibrary();
+  try { TRACKS = (await (await fetch('/api/music')).json()).tracks || []; } catch(e){ TRACKS = []; }
+  renderMusicSelect(); renderLibrary();
 }
-
 function renderMusicSelect() {
-  const sel = $('music');
-  const prev = sel.value;
-  let opts = '<option value="">(sin música)</option>';
-  if (TRACKS.length) opts += '<option value="auto">🎲 Auto (la IA elige por tags)</option>';
-  opts += TRACKS.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
-  sel.innerHTML = opts;
-  sel.value = prev;
+  const sel = $('music'); const prev = sel.value;
+  let o = '<option value="">(sin música)</option>';
+  if (TRACKS.length) o += '<option value="auto">🎲 Auto (la IA elige por tags)</option>';
+  o += TRACKS.map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
+  sel.innerHTML = o; sel.value = prev;
 }
-
 function renderLibrary() {
   const lib = $('library');
-  if (!TRACKS.length) {
-    lib.innerHTML = '<p class="text-zinc-600 text-sm">Biblioteca vacía. Sube tu primera pista ←</p>';
-    return;
-  }
+  if (!TRACKS.length) { lib.innerHTML = '<p class="text-zinc-600 text-sm">Biblioteca vacía. Sube tu primera pista ←</p>'; return; }
   lib.innerHTML = TRACKS.map(t => `
-    <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4">
+    <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
       <div class="flex items-center justify-between gap-3 mb-2">
         <span class="font-medium text-sm truncate">🎵 ${esc(t.name)}</span>
         <button type="button" onclick="delTrack('${esc(t.name)}')" class="text-xs text-red-400/70 hover:text-red-400">eliminar</button>
       </div>
       <audio controls preload="none" src="${esc(t.url)}" class="w-full h-8 mb-3"></audio>
-      <div class="flex flex-wrap gap-1.5 mb-2" id="tags-${cssId(t.name)}">${(t.tags||[]).map(tag=>tagChip(tag)).join('') || '<span class="text-[11px] text-zinc-600">sin tags</span>'}</div>
+      <div class="flex flex-wrap gap-1.5 mb-2">${(t.tags||[]).map(x=>`<span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">${esc(x)}</span>`).join('') || '<span class="text-[11px] text-zinc-600">sin tags</span>'}</div>
       <div class="flex gap-2">
         <input type="text" value="${esc((t.tags||[]).join(' '))}" id="edit-${cssId(t.name)}" placeholder="añade tags…"
           class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
@@ -201,124 +361,50 @@ function renderLibrary() {
       </div>
     </div>`).join('');
 }
-
-const cssId = (s) => s.replace(/[^a-zA-Z0-9]/g,'_');
-const tagChip = (t) => `<span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">${esc(t)}</span>`;
-
 async function saveTags(name) {
-  const val = $('edit-' + cssId(name)).value;
-  const r = await fetch('/api/music/tags', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ name, tags: val })
-  });
-  TRACKS = (await r.json()).tracks || TRACKS;
-  renderMusicSelect(); renderLibrary();
+  const r = await fetch('/api/music/tags', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, tags: $('edit-'+cssId(name)).value }) });
+  TRACKS = (await r.json()).tracks || TRACKS; renderMusicSelect(); renderLibrary();
 }
-
 async function delTrack(name) {
-  if (!confirm('¿Eliminar "' + name + '" de la biblioteca?')) return;
-  const r = await fetch('/api/music/delete', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ name })
-  });
-  TRACKS = (await r.json()).tracks || TRACKS;
-  renderMusicSelect(); renderLibrary();
+  if (!confirm('¿Eliminar "' + name + '"?')) return;
+  const r = await fetch('/api/music/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name }) });
+  TRACKS = (await r.json()).tracks || TRACKS; renderMusicSelect(); renderLibrary();
 }
-
-// Sugerencias de tags al subir
-$('tagSuggest').innerHTML = TAG_VOCAB.map(t =>
-  `<button type="button" class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300" onclick="addTag('${t}')">${t}</button>`
-).join('');
-function addTag(t) {
-  const inp = $('upTags');
-  const set = new Set(inp.value.split(/[\s,]+/).filter(Boolean));
-  set.add(t);
-  inp.value = [...set].join(' ');
-}
-
+$('tagSuggest').innerHTML = TAG_VOCAB.map(t => `<button type="button" class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-300" onclick="addTag('${t}')">${t}</button>`).join('');
+function addTag(t) { const i=$('upTags'); const s=new Set(i.value.split(/[\s,]+/).filter(Boolean)); s.add(t); i.value=[...s].join(' '); }
 $('upBtn').addEventListener('click', async () => {
   const f = $('upFile').files[0];
   if (!f) { $('upStatus').textContent = 'Elige un archivo primero.'; return; }
-  $('upBtn').disabled = true;
-  $('upStatus').textContent = 'Subiendo…';
-  const fd = new FormData();
-  fd.append('file', f);
-  fd.append('tags', $('upTags').value);
+  $('upBtn').disabled = true; $('upStatus').textContent = 'Subiendo…';
+  const fd = new FormData(); fd.append('file', f); fd.append('tags', $('upTags').value);
   try {
-    const r = await fetch('/api/music/upload', { method:'POST', body: fd });
-    const j = await r.json();
+    const j = await (await fetch('/api/music/upload', { method:'POST', body: fd })).json();
     if (j.error) { $('upStatus').textContent = '✗ ' + j.error; return; }
-    TRACKS = j.tracks || TRACKS;
-    renderMusicSelect(); renderLibrary();
-    $('upStatus').textContent = '✓ ' + j.saved + ' añadida';
-    $('upFile').value = ''; $('upTags').value = '';
-  } catch (e) {
-    $('upStatus').textContent = '✗ error de subida';
-  } finally {
-    $('upBtn').disabled = false;
-  }
+    TRACKS = j.tracks || TRACKS; renderMusicSelect(); renderLibrary();
+    $('upStatus').textContent = '✓ ' + j.saved + ' añadida'; $('upFile').value=''; $('upTags').value='';
+  } catch(e){ $('upStatus').textContent = '✗ error de subida'; }
+  finally { $('upBtn').disabled = false; }
 });
 
-// ─── Reels ───
+// ─── Reels (Library) ───
 async function loadReels() {
-  const r = await fetch('/api/reels');
-  const reels = await r.json();
+  const reels = await (await fetch('/api/reels')).json();
   const g = $('gallery');
-  if (!reels.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">Aún no hay reels. Genera el primero ←</p>'; return; }
+  if (!reels.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">Aún no hay reels.</p>'; return; }
   g.innerHTML = reels.map(x => `
-    <div class="group cursor-pointer" onclick="playReel('${x.video}','${esc(x.title)}','${esc(x.hook)}', ${x.duration||0})">
+    <a href="${x.video}" target="_blank" class="group">
       <div class="reel-vid rounded-xl overflow-hidden bg-zinc-800 border border-zinc-800 relative">
         ${x.thumb ? `<img src="${x.thumb}" class="w-full h-full object-cover group-hover:scale-105 transition" alt=""/>` : ''}
-        <div class="absolute inset-0 grid place-items-center bg-black/20 opacity-0 group-hover:opacity-100 transition">
-          <div class="h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center">▶</div>
-        </div>
+        <div class="absolute inset-0 grid place-items-center bg-black/20 opacity-0 group-hover:opacity-100 transition"><div class="h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center">▶</div></div>
       </div>
       <p class="text-xs mt-1.5 line-clamp-2 text-zinc-300">${esc(x.title)||x.id}</p>
       <p class="text-[11px] text-zinc-600">${x.duration ? x.duration.toFixed(1)+'s' : ''}</p>
-    </div>`).join('');
+    </a>`).join('');
 }
 
-function playReel(video, title, hook, duration) {
-  $('result').classList.remove('hidden');
-  $('resultVideo').src = video;
-  $('resultTitle').textContent = title;
-  $('resultHook').textContent = hook;
-  $('resultMeta').textContent = duration ? duration.toFixed(1)+'s · 1080×1920' : '';
-  $('result').scrollIntoView({behavior:'smooth', block:'start'});
-}
-
-async function poll(jobId) {
-  const r = await fetch('/api/jobs/' + jobId);
-  const j = await r.json();
-  $('events').textContent = (j.events || []).join('\n');
-  $('events').scrollTop = $('events').scrollHeight;
-  if (j.status === 'running') { setTimeout(() => poll(jobId), 1500); return; }
-  $('go').disabled = false;
-  $('progressLabel').textContent = j.status === 'done' ? '✓ Listo' : '✗ Error';
-  if (j.status === 'done') { playReel(j.video, j.title, j.hook, j.duration); loadReels(); }
-  else { $('events').textContent += '\n\nERROR: ' + (j.error || 'desconocido'); }
-}
-
-$('go').addEventListener('click', async () => {
-  const niche = $('niche').value.trim();
-  if (!niche) { $('niche').focus(); return; }
-  $('go').disabled = true;
-  $('progress').classList.remove('hidden');
-  $('progressLabel').textContent = 'Trabajando…';
-  $('events').textContent = 'Enviando…';
-  const r = await fetch('/api/generate', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ niche, scenes:+$('scenes').value, voice:$('voice').value, music:$('music').value, extra:$('extra').value })
-  });
-  const j = await r.json();
-  if (j.error) { $('events').textContent = 'ERROR: ' + j.error; $('go').disabled = false; return; }
-  poll(j.job_id);
-});
-
-$('refresh').addEventListener('click', loadReels);
+$('refreshReels').addEventListener('click', loadReels);
 $('refreshMusic').addEventListener('click', loadMusic);
 loadMusic();
-loadReels();
 </script>
 </body>
 </html>
