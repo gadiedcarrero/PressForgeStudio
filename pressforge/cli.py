@@ -1,20 +1,11 @@
 """CLI de PressForge Studio."""
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
-
-# Windows usa cp1252 por defecto y revienta al imprimir Unicode (✓, emojis…).
-# Forzamos UTF-8 en la salida antes de crear la consola.
-for _stream in (sys.stdout, sys.stderr):
-    try:
-        _stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
-    except (AttributeError, ValueError):
-        pass
 
 from .config import get_settings
 from .ffmpeg_utils import has_binary
