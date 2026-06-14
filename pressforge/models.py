@@ -41,8 +41,10 @@ class StoryDraft(BaseModel):
     )
     scenes: list[SceneDraft] = Field(
         description="Escenas en orden. La primera ES el hook; la última ES el "
-        "cierre. La concatenación de las narraciones forma el guion completo "
-        "(100-160 palabras en total)."
+        "cierre. Cada escena es UNA idea corta (~10-14 palabras, idealmente una "
+        "frase) para que la imagen cambie cada 3-5 s. Usa tantas escenas como "
+        "pida la narración (más texto → más escenas). La concatenación de las "
+        "narraciones forma el guion completo."
     )
 
 

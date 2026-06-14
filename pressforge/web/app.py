@@ -51,7 +51,8 @@ def index():
 @app.post("/api/scripts")
 def create_scripts(payload: dict = Body(...)):
     mode = (payload.get("mode") or "invent").strip()
-    scenes = max(3, min(12, int(payload.get("scenes") or 5)))
+    raw_scenes = payload.get("scenes")
+    scenes = max(3, min(18, int(raw_scenes))) if raw_scenes else None  # None = auto
     count = max(1, min(3, int(payload.get("count") or 1)))
     niche = (payload.get("niche") or "").strip() or None
     extra = (payload.get("extra") or "").strip() or None

@@ -122,8 +122,9 @@ class OpenAIScriptProvider:
     def generate(self, niche: str, *, scenes: int, extra: str | None = None) -> Story:
         user = (
             f"Nicho: {niche}\n"
-            f"Número de escenas: exactamente {scenes} "
-            f"(la 1ª es el hook, la última el cierre).\n"
+            f"Apunta a ~{scenes} escenas (la 1ª es el hook, la última el cierre). "
+            f"Cada escena = una idea corta (~10-14 palabras) para que la imagen "
+            f"cambie cada 3-5 s; ajusta el número según la longitud real.\n"
         )
         if extra:
             user += f"Indicaciones extra: {extra}\n"
@@ -147,8 +148,9 @@ class OpenAIScriptProvider:
         """Modo 'Mi guion': pule el texto del usuario sin inventar hechos."""
         user = (
             f"Guion del usuario:\n\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
-            f"Optimízalo y divídelo en ~{scenes} escenas "
-            f"(la 1ª es el hook, la última el cierre).\n"
+            f"Optimízalo y divídelo en ~{scenes} escenas cortas "
+            f"(~10-14 palabras cada una, para que la imagen cambie cada 3-5 s; "
+            f"la 1ª es el hook, la última el cierre).\n"
         )
         if extra:
             user += f"Indicaciones extra: {extra}\n"
@@ -173,7 +175,8 @@ class OpenAIScriptProvider:
         user = (
             f"Tema/título: {fact.title}{year}\n\n"
             f"HECHOS REALES (Wikipedia):\n\"\"\"\n{fact.extract.strip()}\n\"\"\"\n\n"
-            f"Escribe el guion en ~{scenes} escenas, fiel a estos hechos.\n"
+            f"Escribe el guion en ~{scenes} escenas cortas (~10-14 palabras "
+            f"cada una, imagen cada 3-5 s), fiel a estos hechos.\n"
         )
         if extra:
             user += f"Indicaciones extra: {extra}\n"

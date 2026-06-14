@@ -17,7 +17,7 @@ console = Console()
 @app.command()
 def make(
     niche: str = typer.Argument(..., help="Nicho o tema. Ej: 'muertes absurdas de reyes'"),
-    scenes: int = typer.Option(6, "--scenes", "-s", min=3, max=12, help="Número de escenas."),
+    scenes: int = typer.Option(0, "--scenes", "-s", min=0, max=18, help="Nº de imágenes (0 = automático según la longitud)."),
     voice: Optional[str] = typer.Option(None, "--voice", "-v", help="Voz OpenAI (onyx, nova, echo…)."),
     music: Optional[str] = typer.Option(
         None, "--music", "-m",

@@ -66,6 +66,25 @@ def _assign_durations(story: Story, total: float) -> None:
         scene.duration = round(total * w / wsum, 3)
 
 
+# Una imagen cada ~4 s de narración (≈ 11 palabras a ritmo de español).
+_WORDS_PER_SCENE = 11
+_MIN_SCENES, _MAX_SCENES = 4, 18
+
+
+def auto_scene_count(*, mode: str, user_script: str | None = None, expected_words: int = 140) -> int:
+    """Nº de escenas/imágenes en función de la longitud, no fijo.
+
+    Más guion → más escenas (la imagen cambia cada ~4 s). En 'Mi guion' se
+    estima por las palabras del texto del usuario; en el resto, por la longitud
+    objetivo del guion generado.
+    """
+    if mode == "mine" and user_script and user_script.strip():
+        words = len(user_script.split())
+    else:
+        words = expected_words
+    return max(_MIN_SCENES, min(_MAX_SCENES, round(words / _WORDS_PER_SCENE)))
+
+
 # ─── Paso 1 (rápido): generar el guion para revisar/editar ───────────────────
 def generate_story(
     *,
@@ -101,7 +120,7 @@ def generate_stories(
     *,
     mode: str = "invent",
     niche: str | None = None,
-    scenes: int = 6,
+    scenes: int | None = None,
     extra: str | None = None,
     user_script: str | None = None,
     count: int = 1,
@@ -109,11 +128,15 @@ def generate_stories(
     day: int | None = None,
 ) -> list[Story]:
     """Devuelve una o varias propuestas de guion según el modo, para que el
-    usuario elija/edite antes de producir."""
+    usuario elija/edite antes de producir.
+
+    `scenes`: nº de imágenes; si es None/0 se calcula automáticamente según la
+    longitud (más guion → más escenas)."""
     count = max(1, min(3, count))
+    eff = scenes if (scenes and scenes > 0) else auto_scene_count(mode=mode, user_script=user_script)
 
     if mode == "mine":
-        return [generate_story(mode="mine", user_script=user_script, scenes=scenes, extra=extra)]
+        return [generate_story(mode="mine", user_script=user_script, scenes=eff, extra=extra)]
 
     if mode == "historic":
         if not niche or not niche.strip():
@@ -121,7 +144,7 @@ def generate_stories(
         facts = get_research_provider().search(niche, limit=count)
         if not facts:
             raise ValueError(f"No encontré artículos en Wikipedia para «{niche}».")
-        return [generate_story_from_fact(f, scenes=scenes, extra=extra) for f in facts]
+        return [generate_story_from_fact(f, scenes=eff, extra=extra) for f in facts]
 
     if mode == "onthisday":
         today = datetime.now()
@@ -131,11 +154,11 @@ def generate_stories(
         if not events:
             raise ValueError("No encontré efemérides para esa fecha.")
         idxs = get_script_provider().select_events(events, theme=niche or "", count=count)
-        return [generate_story_from_fact(events[i], scenes=scenes, extra=extra) for i in idxs]
+        return [generate_story_from_fact(events[i], scenes=eff, extra=extra) for i in idxs]
 
     # mode == "invent"
     return [
-        generate_story(mode="invent", niche=niche, scenes=scenes, extra=extra)
+        generate_story(mode="invent", niche=niche, scenes=eff, extra=extra)
         for _ in range(count)
     ]
 
@@ -234,7 +257,7 @@ def produce_reel(
 def generate_reel(
     niche: str,
     *,
-    scenes: int = 6,
+    scenes: int | None = None,
     extra: str | None = None,
     music: str | None = None,
     voice: str | None = None,
@@ -243,7 +266,8 @@ def generate_reel(
 ) -> ReelResult:
     if on_event:
         on_event("0/5 · Generando guion…")
-    story = generate_story(mode="invent", niche=niche, scenes=scenes, extra=extra)
+    eff = scenes if (scenes and scenes > 0) else auto_scene_count(mode="invent")
+    story = generate_story(mode="invent", niche=niche, scenes=eff, extra=extra)
     if console:
         console.print(f"[bold cyan]Guion[/] «{story.title}» · {len(story.scenes)} escenas")
     return produce_reel(story, music=music, voice=voice, console=console, on_event=on_event)
