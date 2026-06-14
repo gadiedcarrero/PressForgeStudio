@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..models import story_from_dict, story_to_dict
-from ..pipeline import generate_story, produce_reel
+from ..pipeline import generate_stories, produce_reel
 
 OUTPUT = Path("output")
 WEB_DIR = Path(__file__).parent
@@ -57,23 +57,25 @@ def create_scripts(payload: dict = Body(...)):
     extra = (payload.get("extra") or "").strip() or None
     user_script = (payload.get("user_script") or "").strip() or None
 
-    # 'Mi guion' siempre produce 1 (es el guion del usuario).
-    if mode == "mine":
-        count = 1
-
-    drafts = []
     try:
-        for _ in range(count):
-            story = generate_story(
-                mode=mode, niche=niche, scenes=scenes, extra=extra, user_script=user_script
-            )
-            sid = uuid.uuid4().hex[:12]
-            data = story_to_dict(story)
-            with _lock:
-                _scripts[sid] = data
-            drafts.append({"id": sid, **data})
+        stories = generate_stories(
+            mode=mode,
+            niche=niche,
+            scenes=scenes,
+            extra=extra,
+            user_script=user_script,
+            count=count,
+        )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"error": str(exc)}, status_code=400)
+
+    drafts = []
+    for story in stories:
+        sid = uuid.uuid4().hex[:12]
+        data = story_to_dict(story)
+        with _lock:
+            _scripts[sid] = data
+        drafts.append({"id": sid, **data})
     return {"scripts": drafts}
 
 

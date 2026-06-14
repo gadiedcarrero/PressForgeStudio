@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     subtitle_provider: str = "whisper"
     render_provider: str = "ffmpeg"
     music_provider: str = "local"
+    research_provider: str = "wikipedia"
 
     # --- Modelos ---
     script_model: str = "gpt-4o"

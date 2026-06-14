@@ -53,6 +53,16 @@ class Scene:
 
 
 @dataclass
+class SourceFact:
+    """Un hecho real recuperado de una fuente (Wikipedia)."""
+
+    title: str
+    extract: str
+    url: str
+    year: int | None = None
+
+
+@dataclass
 class Story:
     niche: str
     title: str
@@ -60,6 +70,8 @@ class Story:
     cta: str
     scenes: list[Scene]
     music_mood: str = ""
+    source_title: str = ""
+    source_url: str = ""
 
     @property
     def full_narration(self) -> str:
@@ -75,6 +87,8 @@ def story_to_dict(story: "Story") -> dict:
         "hook": story.hook,
         "cta": story.cta,
         "music_mood": story.music_mood,
+        "source_title": story.source_title,
+        "source_url": story.source_url,
         "scenes": [
             {"index": s.index, "narration": s.narration, "image_prompt": s.image_prompt}
             for s in story.scenes
@@ -94,6 +108,8 @@ def story_from_dict(d: dict) -> "Story":
         hook=d.get("hook", ""),
         cta=d.get("cta", ""),
         music_mood=d.get("music_mood", ""),
+        source_title=d.get("source_title", ""),
+        source_url=d.get("source_url", ""),
         scenes=scenes,
     )
 

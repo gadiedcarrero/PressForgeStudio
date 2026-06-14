@@ -59,20 +59,18 @@
       <div class="flex flex-wrap gap-2 mb-5">
         <button type="button" data-mode="invent"   class="mode-pill active px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">✍️ Inventar</button>
         <button type="button" data-mode="mine"      class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">📝 Mi guion</button>
-        <button type="button" data-mode="historic"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-500">🏛️ Histórico</button>
-        <button type="button" data-mode="onthisday"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-500">📅 Qué pasó hoy</button>
+        <button type="button" data-mode="historic"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">🏛️ Histórico</button>
+        <button type="button" data-mode="onthisday"  class="mode-pill px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">📅 Qué pasó hoy</button>
       </div>
 
       <div class="grid lg:grid-cols-[400px_1fr] gap-6 items-start">
         <!-- Formulario -->
         <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
-          <div id="soonNote" class="hidden mb-4 text-xs bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg p-3">
-            🚧 Este modo (historia real desde Wikipedia) llega en la próxima etapa. Por ahora usa <b>Inventar</b> o <b>Mi guion</b>.
-          </div>
+          <div id="modeHint" class="hidden mb-4 text-xs bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 rounded-lg p-3"></div>
 
-          <!-- Inventar -->
+          <!-- Inventar / Histórico / Qué pasó hoy (campo tema) -->
           <div id="field-niche">
-            <label class="block text-sm mb-1 text-zinc-400">Nicho / tema</label>
+            <label id="nicheLabel" class="block text-sm mb-1 text-zinc-400">Nicho / tema</label>
             <input id="niche" type="text" placeholder="muertes absurdas de reyes"
               class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
@@ -220,17 +218,27 @@ document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', 
 }));
 
 // ─── Modos ───
+const MODE_CFG = {
+  invent:    { label: 'Nicho / tema', ph: 'muertes absurdas de reyes', count: 'Variantes', hint: '', btn: 'Generar guion' },
+  mine:      { label: '', ph: '', hint: '📝 Pega tu guion: la IA solo lo pule y divide en escenas, sin inventar hechos.', btn: 'Corregir y dividir' },
+  historic:  { label: 'Tema histórico (busca en Wikipedia)', ph: 'imperio romano, peste negra, Tesla…', count: 'Resultados', hint: '🏛️ Busca artículos REALES en Wikipedia. Cada resultado es un guion citando su fuente.', btn: 'Buscar y generar' },
+  onthisday: { label: 'Tema (ciencia, arte, historia… o vacío)', ph: 'ciencia', count: 'Efemérides', hint: '📅 Eventos reales de un día como hoy en otros años, filtrados por tu tema.', btn: 'Buscar efemérides' },
+};
 let MODE = 'invent';
 document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click', () => {
   MODE = p.dataset.mode;
   document.querySelectorAll('.mode-pill').forEach(x => x.classList.remove('active'));
   p.classList.add('active');
-  const soon = (MODE === 'historic' || MODE === 'onthisday');
-  $('soonNote').classList.toggle('hidden', !soon);
-  $('field-niche').classList.toggle('hidden', MODE !== 'invent');
+  const c = MODE_CFG[MODE];
+  $('field-niche').classList.toggle('hidden', MODE === 'mine');
   $('field-script').classList.toggle('hidden', MODE !== 'mine');
   $('field-count').classList.toggle('hidden', MODE === 'mine');
-  $('genBtn').disabled = soon;
+  if (MODE !== 'mine') { $('nicheLabel').textContent = c.label; $('niche').placeholder = c.ph; }
+  if (c.count) $('field-count').querySelector('label').textContent = c.count;
+  $('modeHint').textContent = c.hint;
+  $('modeHint').classList.toggle('hidden', !c.hint);
+  $('genBtn').textContent = c.btn;
+  $('genBtn').disabled = false;
 }));
 
 // ─── Generar guion(es) ───
@@ -270,6 +278,7 @@ function renderScripts() {
         <span class="text-[11px] uppercase tracking-wider text-indigo-400">Guion ${SCRIPTS.length>1?(idx+1):''} ${s.music_mood?('· 🎵 '+esc(s.music_mood)):''}</span>
         <button type="button" onclick="produce('${esc(s.id)}')" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold">🎬 Producir reel</button>
       </div>
+      ${s.source_url ? `<a href="${esc(s.source_url)}" target="_blank" class="inline-flex items-center gap-1 mb-3 text-[11px] text-sky-400 hover:underline">🔗 Fuente real: ${esc(s.source_title||'Wikipedia')}</a>` : ''}
       <label class="block text-[11px] text-zinc-500 mb-1">Título</label>
       <input id="title-${k}" value="${esc(s.title)}" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2.5 py-1.5 text-sm mb-3 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500" />
       <label class="block text-[11px] text-zinc-500 mb-1">Hook</label>
@@ -286,6 +295,7 @@ function collectScript(sid) {
   const k = cssId(sid);
   return {
     niche: s.niche, music_mood: s.music_mood,
+    source_title: s.source_title || '', source_url: s.source_url || '',
     title: $('title-'+k).value, hook: $('hook-'+k).value, cta: $('cta-'+k).value,
     scenes: s.scenes.map((_, i) => ({ narration: $(`nar-${k}-${i}`).value, image_prompt: $(`img-${k}-${i}`).value })),
   };

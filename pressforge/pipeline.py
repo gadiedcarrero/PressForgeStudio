@@ -23,6 +23,7 @@ from .registry import (
     get_image_provider,
     get_music_provider,
     get_render_provider,
+    get_research_provider,
     get_script_provider,
     get_subtitle_provider,
     get_voice_provider,
@@ -89,6 +90,54 @@ def generate_story(
     if not niche or not niche.strip():
         raise ValueError("El modo 'Inventar' necesita un nicho/tema.")
     return provider.generate(niche, scenes=scenes, extra=extra)
+
+
+def generate_story_from_fact(fact, *, scenes: int = 6, extra: str | None = None) -> Story:
+    """Guion fiel a un hecho real (Wikipedia)."""
+    return get_script_provider().from_source(fact, scenes=scenes, extra=extra)
+
+
+def generate_stories(
+    *,
+    mode: str = "invent",
+    niche: str | None = None,
+    scenes: int = 6,
+    extra: str | None = None,
+    user_script: str | None = None,
+    count: int = 1,
+    month: int | None = None,
+    day: int | None = None,
+) -> list[Story]:
+    """Devuelve una o varias propuestas de guion según el modo, para que el
+    usuario elija/edite antes de producir."""
+    count = max(1, min(3, count))
+
+    if mode == "mine":
+        return [generate_story(mode="mine", user_script=user_script, scenes=scenes, extra=extra)]
+
+    if mode == "historic":
+        if not niche or not niche.strip():
+            raise ValueError("El modo 'Histórico' necesita un tema a buscar.")
+        facts = get_research_provider().search(niche, limit=count)
+        if not facts:
+            raise ValueError(f"No encontré artículos en Wikipedia para «{niche}».")
+        return [generate_story_from_fact(f, scenes=scenes, extra=extra) for f in facts]
+
+    if mode == "onthisday":
+        today = datetime.now()
+        m = month or today.month
+        d = day or today.day
+        events = get_research_provider().on_this_day(m, d)
+        if not events:
+            raise ValueError("No encontré efemérides para esa fecha.")
+        idxs = get_script_provider().select_events(events, theme=niche or "", count=count)
+        return [generate_story_from_fact(events[i], scenes=scenes, extra=extra) for i in idxs]
+
+    # mode == "invent"
+    return [
+        generate_story(mode="invent", niche=niche, scenes=scenes, extra=extra)
+        for _ in range(count)
+    ]
 
 
 # ─── Paso 2 (pesado): producir el reel desde un guion (ya editado) ───────────
@@ -206,6 +255,8 @@ def _save_story(story: Story, workdir: Path, duration: float) -> None:
         "title": story.title,
         "hook": story.hook,
         "cta": story.cta,
+        "source_title": story.source_title,
+        "source_url": story.source_url,
         "duration_s": duration,
         "full_narration": story.full_narration,
         "scenes": [asdict(s) | {"image_path": str(s.image_path) if s.image_path else None}

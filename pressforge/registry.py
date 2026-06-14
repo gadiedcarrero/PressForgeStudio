@@ -11,6 +11,7 @@ from .providers.base import (
     ImageProvider,
     MusicProvider,
     RenderProvider,
+    ResearchProvider,
     ScriptProvider,
     SubtitleProvider,
     VoiceProvider,
@@ -21,6 +22,7 @@ from .providers.openai_image import OpenAIImageProvider
 from .providers.openai_script import OpenAIScriptProvider
 from .providers.openai_voice import OpenAIVoiceProvider
 from .providers.whisper_subtitle import WhisperSubtitleProvider
+from .providers.wikipedia_research import WikipediaResearch
 
 _SCRIPT = {"openai": OpenAIScriptProvider}
 _IMAGE = {"openai": OpenAIImageProvider}
@@ -28,6 +30,7 @@ _VOICE = {"openai": OpenAIVoiceProvider}
 _SUBTITLE = {"whisper": WhisperSubtitleProvider}
 _RENDER = {"ffmpeg": FFmpegRenderProvider}
 _MUSIC = {"local": LocalLibraryMusicProvider}
+_RESEARCH = {"wikipedia": WikipediaResearch}
 
 
 def _pick(table: dict, key: str, kind: str):
@@ -62,3 +65,7 @@ def get_render_provider() -> RenderProvider:
 
 def get_music_provider() -> MusicProvider:
     return _pick(_MUSIC, get_settings().music_provider, "Music")
+
+
+def get_research_provider() -> ResearchProvider:
+    return _pick(_RESEARCH, get_settings().research_provider, "Research")

@@ -9,13 +9,36 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from ..models import RenderJob, Story, Word
+from ..models import RenderJob, SourceFact, Story, Word
 
 
 @runtime_checkable
 class ScriptProvider(Protocol):
     def generate(self, niche: str, *, scenes: int, extra: str | None = None) -> Story:
-        """Idea + guion + storyboard a partir de un nicho."""
+        """Idea + guion + storyboard a partir de un nicho (modo Inventar)."""
+        ...
+
+    def refine(self, user_script: str, *, scenes: int, extra: str | None = None) -> Story:
+        """Pule el guion del usuario sin inventar (modo Mi guion)."""
+        ...
+
+    def from_source(self, fact: SourceFact, *, scenes: int, extra: str | None = None) -> Story:
+        """Guion fiel a hechos reales (modos Histórico / Qué pasó hoy)."""
+        ...
+
+    def select_events(self, events: list[SourceFact], theme: str, count: int) -> list[int]:
+        """Elige qué efemérides usar según el tema."""
+        ...
+
+
+@runtime_checkable
+class ResearchProvider(Protocol):
+    def search(self, topic: str, *, limit: int = 3) -> list[SourceFact]:
+        """Hechos reales sobre un tema."""
+        ...
+
+    def on_this_day(self, month: int, day: int, *, limit: int = 30) -> list[SourceFact]:
+        """Efemérides reales de una fecha."""
         ...
 
 
