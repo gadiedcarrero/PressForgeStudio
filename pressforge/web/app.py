@@ -21,7 +21,7 @@ from fastapi import Body, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .. import auth
+from .. import auth, licensing
 from ..config import music_path, output_path
 from ..models import SourceFact, story_from_dict, story_to_dict
 from ..pipeline import (
@@ -64,8 +64,9 @@ if ASSETS_DIR.exists():
 
 start_scheduler()  # motor de publicación programada (hilo de fondo)
 
-# Rutas accesibles SIN sesión (login + assets públicos para la pantalla de login).
-_PUBLIC = ("/login", "/api/login", "/api/setup", "/api/auth-status", "/assets", "/favicon.ico")
+# Rutas accesibles SIN sesión (login/activación + assets públicos).
+_PUBLIC = ("/login", "/api/login", "/api/setup", "/api/auth-status",
+           "/api/license-status", "/api/activate", "/assets", "/favicon.ico")
 
 
 @app.middleware("http")
@@ -92,12 +93,26 @@ def login_page():
 
 @app.get("/api/auth-status")
 def auth_status():
-    return {"has_password": auth.has_password()}
+    return {"has_password": auth.has_password(), "licensed": licensing.is_licensed()}
+
+
+@app.get("/api/license-status")
+def license_status():
+    return licensing.license_info()
+
+
+@app.post("/api/activate")
+def activate(payload: dict = Body(...)):
+    if not licensing.activate(payload.get("key") or ""):
+        return JSONResponse({"error": "Licencia inválida o expirada."}, status_code=400)
+    return {"ok": True, **licensing.license_info()}
 
 
 @app.post("/api/setup")
 def setup(payload: dict = Body(...)):
-    """Primer arranque: el usuario crea su contraseña."""
+    """Primer arranque: el usuario crea su contraseña (requiere licencia válida)."""
+    if not licensing.is_licensed():
+        return JSONResponse({"error": "Activa una licencia primero."}, status_code=403)
     if auth.has_password():
         return JSONResponse({"error": "Ya hay una contraseña configurada."}, status_code=400)
     pw = (payload.get("password") or "")
@@ -111,6 +126,8 @@ def setup(payload: dict = Body(...)):
 
 @app.post("/api/login")
 def login(payload: dict = Body(...)):
+    if not licensing.is_licensed():
+        return JSONResponse({"error": "Activa una licencia primero."}, status_code=403)
     if not auth.verify_password(payload.get("password") or ""):
         return JSONResponse({"error": "Contraseña incorrecta."}, status_code=401)
     resp = JSONResponse({"ok": True})

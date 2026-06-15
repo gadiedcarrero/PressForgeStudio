@@ -16,6 +16,9 @@ data/
 # API keys del usuario (BYOK) — local a cada equipo, nunca al repo
 secrets.json
 
+# CLAVE PRIVADA de licencias — SOLO del vendedor, JAMÁS al repo
+license_private_key.txt
+
 # OS / editor
 .DS_Store
 Thumbs.db
