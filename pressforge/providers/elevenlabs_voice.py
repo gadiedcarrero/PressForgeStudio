@@ -65,9 +65,10 @@ class ElevenLabsVoiceProvider:
         voice_id = (voice if (voice and len(voice) >= 15) else None) \
             or get_secret("elevenlabs_voice_id") or self.settings.elevenlabs_voice_id
 
+        model = get_secret("elevenlabs_model") or self.settings.elevenlabs_model
         out_path.parent.mkdir(parents=True, exist_ok=True)
         url = f"{_API}/{voice_id}?output_format=mp3_44100_128"
-        body = json.dumps({"text": text, "model_id": self.settings.elevenlabs_model}).encode("utf-8")
+        body = json.dumps({"text": text, "model_id": model}).encode("utf-8")
         req = urllib.request.Request(
             url, data=body, method="POST",
             headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"},

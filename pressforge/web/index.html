@@ -138,6 +138,12 @@
               <button type="button" id="voicePlay" onclick="playVoice()" title="Escuchar muestra"
                 class="shrink-0 grid place-items-center w-9 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800 text-zinc-300"><span data-ic="play" class="w-4 h-4"></span></button>
             </div>
+            <div id="voiceModelWrap" class="hidden mb-1">
+              <select id="voiceModel" title="Modelo ElevenLabs" onchange="saveVoiceSel()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="eleven_multilingual_v2">Multilingüe v2 — máxima calidad (~$0.09/reel)</option>
+                <option value="eleven_flash_v2_5">Flash v2.5 — más barato y rápido (~$0.045/reel)</option>
+              </select>
+            </div>
             <p id="voiceNote" class="text-[11px] text-zinc-600 mb-3"></p>
 
             <label class="block text-sm mb-1 text-zinc-400">Música</label>
@@ -980,6 +986,7 @@ let VOICE_CFG = { provider:'openai', openai_voice:'onyx', elevenlabs_voice_id:''
 async function loadCreateVoice(){
   try { VOICE_CFG = await (await fetch('/api/voice-config')).json(); } catch(e){}
   $('voiceProvider').value = VOICE_CFG.provider || 'openai';
+  if (VOICE_CFG.elevenlabs_model) $('voiceModel').value = VOICE_CFG.elevenlabs_model;
   await populateVoiceSel();
 }
 async function onCreateVoiceProvider(){
@@ -991,6 +998,7 @@ async function populateVoiceSel(){
   const p = $('voiceProvider').value;
   const sel = $('voiceSel');
   $('voicePlay').style.display = (p === 'openai') ? '' : 'none';  // preview solo OpenAI
+  $('voiceModelWrap').classList.toggle('hidden', p !== 'elevenlabs');  // modelo solo ElevenLabs
   if (p === 'openai'){
     sel.innerHTML = OPENAI_VOICES.map(v=>`<option>${v}</option>`).join('');
     sel.value = VOICE_CFG.openai_voice || 'onyx';
@@ -1011,7 +1019,7 @@ async function saveVoiceSel(){
   const p = $('voiceProvider').value;
   const body = { provider: p };
   if (p === 'openai'){ body.openai_voice = $('voiceSel').value; VOICE_CFG.openai_voice = $('voiceSel').value; }
-  else { body.elevenlabs_voice_id = $('voiceSel').value; VOICE_CFG.elevenlabs_voice_id = $('voiceSel').value; }
+  else { body.elevenlabs_voice_id = $('voiceSel').value; body.elevenlabs_model = $('voiceModel').value; VOICE_CFG.elevenlabs_voice_id = $('voiceSel').value; VOICE_CFG.elevenlabs_model = $('voiceModel').value; }
   try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
 }
 

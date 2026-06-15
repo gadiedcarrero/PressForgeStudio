@@ -183,6 +183,7 @@ def get_voice_config():
         "provider": get_secret("voice_provider") or s.voice_provider,
         "openai_voice": get_secret("openai_voice") or s.voice_name,
         "elevenlabs_voice_id": get_secret("elevenlabs_voice_id") or s.elevenlabs_voice_id,
+        "elevenlabs_model": get_secret("elevenlabs_model") or s.elevenlabs_model,
         "elevenlabs_ready": bool(eleven_key()),
     }
 
@@ -210,6 +211,8 @@ def set_voice_config(payload: dict = Body(...)):
         set_secret("openai_voice", payload["openai_voice"].strip())
     if "elevenlabs_voice_id" in payload:
         set_secret("elevenlabs_voice_id", (payload.get("elevenlabs_voice_id") or "").strip())
+    if (payload.get("elevenlabs_model") or "").strip():
+        set_secret("elevenlabs_model", payload["elevenlabs_model"].strip())
     return get_voice_config()
 
 
