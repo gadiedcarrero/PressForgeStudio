@@ -11,6 +11,7 @@ organiza por **marca/canal**, con **programación** y **publicación** a redes.
 
 📄 ¿Vienes de otra PC o retomas el proyecto? Lee **[docs/CONTEXT.md](docs/CONTEXT.md)** —
 tiene el estado completo, las decisiones y los próximos pasos.
+🎨 ¿Quieres generar logos/banners/imágenes con IA a la carta? Ver **[docs/GENERAR_IMAGENES.md](docs/GENERAR_IMAGENES.md)**.
 
 ---
 

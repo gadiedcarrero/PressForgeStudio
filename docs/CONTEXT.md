@@ -98,6 +98,7 @@ El usuario trabajará en una **Mac M1 Pro Max con Ollama** (modelos: qwen3:30b, 
 2. Abre Claude Code en la carpeta del proyecto y dile algo como:
    *"Lee `docs/CONTEXT.md` y el `README.md`; retomamos PressForge Studio desde donde quedó. Quiero seguir con [lo que sea]."*
 3. La memoria de Claude es local de cada máquina, así que **este documento es la fuente de verdad** del contexto entre PCs. Si hacemos cambios grandes, lo actualizamos.
+4. Para generar imágenes/logos/banners a la carta con Claude: ver **`docs/GENERAR_IMAGENES.md`** (modelo, tamaños, prompts que funcionan, script reutilizable y recorte por red).
 
 ---
 
