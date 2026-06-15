@@ -144,6 +144,7 @@
                 <option value="eleven_flash_v2_5">Flash v2.5 — más barato y rápido (~$0.045/reel)</option>
               </select>
             </div>
+            <button type="button" id="voiceBrowseBtn" onclick="openVoiceBrowser()" class="hidden text-[11px] text-indigo-300 hover:underline mb-1">Explorar más voces (biblioteca) →</button>
             <p id="voiceNote" class="text-[11px] text-zinc-600 mb-3"></p>
 
             <label class="block text-sm mb-1 text-zinc-400">Música</label>
@@ -998,6 +999,7 @@ async function populateVoiceSel(){
   const p = $('voiceProvider').value;
   const sel = $('voiceSel');
   $('voiceModelWrap').classList.toggle('hidden', p !== 'elevenlabs');  // modelo solo ElevenLabs
+  $('voiceBrowseBtn').classList.toggle('hidden', p !== 'elevenlabs');  // explorar biblioteca solo ElevenLabs
   if (p === 'openai'){
     sel.innerHTML = OPENAI_VOICES.map(v=>`<option>${v}</option>`).join('');
     sel.value = VOICE_CFG.openai_voice || 'onyx';
@@ -1020,6 +1022,58 @@ async function saveVoiceSel(){
   if (p === 'openai'){ body.openai_voice = $('voiceSel').value; VOICE_CFG.openai_voice = $('voiceSel').value; }
   else { body.elevenlabs_voice_id = $('voiceSel').value; body.elevenlabs_model = $('voiceModel').value; VOICE_CFG.elevenlabs_voice_id = $('voiceSel').value; VOICE_CFG.elevenlabs_model = $('voiceModel').value; }
   try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
+}
+
+// ─── Explorar biblioteca de voces de ElevenLabs (filtros + preview) ───
+const USE_CASES = [['','Todos los usos'],['narrative_story','Narración'],['conversational','Conversacional'],['characters_animation','Personajes'],['social_media','Redes sociales'],['informative_educational','Educativo'],['advertisement','Anuncio']];
+function openVoiceBrowser(){
+  openModal(`
+    <div class="flex items-center justify-between mb-3"><h3 class="font-bold">Explorar voces · ElevenLabs</h3><button type="button" onclick="closeModal()" class="text-zinc-500 hover:text-zinc-200">✕</button></div>
+    <div class="grid grid-cols-2 gap-2 mb-2">
+      <select id="lib-lang" title="Idioma" class="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-sm">
+        <option value="es">Español</option><option value="en">Inglés</option>
+      </select>
+      <select id="lib-uc" title="Uso" class="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-sm">${USE_CASES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>
+    </div>
+    <div class="flex gap-2 mb-3">
+      <input id="lib-q" placeholder="buscar (ej. grave, mujer, épica…)" onkeydown="if(event.key==='Enter')browseVoices()" class="flex-1 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-sm" />
+      <button type="button" onclick="browseVoices()" class="bg-indigo-500 hover:bg-indigo-400 rounded-lg px-4 text-sm font-medium">Buscar</button>
+    </div>
+    <div id="lib-results" class="max-h-[50vh] overflow-auto"></div>`);
+  browseVoices();
+}
+async function browseVoices(){
+  const box = $('lib-results');
+  box.innerHTML = '<p class="text-zinc-500 text-sm">Buscando…</p>';
+  const qs = new URLSearchParams({ language:$('lib-lang').value, use_case:$('lib-uc').value, search:$('lib-q').value });
+  let j; try { j = await (await fetch('/api/voices/library?'+qs)).json(); } catch(e){ box.innerHTML='<p class="text-red-400 text-sm">error de conexión</p>'; return; }
+  if (!j.ready){ box.innerHTML='<p class="text-amber-400 text-sm">Falta tu API key de ElevenLabs (Ajustes → API Keys).</p>'; return; }
+  if (j.error){ box.innerHTML='<p class="text-red-400 text-sm">'+esc(j.error)+'</p>'; return; }
+  if (!j.voices.length){ box.innerHTML='<p class="text-zinc-500 text-sm">Sin resultados. Prueba otro filtro.</p>'; return; }
+  box.innerHTML = j.voices.map(v=>`
+    <div class="flex items-center gap-2 border border-zinc-800 rounded-lg p-2 mb-2">
+      <button type="button" onclick='playPreview(${JSON.stringify(v.preview)})' title="Escuchar" class="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200">${icon('play','w-3.5 h-3.5')}</button>
+      <div class="min-w-0 flex-1">
+        <div class="text-sm truncate">${esc(v.name)}</div>
+        <div class="text-[10px] text-zinc-500 truncate">${[v.accent,v.use_case,v.gender,v.description].filter(Boolean).map(esc).join(' · ')}</div>
+      </div>
+      <button type="button" onclick='useLibraryVoice(${JSON.stringify(v.id)}, ${JSON.stringify(v.name)})' class="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 font-medium">Usar</button>
+    </div>`).join('');
+}
+let _libAudio = null;
+function playPreview(url){
+  if (!url) return;
+  try { if(_libAudio) _libAudio.pause(); } catch(e){}
+  _libAudio = new Audio(url);
+  _libAudio.play().catch(()=>{});
+}
+function useLibraryVoice(id, name){
+  const sel = $('voiceSel');
+  if (![...sel.options].some(o => o.value === id)) sel.add(new Option(name + ' (biblioteca)', id));
+  sel.value = id;
+  saveVoiceSel();
+  closeModal();
+  $('voiceNote').textContent = 'Voz seleccionada: ' + name;
 }
 
 // ─── Preview de voz (OpenAI: muestra fija · ElevenLabs: genera con la voz elegida) ───

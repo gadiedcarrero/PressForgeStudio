@@ -216,6 +216,20 @@ def voice_preview_elevenlabs(voice_id: str = ""):
     return FileResponse(out, media_type="audio/mpeg")
 
 
+@app.get("/api/voices/library")
+def voices_library(language: str = "es", search: str = "", use_case: str = "", accent: str = "", page: int = 0):
+    """Explorar la biblioteca de voces de ElevenLabs (requiere plan de pago para usarlas)."""
+    from ..providers.elevenlabs_voice import library_voices, resolve_key
+
+    if not resolve_key():
+        return {"voices": [], "ready": False}
+    try:
+        res = library_voices(language=language, search=search, use_case=use_case, accent=accent, page=page)
+        return {**res, "ready": True}
+    except Exception as exc:  # noqa: BLE001
+        return {"voices": [], "ready": True, "error": str(exc)}
+
+
 @app.get("/api/voices/elevenlabs")
 def elevenlabs_voices():
     from ..providers.elevenlabs_voice import list_voices, resolve_key

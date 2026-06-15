@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import ssl
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -51,6 +52,31 @@ def list_voices() -> list[dict]:
         data = json.loads(resp.read().decode("utf-8"))
     return [{"id": v.get("voice_id", ""), "name": v.get("name", "")}
             for v in data.get("voices", []) if v.get("voice_id")]
+
+
+def library_voices(*, language: str = "es", search: str = "", use_case: str = "",
+                   accent: str = "", page: int = 0, page_size: int = 30) -> dict:
+    """Explora la biblioteca pública de voces de ElevenLabs con filtros.
+    Devuelve {voices:[{id,name,accent,gender,use_case,category,preview,description}], has_more}."""
+    key = resolve_key()
+    if not key:
+        return {"voices": [], "has_more": False}
+    params = {"page_size": page_size, "page": page}
+    if language: params["language"] = language
+    if search: params["search"] = search
+    if use_case: params["use_cases"] = use_case
+    if accent: params["accent"] = accent
+    url = "https://api.elevenlabs.io/v1/shared-voices?" + urllib.parse.urlencode(params)
+    req = urllib.request.Request(url, headers={"xi-api-key": key, "Accept": "application/json"})
+    with _urlopen(req) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    voices = [{
+        "id": v.get("voice_id", ""), "name": v.get("name", ""),
+        "accent": v.get("accent", ""), "gender": v.get("gender", ""),
+        "use_case": v.get("use_case", ""), "category": v.get("category", ""),
+        "preview": v.get("preview_url", ""), "description": v.get("descriptive", ""),
+    } for v in data.get("voices", []) if v.get("voice_id")]
+    return {"voices": voices, "has_more": bool(data.get("has_more"))}
 
 
 class ElevenLabsVoiceProvider:
