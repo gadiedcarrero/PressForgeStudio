@@ -188,6 +188,34 @@ def get_voice_config():
     }
 
 
+@app.get("/api/voice-preview/elevenlabs")
+def voice_preview_elevenlabs(voice_id: str = ""):
+    """Genera (y cachea) una muestra corta de una voz de ElevenLabs para escucharla."""
+    from ..config import get_settings
+    from ..providers.elevenlabs_voice import ElevenLabsVoiceProvider, resolve_key
+    from ..secrets_store import get_secret
+
+    if not resolve_key():
+        return JSONResponse({"error": "Falta tu API key de ElevenLabs."}, status_code=400)
+    if not voice_id:
+        return JSONResponse({"error": "voice_id requerido"}, status_code=400)
+
+    model = get_secret("elevenlabs_model") or get_settings().elevenlabs_model
+    cache = Path("voice_previews")
+    cache.mkdir(parents=True, exist_ok=True)
+    safe = re.sub(r"[^a-zA-Z0-9_]", "", f"{voice_id}_{model}")
+    out = cache / f"{safe}.mp3"
+    if not out.exists():
+        try:
+            ElevenLabsVoiceProvider().synthesize(
+                "Hola. Esta es una muestra de mi voz para tus reels históricos.",
+                out, voice=voice_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"error": str(exc)}, status_code=400)
+    return FileResponse(out, media_type="audio/mpeg")
+
+
 @app.get("/api/voices/elevenlabs")
 def elevenlabs_voices():
     from ..providers.elevenlabs_voice import list_voices, resolve_key

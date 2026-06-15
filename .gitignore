@@ -19,6 +19,9 @@ secrets.json
 # CLAVE PRIVADA de licencias — SOLO del vendedor, JAMÁS al repo
 license_private_key.txt
 
+# Cache local de muestras de voz de ElevenLabs (por voz, no al repo)
+voice_previews/
+
 # OS / editor
 .DS_Store
 Thumbs.db

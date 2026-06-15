@@ -997,7 +997,6 @@ async function onCreateVoiceProvider(){
 async function populateVoiceSel(){
   const p = $('voiceProvider').value;
   const sel = $('voiceSel');
-  $('voicePlay').style.display = (p === 'openai') ? '' : 'none';  // preview solo OpenAI
   $('voiceModelWrap').classList.toggle('hidden', p !== 'elevenlabs');  // modelo solo ElevenLabs
   if (p === 'openai'){
     sel.innerHTML = OPENAI_VOICES.map(v=>`<option>${v}</option>`).join('');
@@ -1023,13 +1022,23 @@ async function saveVoiceSel(){
   try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
 }
 
-// ─── Muestra de voz (preview, solo OpenAI) ───
+// ─── Preview de voz (OpenAI: muestra fija · ElevenLabs: genera con la voz elegida) ───
 let _voiceAudio = null;
 function playVoice(){
-  if ($('voiceProvider').value !== 'openai') return;
-  const v = $('voiceSel').value || 'onyx';
+  const p = $('voiceProvider').value;
+  let url;
+  if (p === 'openai') {
+    url = '/api/voice-sample/' + encodeURIComponent($('voiceSel').value || 'onyx') + '?v=' + Date.now();
+  } else {
+    const vid = $('voiceSel').value;
+    if (!vid) return;
+    $('voiceNote').textContent = 'Generando muestra…';
+    url = '/api/voice-preview/elevenlabs?voice_id=' + encodeURIComponent(vid) + '&v=' + Date.now();
+  }
   try { if(_voiceAudio) _voiceAudio.pause(); } catch(e){}
-  _voiceAudio = new Audio('/api/voice-sample/' + encodeURIComponent(v) + '?v=' + Date.now());
+  _voiceAudio = new Audio(url);
+  _voiceAudio.addEventListener('playing', () => { if (p !== 'openai') $('voiceNote').textContent = ''; });
+  _voiceAudio.addEventListener('error', () => { if (p !== 'openai') $('voiceNote').textContent = '✗ no se pudo generar la muestra'; });
   _voiceAudio.play().catch(()=>{});
 }
 
