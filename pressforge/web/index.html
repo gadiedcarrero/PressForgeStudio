@@ -688,7 +688,7 @@ async function openEditor(id){
       <button type="button" onclick="savePost('${esc(id)}')" class="bg-zinc-800 hover:bg-zinc-700 rounded-lg px-4 py-2 text-sm">Guardar</button>
       <button type="button" onclick="publishNow('${esc(id)}')" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-2 text-sm font-semibold">Publicar ahora</button>
       <button type="button" onclick="openSchedule(['${esc(id)}'])" class="inline-flex items-center gap-1.5 border border-zinc-700 hover:bg-zinc-800 rounded-lg px-4 py-2 text-sm">${icon('agenda','w-4 h-4')} Programar</button>
-      <a href="/output/${esc(id)}/reel.mp4" download class="inline-flex items-center gap-1.5 border border-zinc-700 hover:bg-zinc-800 rounded-lg px-4 py-2 text-sm">${icon('download','w-4 h-4')} mp4</a>
+      <a href="/api/reels/${esc(id)}/download" class="inline-flex items-center gap-1.5 border border-zinc-700 hover:bg-zinc-800 rounded-lg px-4 py-2 text-sm">${icon('download','w-4 h-4')} mp4</a>
     </div>
     <p id="ed-status" class="text-xs text-zinc-500 mt-3"></p>`);
 }
@@ -709,7 +709,7 @@ async function publishNow(id){
   openModal(`
     <div class="flex items-center justify-between mb-3"><h3 class="font-bold">Listo para publicar</h3><button onclick="closeModal()" class="text-zinc-500 hover:text-zinc-200">✕</button></div>
     <p class="text-sm text-zinc-400 mb-3">El caption está preparado. Descarga el mp4 y pégalo en cada red (la publicación 100% automática se activa al conectar las APIs en Ajustes).</p>
-    <a href="${j.video}" download class="inline-flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-400 rounded-lg px-4 py-2 text-sm font-semibold mb-3">${icon('download','w-4 h-4')} Descargar reel.mp4</a>
+    <a href="/api/reels/${esc(id)}/download" class="inline-flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-400 rounded-lg px-4 py-2 text-sm font-semibold mb-3">${icon('download','w-4 h-4')} Descargar vídeo</a>
     <label class="block text-[11px] text-zinc-500 mb-1">Caption + hashtags (cópialo)</label>
     <textarea readonly rows="5" onclick="this.select()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3">${esc(j.caption_text)}</textarea>
     <div class="text-xs text-zinc-500">${j.results.map(r=>'• '+r.platform+': '+esc(r.detail)).join('<br>')}</div>`);

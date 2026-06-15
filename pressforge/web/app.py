@@ -11,6 +11,7 @@ podrá consumir más adelante.
 from __future__ import annotations
 
 import json
+import re
 import threading
 import uuid
 from datetime import datetime, timedelta
@@ -382,6 +383,25 @@ def _suggest_post(reel_id: str) -> dict:
     platforms = list((brand.get("channels") or {}).keys())
     return {"caption": caption.strip(), "hashtags": hashtags, "platforms": platforms,
             "brand_id": brand.get("id", "")}
+
+
+def _safe_filename(name: str, default: str = "reel") -> str:
+    name = re.sub(r'[\\/:*?"<>|]+', "", (name or "")).strip()
+    name = re.sub(r"\s+", " ", name) or default
+    return name[:80] + ".mp4"
+
+
+@app.get("/api/reels/{reel_id}/download")
+def download_reel(reel_id: str):
+    mp4 = OUTPUT / reel_id / "reel.mp4"
+    if not mp4.exists():
+        return JSONResponse({"error": "reel no encontrado"}, status_code=404)
+    title = reel_id
+    try:
+        title = json.loads((OUTPUT / reel_id / "story.json").read_text(encoding="utf-8")).get("title") or reel_id
+    except Exception:  # noqa: BLE001
+        pass
+    return FileResponse(mp4, media_type="video/mp4", filename=_safe_filename(title))
 
 
 @app.get("/api/reels/{reel_id}/post")
