@@ -13,6 +13,9 @@ output/
 # Datos locales de publicación (cola, canales con tokens) — nunca al repo
 data/
 
+# API keys del usuario (BYOK) — local a cada equipo, nunca al repo
+secrets.json
+
 # OS / editor
 .DS_Store
 Thumbs.db

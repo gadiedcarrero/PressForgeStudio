@@ -61,6 +61,7 @@ cuando se trata de historia real.
 - **Las cuentas las posee/crea el usuario** en cada plataforma (Google Brand Accounts, Meta Business Manager, TikTok) y las conecta a cada **marca** en PressForge. PressForge no crea cuentas.
 - **Una imagen bloqueada no debe tumbar el reel** → reintento + alternativa.
 - **Windows/encoding:** se fuerza UTF-8 en stdout desde `pressforge/__init__.py` (rich rompía con cp1252).
+- **Modelo de negocio = vender como software BYOK** (Bring Your Own Key): el cliente instala/corre la app y pone SU propia API key. Por eso las keys se gestionan en **Ajustes → API Keys** (UI), guardadas en `secrets.json` **local a cada equipo** (gitignored y FUERA de `STORAGE_DIR`/Drive — los secretos no se sincronizan ni viajan). `_openai_client.resolve_openai_key()`: secret de la UI → `.env` (respaldo dev). **Pendiente para vender:** (2) login/autenticación, (3) empaquetado/licencia. SaaS (hosted, billing) sería un proyecto aparte si despega.
 - **Datos y reels portables entre PCs:** `data/` (marcas, cola, tokens) y `output/` (reels) están en `.gitignore` a propósito (tokens = secretos; mp4 = pesado), así que **no viajan por git**. Para acceder a todo desde cualquier PC se hizo `STORAGE_DIR` configurable en `.env` (`config.py: data_path()/output_path()`): apuntándola a la MISMA carpeta de Google Drive/Dropbox sincronizada en cada equipo, marcas y videos se comparten solos. Vacío = carpeta del proyecto (comportamiento previo). Overrides finos: `DATA_DIR`, `OUTPUT_DIR`.
 
 ---

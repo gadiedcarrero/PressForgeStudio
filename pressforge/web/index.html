@@ -51,6 +51,10 @@
       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
       Marcas
     </button>
+    <button type="button" data-view="settings"
+      class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
+      Ajustes
+    </button>
 
     <div class="mt-auto px-3 py-2 text-[11px] text-zinc-600 border-t border-zinc-800/80">
       Recursos · OpenAI + FFmpeg
@@ -267,6 +271,19 @@
       <div id="brandsList" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </section>
 
+    <!-- ─────────── VISTA: AJUSTES (API Keys) ─────────── -->
+    <section id="view-settings" class="hidden">
+      <h1 class="text-2xl font-bold tracking-tight mb-1">Ajustes</h1>
+      <p class="text-sm text-zinc-500 mb-5">Tus claves de IA. Se guardan <b>solo en este equipo</b> (no se suben a git ni a Google Drive).</p>
+      <div class="max-w-xl bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+        <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400 mb-4">API Keys</h2>
+        <div id="keysList" class="space-y-4"><p class="text-zinc-600 text-sm">Cargando…</p></div>
+        <button id="saveKeysBtn" type="button" onclick="saveKeys()" class="mt-5 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-5 py-2.5 font-semibold text-sm">Guardar claves</button>
+        <p id="keysStatus" class="text-xs text-zinc-500 mt-2"></p>
+        <p class="text-[11px] text-zinc-600 mt-4 leading-relaxed">¿No tienes una key de OpenAI? Sácala en <span class="text-sky-400">platform.openai.com/api-keys</span>. Es de pago por uso (tú pagas tu propio consumo).</p>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -308,7 +325,7 @@ function icon(name, cls='w-4 h-4') {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 function injectIcons() {
-  const NAV = { create:'create', library:'library', music:'music', agenda:'agenda', brands:'brand' };
+  const NAV = { create:'create', library:'library', music:'music', agenda:'agenda', brands:'brand', settings:'settings' };
   document.querySelectorAll('.nav-item').forEach(b => b.insertAdjacentHTML('afterbegin', icon(NAV[b.dataset.view], 'w-[18px] h-[18px] shrink-0')));
   document.querySelectorAll('.mode-pill').forEach(b => b.insertAdjacentHTML('afterbegin', icon(b.dataset.mode, 'w-4 h-4 shrink-0')));
   document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.className));
@@ -318,11 +335,12 @@ function injectIcons() {
 document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
-  ['create','library','music','agenda','brands'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
+  ['create','library','music','agenda','brands','settings'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
   if (b.dataset.view === 'library') loadReels();
   if (b.dataset.view === 'music') loadMusic();
   if (b.dataset.view === 'agenda') loadSchedule();
   if (b.dataset.view === 'brands') loadBrands();
+  if (b.dataset.view === 'settings') loadKeys();
 }));
 
 // ─── Modos ───
@@ -931,6 +949,26 @@ async function genBranding(){
       </div>`).join('') + '</div>';
   } catch(e){ box.innerHTML = '<p class="text-xs text-red-400">✗ error generando</p>'; }
   finally { btn.disabled = false; }
+}
+
+// ─── API Keys (Ajustes) ───
+async function loadKeys(){
+  const j = await (await fetch('/api/keys')).json();
+  const keys = j.keys || {};
+  $('keysList').innerHTML = Object.entries(keys).map(([name, info])=>`
+    <div>
+      <label class="block text-sm mb-1 text-zinc-400">${esc(info.label)} ${info.set?`<span class="text-green-400 text-[11px]">✓ configurada (${esc(info.masked)})</span>`:(info.env_fallback?'<span class="text-amber-400 text-[11px]">✓ usando la del .env</span>':'<span class="text-zinc-600 text-[11px]">sin configurar</span>')}</label>
+      <input type="password" id="key-${name}" placeholder="${info.set?'•••••• (escribe para reemplazar)':'pega tu clave aquí'}"
+        class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" autocomplete="off" />
+    </div>`).join('');
+}
+async function saveKeys(){
+  const body = {};
+  document.querySelectorAll('[id^="key-"]').forEach(i => { if(i.value.trim()) body[i.id.slice(4)] = i.value.trim(); });
+  if(!Object.keys(body).length){ $('keysStatus').textContent = 'Escribe al menos una clave para guardar.'; return; }
+  const j = await (await fetch('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  $('keysStatus').textContent = '✓ Guardado en este equipo';
+  await loadKeys();
 }
 
 // ─── Muestra de voz ───

@@ -95,10 +95,12 @@ def doctor():
         console.print(f"  {mark} {label}" + (f"  [dim]{hint}[/]" if not passed and hint else ""))
         ok = ok and passed
 
+    from .providers._openai_client import resolve_openai_key
+
     console.print("[bold]PressForge · doctor[/]")
     check("ffmpeg", has_binary("ffmpeg"), "instala: winget install --id Gyan.FFmpeg -e")
     check("ffprobe", has_binary("ffprobe"), "viene con ffmpeg")
-    check("OPENAI_API_KEY", bool(get_settings().openai_api_key), "ponla en .env")
+    check("OpenAI API key", bool(resolve_openai_key()), "ponla en Ajustes → API Keys (o en .env)")
 
     console.print()
     if ok:

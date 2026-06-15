@@ -69,6 +69,32 @@ def index():
     return FileResponse(WEB_DIR / "index.html")
 
 
+@app.get("/api/keys")
+def get_keys():
+    """Estado de las API keys (BYOK) — nunca devuelve el valor completo."""
+    from ..providers._openai_client import resolve_openai_key
+    from ..secrets_store import status
+
+    st = status()
+    # Si no está en la UI pero sí en el .env, indícalo (respaldo de desarrollo).
+    oa = st.get("openai_api_key")
+    if oa and not oa["set"] and resolve_openai_key():
+        oa["env_fallback"] = True
+    return {"keys": st}
+
+
+@app.post("/api/keys")
+def save_keys(payload: dict = Body(...)):
+    """Guarda las API keys que el usuario escribe en Ajustes (solo si vienen)."""
+    from ..secrets_store import KNOWN, set_secret, status
+
+    for name in KNOWN:
+        val = (payload.get(name) or "").strip()
+        if val:  # vacío = no tocar (permite actualizar una sin reescribir otras)
+            set_secret(name, val)
+    return {"ok": True, "keys": status()}
+
+
 @app.get("/favicon.ico")
 def favicon():
     ico = ASSETS_DIR / "favicon.ico"
