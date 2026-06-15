@@ -127,11 +127,23 @@
 
           <div class="border-t border-zinc-800 pt-4 mb-4">
             <p class="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">Producción</p>
+
+            <label class="block text-sm mb-1 text-zinc-400">Voz</label>
+            <select id="voiceProvider" title="Proveedor de voz" onchange="onCreateVoiceProvider()" class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="openai">OpenAI — económica</option>
+              <option value="elevenlabs">ElevenLabs — premium</option>
+            </select>
+            <div class="flex gap-1.5 mb-1">
+              <select id="voiceSel" title="Voz" onchange="saveVoiceSel()" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
+              <button type="button" id="voicePlay" onclick="playVoice()" title="Escuchar muestra"
+                class="shrink-0 grid place-items-center w-9 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800 text-zinc-300"><span data-ic="play" class="w-4 h-4"></span></button>
+            </div>
+            <p id="voiceNote" class="text-[11px] text-zinc-600 mb-3"></p>
+
             <label class="block text-sm mb-1 text-zinc-400">Música</label>
             <select id="music" title="Música" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="">(sin música)</option>
             </select>
-            <p class="text-[11px] text-zinc-600 mt-1">La voz se configura en <b>Ajustes → Voz</b>.</p>
           </div>
 
           <button id="genBtn" type="button"
@@ -268,38 +280,6 @@
         <p class="text-[11px] text-zinc-600 mt-4 leading-relaxed">¿No tienes una key de OpenAI? Sácala en <span class="text-sky-400">platform.openai.com/api-keys</span>. Es de pago por uso (tú pagas tu propio consumo).</p>
       </div>
 
-      <!-- Voz -->
-      <div class="max-w-xl bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mt-4">
-        <h2 class="font-semibold text-sm uppercase tracking-wider text-zinc-400 mb-4">Voz</h2>
-        <label class="block text-sm mb-1 text-zinc-400">Proveedor de voz</label>
-        <select id="vc-provider" title="Proveedor de voz" onchange="onVoiceProviderChange()" class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <option value="openai">OpenAI — económica</option>
-          <option value="elevenlabs">ElevenLabs — premium (requiere su API key)</option>
-        </select>
-
-        <div id="vc-openai-wrap">
-          <label class="block text-sm mb-1 text-zinc-400">Voz (OpenAI)</label>
-          <div class="flex gap-1.5">
-            <select id="vc-openai" title="Voz OpenAI" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option>onyx</option><option>nova</option><option>echo</option>
-              <option>fable</option><option>shimmer</option><option>alloy</option>
-              <option>ash</option><option>ballad</option><option>coral</option><option>sage</option>
-            </select>
-            <button type="button" id="voicePlay" onclick="playVoice()" title="Escuchar muestra"
-              class="shrink-0 grid place-items-center w-9 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800 text-zinc-300"><span data-ic="play" class="w-4 h-4"></span></button>
-          </div>
-        </div>
-
-        <div id="vc-eleven-wrap" class="hidden">
-          <label class="block text-sm mb-1 text-zinc-400">Voice ID (ElevenLabs)</label>
-          <input id="vc-eleven" placeholder="voice_id de tu panel → Voces"
-            class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <p id="vc-eleven-note" class="text-[11px] text-zinc-600 mt-1"></p>
-        </div>
-
-        <button type="button" onclick="saveVoiceConfig()" class="mt-4 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-5 py-2.5 font-semibold text-sm">Guardar voz</button>
-        <p id="vcStatus" class="text-xs text-zinc-500 mt-2"></p>
-      </div>
     </section>
 
   </main>
@@ -358,7 +338,7 @@ document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', 
   if (b.dataset.view === 'music') loadMusic();
   if (b.dataset.view === 'agenda') loadSchedule();
   if (b.dataset.view === 'brands') loadBrands();
-  if (b.dataset.view === 'settings') { loadKeys(); loadVoiceConfig(); }
+  if (b.dataset.view === 'settings') loadKeys();
 }));
 
 // ─── Modos ───
@@ -993,32 +973,53 @@ async function saveKeys(){
   await loadKeys();
 }
 
-// ─── Configuración de voz (Ajustes) ───
-function onVoiceProviderChange(){
-  const p = $('vc-provider').value;
-  $('vc-openai-wrap').classList.toggle('hidden', p !== 'openai');
-  $('vc-eleven-wrap').classList.toggle('hidden', p !== 'elevenlabs');
+// ─── Voz (en Crear): proveedor + dropdown de voz según el proveedor ───
+const OPENAI_VOICES = ['onyx','nova','echo','fable','shimmer','alloy','ash','ballad','coral','sage'];
+let VOICE_CFG = { provider:'openai', openai_voice:'onyx', elevenlabs_voice_id:'' };
+
+async function loadCreateVoice(){
+  try { VOICE_CFG = await (await fetch('/api/voice-config')).json(); } catch(e){}
+  $('voiceProvider').value = VOICE_CFG.provider || 'openai';
+  await populateVoiceSel();
 }
-async function loadVoiceConfig(){
-  let j; try { j = await (await fetch('/api/voice-config')).json(); } catch(e){ return; }
-  $('vc-provider').value = j.provider || 'openai';
-  if (j.openai_voice) $('vc-openai').value = j.openai_voice;
-  $('vc-eleven').value = j.elevenlabs_voice_id || '';
-  $('vc-eleven-note').textContent = j.elevenlabs_ready
-    ? '✓ API key de ElevenLabs detectada.'
-    : '⚠ Falta tu API key de ElevenLabs (ponla arriba en API Keys).';
-  onVoiceProviderChange();
+async function onCreateVoiceProvider(){
+  VOICE_CFG.provider = $('voiceProvider').value;
+  await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:VOICE_CFG.provider})});
+  await populateVoiceSel();
 }
-async function saveVoiceConfig(){
-  const body = { provider: $('vc-provider').value, openai_voice: $('vc-openai').value, elevenlabs_voice_id: $('vc-eleven').value };
-  const j = await (await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
-  $('vcStatus').textContent = '✓ Voz guardada: ' + (j.provider==='elevenlabs'?'ElevenLabs':'OpenAI');
+async function populateVoiceSel(){
+  const p = $('voiceProvider').value;
+  const sel = $('voiceSel');
+  $('voicePlay').style.display = (p === 'openai') ? '' : 'none';  // preview solo OpenAI
+  if (p === 'openai'){
+    sel.innerHTML = OPENAI_VOICES.map(v=>`<option>${v}</option>`).join('');
+    sel.value = VOICE_CFG.openai_voice || 'onyx';
+    $('voiceNote').textContent = '';
+    return;
+  }
+  // ElevenLabs: traer las voces de la cuenta
+  sel.innerHTML = '<option>cargando voces…</option>';
+  let j; try { j = await (await fetch('/api/voices/elevenlabs')).json(); } catch(e){ j = {voices:[], ready:false}; }
+  if (!j.ready){ sel.innerHTML = '<option value="">— falta tu API key —</option>'; $('voiceNote').textContent = 'Pon tu ElevenLabs API Key en Ajustes → API Keys.'; return; }
+  if (!j.voices || !j.voices.length){ sel.innerHTML = '<option value="">— sin voces —</option>'; $('voiceNote').textContent = 'Añade/crea una voz en ElevenLabs → Voces.'; return; }
+  sel.innerHTML = j.voices.map(v=>`<option value="${esc(v.id)}">${esc(v.name)}</option>`).join('');
+  if (VOICE_CFG.elevenlabs_voice_id) sel.value = VOICE_CFG.elevenlabs_voice_id;
+  $('voiceNote').textContent = j.voices.length + ' voces de tu cuenta de ElevenLabs.';
+  saveVoiceSel();  // persiste la selección actual (por si era el default)
+}
+async function saveVoiceSel(){
+  const p = $('voiceProvider').value;
+  const body = { provider: p };
+  if (p === 'openai'){ body.openai_voice = $('voiceSel').value; VOICE_CFG.openai_voice = $('voiceSel').value; }
+  else { body.elevenlabs_voice_id = $('voiceSel').value; VOICE_CFG.elevenlabs_voice_id = $('voiceSel').value; }
+  try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
 }
 
-// ─── Muestra de voz (preview de la voz OpenAI) ───
+// ─── Muestra de voz (preview, solo OpenAI) ───
 let _voiceAudio = null;
 function playVoice(){
-  const v = ($('vc-openai') && $('vc-openai').value) || 'onyx';
+  if ($('voiceProvider').value !== 'openai') return;
+  const v = $('voiceSel').value || 'onyx';
   try { if(_voiceAudio) _voiceAudio.pause(); } catch(e){}
   _voiceAudio = new Audio('/api/voice-sample/' + encodeURIComponent(v) + '?v=' + Date.now());
   _voiceAudio.play().catch(()=>{});
@@ -1030,6 +1031,7 @@ $('refreshMusic').addEventListener('click', loadMusic);
 injectIcons();
 refreshBrands();
 loadMusic();
+loadCreateVoice();
 </script>
 </body>
 </html>

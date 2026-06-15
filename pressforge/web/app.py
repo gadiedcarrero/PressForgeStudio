@@ -187,6 +187,18 @@ def get_voice_config():
     }
 
 
+@app.get("/api/voices/elevenlabs")
+def elevenlabs_voices():
+    from ..providers.elevenlabs_voice import list_voices, resolve_key
+
+    if not resolve_key():
+        return {"voices": [], "ready": False}
+    try:
+        return {"voices": list_voices(), "ready": True}
+    except Exception as exc:  # noqa: BLE001
+        return {"voices": [], "ready": True, "error": str(exc)}
+
+
 @app.post("/api/voice-config")
 def set_voice_config(payload: dict = Body(...)):
     from ..secrets_store import set_secret

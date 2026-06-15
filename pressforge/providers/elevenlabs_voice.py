@@ -25,6 +25,34 @@ def resolve_key() -> str:
     return get_secret("elevenlabs_api_key") or get_settings().elevenlabs_api_key
 
 
+def _urlopen(req):
+    """urlopen con fallback TLS (reloj del sistema desfasado)."""
+    try:
+        return urllib.request.urlopen(req, timeout=60)
+    except urllib.error.URLError as exc:
+        if isinstance(getattr(exc, "reason", None), ssl.SSLError):
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            return urllib.request.urlopen(req, timeout=60, context=ctx)
+        raise
+
+
+def list_voices() -> list[dict]:
+    """Lista las voces de la cuenta de ElevenLabs: [{id, name}]. Vacío si no hay key."""
+    key = resolve_key()
+    if not key:
+        return []
+    req = urllib.request.Request(
+        "https://api.elevenlabs.io/v1/voices",
+        headers={"xi-api-key": key, "Accept": "application/json"},
+    )
+    with _urlopen(req) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return [{"id": v.get("voice_id", ""), "name": v.get("name", "")}
+            for v in data.get("voices", []) if v.get("voice_id")]
+
+
 class ElevenLabsVoiceProvider:
     def __init__(self) -> None:
         self.settings = get_settings()
