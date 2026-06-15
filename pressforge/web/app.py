@@ -21,6 +21,7 @@ from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from ..config import output_path
 from ..models import SourceFact, story_from_dict, story_to_dict
 from ..pipeline import (
     auto_scene_count,
@@ -35,7 +36,7 @@ from ..publishing.scheduler import get_publisher, start_scheduler
 
 _PLATFORMS = ["youtube", "instagram", "facebook", "tiktok"]
 
-OUTPUT = Path("output")
+OUTPUT = output_path()  # carpeta raíz de reels (configurable vía STORAGE_DIR)
 WEB_DIR = Path(__file__).parent
 MUSIC_DIR = Path("assets/music")
 _AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
@@ -52,7 +53,7 @@ _lock = threading.Lock()
 
 ASSETS_DIR = Path("assets")
 
-OUTPUT.mkdir(exist_ok=True)
+OUTPUT.mkdir(parents=True, exist_ok=True)
 MUSIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/output", StaticFiles(directory=str(OUTPUT)), name="output")
 app.mount("/music", StaticFiles(directory=str(MUSIC_DIR)), name="music")

@@ -11,12 +11,10 @@ from __future__ import annotations
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 
+from ..config import output_path
 from . import store
 from .manual import ManualPublisher
-
-_OUTPUT = Path("output")
 
 # Un publicador por plataforma. Hoy todos manuales; se reemplazan uno a uno.
 _MANUAL = ManualPublisher()
@@ -40,7 +38,7 @@ def _process_once() -> None:
     for it in store.due_items(now):
         reel_id = it.get("reel_id", "")
         platform = it.get("platform", "manual")
-        reel_path = _OUTPUT / reel_id / "reel.mp4"
+        reel_path = output_path() / reel_id / "reel.mp4"
         post = store.get_post(reel_id)
         try:
             res = get_publisher(platform).publish(

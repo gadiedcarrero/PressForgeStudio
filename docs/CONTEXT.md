@@ -61,6 +61,7 @@ cuando se trata de historia real.
 - **Las cuentas las posee/crea el usuario** en cada plataforma (Google Brand Accounts, Meta Business Manager, TikTok) y las conecta a cada **marca** en PressForge. PressForge no crea cuentas.
 - **Una imagen bloqueada no debe tumbar el reel** → reintento + alternativa.
 - **Windows/encoding:** se fuerza UTF-8 en stdout desde `pressforge/__init__.py` (rich rompía con cp1252).
+- **Datos y reels portables entre PCs:** `data/` (marcas, cola, tokens) y `output/` (reels) están en `.gitignore` a propósito (tokens = secretos; mp4 = pesado), así que **no viajan por git**. Para acceder a todo desde cualquier PC se hizo `STORAGE_DIR` configurable en `.env` (`config.py: data_path()/output_path()`): apuntándola a la MISMA carpeta de Google Drive/Dropbox sincronizada en cada equipo, marcas y videos se comparten solos. Vacío = carpeta del proyecto (comportamiento previo). Overrides finos: `DATA_DIR`, `OUTPUT_DIR`.
 
 ---
 

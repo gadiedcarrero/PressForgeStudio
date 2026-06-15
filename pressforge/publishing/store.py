@@ -10,10 +10,9 @@ from __future__ import annotations
 import json
 import threading
 import uuid
-from pathlib import Path
 
-_DIR = Path("data")
-_FILE = _DIR / "publish.json"
+from ..config import data_path
+
 _lock = threading.RLock()
 
 
@@ -22,10 +21,16 @@ def _default() -> dict:
     return {"posts": {}, "queue": [], "channels": {}, "brands": {}}
 
 
+def _file():
+    """Ruta a publish.json (resuelta en cada uso para respetar storage_dir)."""
+    return data_path() / "publish.json"
+
+
 def _load() -> dict:
-    if _FILE.exists():
+    f = _file()
+    if f.exists():
         try:
-            data = json.loads(_FILE.read_text(encoding="utf-8"))
+            data = json.loads(f.read_text(encoding="utf-8"))
             for k, v in _default().items():
                 data.setdefault(k, v)
             return data
@@ -35,8 +40,9 @@ def _load() -> dict:
 
 
 def _save(data: dict) -> None:
-    _DIR.mkdir(parents=True, exist_ok=True)
-    _FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    f = _file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 # ─── Posts (caption/hashtags/plataformas por reel) ───

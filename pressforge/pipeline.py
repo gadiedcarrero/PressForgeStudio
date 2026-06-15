@@ -17,7 +17,7 @@ from typing import Callable
 
 from rich.console import Console
 
-from .config import get_settings
+from .config import get_settings, output_path
 from .ffmpeg_utils import ffprobe_duration, run_ffmpeg
 from .providers.base import ImageBlockedError
 from .models import RenderJob, ReelResult, Story
@@ -31,8 +31,6 @@ from .registry import (
     get_voice_provider,
 )
 from .subtitles import build_ass
-
-_OUTPUT_ROOT = Path("output")
 
 _MONTHS_ES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -226,7 +224,7 @@ def produce_reel(
 
     # --- Carpeta de trabajo ---
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    workdir = _OUTPUT_ROOT / f"{stamp}-{_slug(story.niche or story.title)}"
+    workdir = output_path() / f"{stamp}-{_slug(story.niche or story.title)}"
     (workdir / "images").mkdir(parents=True, exist_ok=True)
 
     # --- 1. Imágenes ---

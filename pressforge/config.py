@@ -6,6 +6,7 @@ cambiar de modelo o de provider es editar `.env`, no el código.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -50,6 +51,16 @@ class Settings(BaseSettings):
     # --- Contenido ---
     language: str = "es"
 
+    # --- Almacenamiento (sincronizable entre PCs) ---
+    # storage_dir: carpeta base donde viven los datos (marcas, cola) y los reels
+    # generados. Déjala vacía para usar la carpeta del proyecto (comportamiento
+    # de siempre). Apúntala a tu carpeta de Google Drive / Dropbox —la MISMA ruta
+    # sincronizada en cada PC— para acceder a todo el contenido desde cualquier
+    # equipo. data_dir/output_dir permiten afinar cada una por separado.
+    storage_dir: str = ""
+    data_dir: str = ""
+    output_dir: str = ""
+
     # --- Render ---
     fps: int = 30
     video_width: int = 1080
@@ -61,3 +72,29 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def _resolve(base: str, explicit: str, default_name: str) -> Path:
+    """Resuelve una carpeta de almacenamiento.
+
+    Prioridad: override explícito > carpeta base (storage_dir) > carpeta del
+    proyecto (./<default_name>). Soporta `~` y rutas con espacios (típico en
+    Google Drive / Dropbox tanto en Mac como en Windows).
+    """
+    if explicit:
+        return Path(explicit).expanduser()
+    if base:
+        return Path(base).expanduser() / default_name
+    return Path(default_name)
+
+
+def data_path() -> Path:
+    """Carpeta de datos locales (marcas, cola, canales → publish.json)."""
+    s = get_settings()
+    return _resolve(s.storage_dir, s.data_dir, "data")
+
+
+def output_path() -> Path:
+    """Carpeta raíz de los reels generados (output/<fecha>-<slug>/)."""
+    s = get_settings()
+    return _resolve(s.storage_dir, s.output_dir, "output")
