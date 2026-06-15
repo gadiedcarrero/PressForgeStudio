@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from fastapi import Body, FastAPI, File, Form, UploadFile
@@ -28,6 +28,11 @@ from ..pipeline import (
     human_date,
     produce_reel,
 )
+from ..publishing import store as pubstore
+from ..publishing.manual import caption_text
+from ..publishing.scheduler import get_publisher, start_scheduler
+
+_PLATFORMS = ["youtube", "instagram", "facebook", "tiktok"]
 
 OUTPUT = Path("output")
 WEB_DIR = Path(__file__).parent
@@ -52,6 +57,9 @@ app.mount("/output", StaticFiles(directory=str(OUTPUT)), name="output")
 app.mount("/music", StaticFiles(directory=str(MUSIC_DIR)), name="music")
 if ASSETS_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
+
+start_scheduler()  # motor de publicación programada (hilo de fondo)
 
 
 @app.get("/")
@@ -306,6 +314,12 @@ def job_status(job_id: str):
 
 @app.get("/api/reels")
 def list_reels():
+    queue = pubstore.list_queue()
+    sched_count: dict[str, int] = {}
+    for it in queue:
+        if it.get("status") == "pending":
+            sched_count[it.get("reel_id", "")] = sched_count.get(it.get("reel_id", ""), 0) + 1
+
     reels = []
     if OUTPUT.exists():
         for d in sorted(OUTPUT.iterdir(), reverse=True):
@@ -328,6 +342,153 @@ def list_reels():
                     "duration": data.get("duration_s"),
                     "video": f"/output/{d.name}/reel.mp4",
                     "thumb": f"/output/{d.name}/images/{imgs[0].name}" if imgs else None,
+                    "has_post": bool(pubstore.get_post(d.name)),
+                    "scheduled": sched_count.get(d.name, 0),
                 }
             )
     return reels
+
+
+# ─── Editor de post (caption / hashtags / plataformas) ───────────────────────
+def _suggest_post(reel_id: str) -> dict:
+    """Caption + hashtags sugeridos a partir del guion (sin IA, editable)."""
+    sj = OUTPUT / reel_id / "story.json"
+    try:
+        data = json.loads(sj.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        data = {}
+    hook = (data.get("hook") or "").strip()
+    cta = (data.get("cta") or "").strip()
+    src = (data.get("source_url") or "").strip()
+    caption = hook
+    if cta:
+        caption += "\n\n" + cta
+    if src:
+        caption += f"\n\nFuente: {src}"
+    base_tags = ["historia", "curiosidades", "shorts", "reels", "viral"]
+    niche_tags = [w.lower() for w in (data.get("niche", "") or "").split() if len(w) > 3][:3]
+    seen, hashtags = set(), []
+    for t in niche_tags + base_tags:
+        if t not in seen:
+            seen.add(t)
+            hashtags.append(t)
+    return {"caption": caption.strip(), "hashtags": hashtags, "platforms": []}
+
+
+@app.get("/api/reels/{reel_id}/post")
+def get_post(reel_id: str):
+    saved = pubstore.get_post(reel_id)
+    if saved:
+        return saved
+    return _suggest_post(reel_id)
+
+
+@app.post("/api/reels/{reel_id}/post")
+def save_post(reel_id: str, payload: dict = Body(...)):
+    if not (OUTPUT / reel_id / "reel.mp4").exists():
+        return JSONResponse({"error": "reel no encontrado"}, status_code=404)
+    caption = (payload.get("caption") or "").strip()
+    raw_tags = payload.get("hashtags", [])
+    if isinstance(raw_tags, str):
+        raw_tags = raw_tags.replace(",", " ").split()
+    hashtags = [str(t).lstrip("#").strip() for t in raw_tags if str(t).strip()]
+    platforms = [p for p in (payload.get("platforms") or []) if p in _PLATFORMS]
+    return pubstore.set_post(reel_id, caption=caption, hashtags=hashtags, platforms=platforms)
+
+
+# ─── Programación ────────────────────────────────────────────────────────────
+@app.post("/api/schedule")
+def schedule(payload: dict = Body(...)):
+    """Programa uno o varios reels. Ej: 5 reels, empezando el día X a las HH:MM,
+    uno cada `interval_days`, en las plataformas dadas."""
+    reel_ids = [r for r in (payload.get("reel_ids") or []) if (OUTPUT / r / "reel.mp4").exists()]
+    if not reel_ids:
+        return JSONResponse({"error": "Selecciona al menos un reel válido."}, status_code=400)
+    platforms = [p for p in (payload.get("platforms") or []) if p in _PLATFORMS]
+    if not platforms:
+        return JSONResponse({"error": "Elige al menos una plataforma."}, status_code=400)
+
+    start = (payload.get("start") or "").strip()  # 'YYYY-MM-DDTHH:MM'
+    try:
+        base = datetime.fromisoformat(start)
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "Fecha/hora de inicio inválida."}, status_code=400)
+    interval_days = max(0, int(payload.get("interval_days") or 1))
+
+    items = []
+    for i, reel_id in enumerate(reel_ids):
+        when = base + timedelta(days=interval_days * i)
+        for platform in platforms:
+            items.append({
+                "reel_id": reel_id,
+                "platform": platform,
+                "scheduled_at": when.isoformat(timespec="minutes"),
+            })
+    created = pubstore.add_queue_items(items)
+    return {"created": len(created), "queue": _queue_view()}
+
+
+def _queue_view() -> list[dict]:
+    out = []
+    for it in pubstore.list_queue():
+        rid = it.get("reel_id", "")
+        sj = OUTPUT / rid / "story.json"
+        title = rid
+        try:
+            title = json.loads(sj.read_text(encoding="utf-8")).get("title") or rid
+        except Exception:  # noqa: BLE001
+            pass
+        out.append({**it, "title": title, "video": f"/output/{rid}/reel.mp4"})
+    return out
+
+
+@app.get("/api/schedule")
+def list_schedule():
+    return {"queue": _queue_view()}
+
+
+@app.post("/api/schedule/cancel")
+def cancel_schedule(payload: dict = Body(...)):
+    qid = (payload.get("id") or "").strip()
+    pubstore.remove_queue(qid)
+    return {"ok": True, "queue": _queue_view()}
+
+
+# ─── Publicar ahora (manual asistido) ────────────────────────────────────────
+@app.post("/api/publish")
+def publish_now(payload: dict = Body(...)):
+    reel_id = (payload.get("reel_id") or "").strip()
+    reel_path = OUTPUT / reel_id / "reel.mp4"
+    if not reel_path.exists():
+        return JSONResponse({"error": "reel no encontrado"}, status_code=404)
+    post = pubstore.get_post(reel_id) or _suggest_post(reel_id)
+    platforms = [p for p in (payload.get("platforms") or post.get("platforms") or []) if p in _PLATFORMS]
+    if not platforms:
+        return JSONResponse({"error": "Elige al menos una plataforma."}, status_code=400)
+
+    results = []
+    for platform in platforms:
+        res = get_publisher(platform).publish(
+            reel_path=reel_path,
+            caption=post.get("caption", ""),
+            hashtags=post.get("hashtags", []),
+            platform=platform,
+            channel=pubstore.get_channels().get(platform, {}),
+        )
+        results.append({"platform": platform, "status": res.status, "detail": res.detail, "url": res.url})
+    # Texto listo para copiar/pegar
+    text = caption_text(post.get("caption", ""), post.get("hashtags", []))
+    return {"results": results, "caption_text": text, "video": f"/output/{reel_id}/reel.mp4"}
+
+
+# ─── Canales ─────────────────────────────────────────────────────────────────
+@app.get("/api/channels")
+def get_channels():
+    return {"channels": pubstore.get_channels(), "platforms": _PLATFORMS}
+
+
+@app.post("/api/channels")
+def save_channels(payload: dict = Body(...)):
+    channels = payload.get("channels") or {}
+    clean = {p: channels[p] for p in channels if p in _PLATFORMS and isinstance(channels[p], dict)}
+    return {"channels": pubstore.set_channels(clean)}

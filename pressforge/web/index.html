@@ -43,6 +43,14 @@
       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
       Música
     </button>
+    <button type="button" data-view="agenda"
+      class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
+      Agenda
+    </button>
+    <button type="button" data-view="settings"
+      class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
+      Ajustes
+    </button>
 
     <div class="mt-auto px-3 py-2 text-[11px] text-zinc-600 border-t border-zinc-800/80">
       Recursos · OpenAI + FFmpeg
@@ -175,9 +183,15 @@
 
     <!-- ─────────── VISTA: LIBRARY ─────────── -->
     <section id="view-library" class="hidden">
-      <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center justify-between mb-1">
         <h1 class="text-2xl font-bold tracking-tight">Library</h1>
         <button id="refreshReels" type="button" class="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"><span data-ic="refresh" class="w-3.5 h-3.5"></span> refrescar</button>
+      </div>
+      <p class="text-sm text-zinc-500 mb-4">Clic en un reel para editar su caption y publicar/programar. Marca varios para programarlos en lote (ej. 1 al día).</p>
+      <div id="selBar" class="hidden items-center gap-3 mb-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-4 py-2.5">
+        <span id="selCount" class="text-sm font-medium">0 seleccionados</span>
+        <button type="button" onclick="openScheduleBulk()" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold">Programar en lote</button>
+        <button type="button" onclick="clearSel()" class="text-xs text-zinc-400 hover:text-zinc-200">limpiar</button>
       </div>
       <div id="gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <p class="text-zinc-600 text-sm col-span-full">Cargando…</p>
@@ -218,7 +232,31 @@
       </div>
     </section>
 
+    <!-- ─────────── VISTA: AGENDA ─────────── -->
+    <section id="view-agenda" class="hidden">
+      <div class="flex items-center justify-between mb-1">
+        <h1 class="text-2xl font-bold tracking-tight">Agenda de publicación</h1>
+        <button id="refreshAgenda" type="button" class="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"><span data-ic="refresh" class="w-3.5 h-3.5"></span> refrescar</button>
+      </div>
+      <p class="text-sm text-zinc-500 mb-5">Lo que está programado. El motor publica a su hora (con la app abierta).</p>
+      <div id="agendaList" class="space-y-2"><p class="text-zinc-600 text-sm">Cargando…</p></div>
+    </section>
+
+    <!-- ─────────── VISTA: AJUSTES (canales) ─────────── -->
+    <section id="view-settings" class="hidden">
+      <h1 class="text-2xl font-bold tracking-tight mb-1">Ajustes · Canales</h1>
+      <p class="text-sm text-zinc-500 mb-5">Conecta tus cuentas. La publicación automática real se irá activando por plataforma (hoy: asistente manual).</p>
+      <div id="channelsList" class="grid sm:grid-cols-2 gap-4 max-w-3xl"></div>
+      <button id="saveChannelsBtn" type="button" onclick="saveChannels()" class="mt-5 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-5 py-2.5 font-semibold text-sm">Guardar canales</button>
+      <p id="channelsStatus" class="text-xs text-zinc-500 mt-2"></p>
+    </section>
+
   </main>
+</div>
+
+<!-- Modal genérico (editor de reel / programar) -->
+<div id="modal" class="hidden fixed inset-0 z-50 bg-black/70 grid place-items-center p-4" onclick="if(event.target===this)closeModal()">
+  <div id="modalBody" class="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-auto p-5"></div>
 </div>
 
 <script>
@@ -243,13 +281,16 @@ const IC = {
   trash:'m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0',
   pencil:'M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.862 4.487Zm0 0L19.5 7.125',
   refresh:'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99',
+  agenda:'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5',
+  settings:'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.214 1.281c.06.36.293.674.622.84.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.7 7.7 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.5 6.5 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.5 6.5 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.9 6.9 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+  download:'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3',
 };
 function icon(name, cls='w-4 h-4') {
   const d = IC[name]; if (!d) return '';
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 function injectIcons() {
-  const NAV = { create:'create', library:'library', music:'music' };
+  const NAV = { create:'create', library:'library', music:'music', agenda:'agenda', settings:'settings' };
   document.querySelectorAll('.nav-item').forEach(b => b.insertAdjacentHTML('afterbegin', icon(NAV[b.dataset.view], 'w-[18px] h-[18px] shrink-0')));
   document.querySelectorAll('.mode-pill').forEach(b => b.insertAdjacentHTML('afterbegin', icon(b.dataset.mode, 'w-4 h-4 shrink-0')));
   document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.className));
@@ -259,9 +300,11 @@ function injectIcons() {
 document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
-  ['create','library','music'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
+  ['create','library','music','agenda','settings'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
   if (b.dataset.view === 'library') loadReels();
   if (b.dataset.view === 'music') loadMusic();
+  if (b.dataset.view === 'agenda') loadSchedule();
+  if (b.dataset.view === 'settings') loadChannels();
 }));
 
 // ─── Modos ───
@@ -564,22 +607,170 @@ $('upBtn').addEventListener('click', async () => {
 });
 
 // ─── Reels (Library) ───
+const PLATFORMS = [['youtube','YouTube'],['instagram','Instagram'],['facebook','Facebook'],['tiktok','TikTok']];
+let REELS = [], SEL = new Set();
+
 async function loadReels() {
-  const reels = await (await fetch('/api/reels')).json();
+  REELS = await (await fetch('/api/reels')).json();
   const g = $('gallery');
-  if (!reels.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">Aún no hay reels.</p>'; return; }
-  g.innerHTML = reels.map(x => `
-    <a href="${x.video}" target="_blank" class="group">
-      <div class="reel-vid rounded-xl overflow-hidden bg-zinc-800 border border-zinc-800 relative">
-        ${x.thumb ? `<img src="${x.thumb}" class="w-full h-full object-cover group-hover:scale-105 transition" alt=""/>` : ''}
-        <div class="absolute inset-0 grid place-items-center bg-black/20 opacity-0 group-hover:opacity-100 transition"><div class="h-10 w-10 rounded-full bg-white/90 text-black grid place-items-center">▶</div></div>
+  if (!REELS.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">Aún no hay reels.</p>'; $('selBar').classList.add('hidden'); return; }
+  g.innerHTML = REELS.map(x => {
+    const sel = SEL.has(x.id);
+    const badge = x.scheduled ? `<span class="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500 text-white">⏱ ${x.scheduled}</span>` : (x.has_post ? `<span class="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-700 text-zinc-200">✎</span>` : '');
+    return `
+    <div class="group">
+      <div class="reel-vid rounded-xl overflow-hidden bg-zinc-800 border ${sel?'border-indigo-500':'border-zinc-800'} relative">
+        ${x.thumb ? `<img src="${x.thumb}" onclick="openEditor('${esc(x.id)}')" class="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" alt=""/>` : ''}
+        <input type="checkbox" ${sel?'checked':''} onclick="event.stopPropagation();toggleSel('${esc(x.id)}')" class="absolute top-1.5 left-1.5 w-4 h-4 accent-indigo-500 cursor-pointer" title="Seleccionar" />
+        ${badge}
+        <div onclick="openEditor('${esc(x.id)}')" class="absolute inset-0 grid place-items-center bg-black/20 opacity-0 group-hover:opacity-100 transition cursor-pointer"><div class="h-9 w-9 rounded-full bg-white/90 text-black grid place-items-center">${icon('pencil','w-4 h-4')}</div></div>
       </div>
       <p class="text-xs mt-1.5 line-clamp-2 text-zinc-300">${esc(x.title)||x.id}</p>
       <p class="text-[11px] text-zinc-600">${x.duration ? x.duration.toFixed(1)+'s' : ''}</p>
-    </a>`).join('');
+    </div>`;
+  }).join('');
+  updateSelBar();
+}
+function toggleSel(id){ SEL.has(id)?SEL.delete(id):SEL.add(id); loadReels(); }
+function clearSel(){ SEL = new Set(); loadReels(); }
+function updateSelBar(){
+  $('selBar').classList.toggle('hidden', SEL.size===0);
+  $('selBar').classList.toggle('flex', SEL.size>0);
+  $('selCount').textContent = SEL.size + ' seleccionado' + (SEL.size===1?'':'s');
+}
+
+// ─── Modal ───
+function openModal(html){ $('modalBody').innerHTML = html; $('modal').classList.remove('hidden'); }
+function closeModal(){ $('modal').classList.add('hidden'); }
+function platformChecks(selected, cls){
+  return PLATFORMS.map(([v,l]) => `<label class="inline-flex items-center gap-1.5 text-sm mr-3 mb-1"><input type="checkbox" value="${v}" ${selected.includes(v)?'checked':''} class="${cls} accent-indigo-500"/> ${l}</label>`).join('');
+}
+
+// ─── Editor de reel ───
+async function openEditor(id){
+  const reel = REELS.find(r=>r.id===id) || {id};
+  const post = await (await fetch('/api/reels/'+encodeURIComponent(id)+'/post')).json();
+  openModal(`
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-bold truncate">${esc(reel.title||id)}</h3>
+      <button type="button" onclick="closeModal()" class="text-zinc-500 hover:text-zinc-200 shrink-0 ml-2">✕</button>
+    </div>
+    <video src="/output/${esc(id)}/reel.mp4" controls class="reel-vid w-40 rounded-lg bg-black mb-3"></video>
+    <label class="block text-[11px] text-zinc-500 mb-1">Caption</label>
+    <textarea id="ed-caption" rows="4" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(post.caption||'')}</textarea>
+    <label class="block text-[11px] text-zinc-500 mb-1">Hashtags (sin #, separados por espacio)</label>
+    <input id="ed-tags" value="${esc((post.hashtags||[]).join(' '))}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
+    <label class="block text-[11px] text-zinc-500 mb-1">Plataformas</label>
+    <div class="mb-4">${platformChecks(post.platforms||[], 'ed-plat')}</div>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" onclick="savePost('${esc(id)}')" class="bg-zinc-800 hover:bg-zinc-700 rounded-lg px-4 py-2 text-sm">Guardar</button>
+      <button type="button" onclick="publishNow('${esc(id)}')" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-2 text-sm font-semibold">Publicar ahora</button>
+      <button type="button" onclick="openSchedule(['${esc(id)}'])" class="inline-flex items-center gap-1.5 border border-zinc-700 hover:bg-zinc-800 rounded-lg px-4 py-2 text-sm">${icon('agenda','w-4 h-4')} Programar</button>
+      <a href="/output/${esc(id)}/reel.mp4" download class="inline-flex items-center gap-1.5 border border-zinc-700 hover:bg-zinc-800 rounded-lg px-4 py-2 text-sm">${icon('download','w-4 h-4')} mp4</a>
+    </div>
+    <p id="ed-status" class="text-xs text-zinc-500 mt-3"></p>`);
+}
+function readEditor(){
+  const platforms = [...document.querySelectorAll('.ed-plat:checked')].map(c=>c.value);
+  return { caption: $('ed-caption').value, hashtags: $('ed-tags').value, platforms };
+}
+async function savePost(id){
+  await fetch('/api/reels/'+encodeURIComponent(id)+'/post', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readEditor())});
+  $('ed-status').textContent = '✓ Guardado'; loadReels();
+}
+async function publishNow(id){
+  const e = readEditor();
+  await fetch('/api/reels/'+encodeURIComponent(id)+'/post', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(e)});
+  if(!e.platforms.length){ $('ed-status').textContent = 'Elige al menos una plataforma.'; return; }
+  const j = await (await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reel_id:id, platforms:e.platforms})})).json();
+  if(j.error){ $('ed-status').textContent='✗ '+j.error; return; }
+  openModal(`
+    <div class="flex items-center justify-between mb-3"><h3 class="font-bold">Listo para publicar</h3><button onclick="closeModal()" class="text-zinc-500 hover:text-zinc-200">✕</button></div>
+    <p class="text-sm text-zinc-400 mb-3">El caption está preparado. Descarga el mp4 y pégalo en cada red (la publicación 100% automática se activa al conectar las APIs en Ajustes).</p>
+    <a href="${j.video}" download class="inline-flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-400 rounded-lg px-4 py-2 text-sm font-semibold mb-3">${icon('download','w-4 h-4')} Descargar reel.mp4</a>
+    <label class="block text-[11px] text-zinc-500 mb-1">Caption + hashtags (cópialo)</label>
+    <textarea readonly rows="5" onclick="this.select()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3">${esc(j.caption_text)}</textarea>
+    <div class="text-xs text-zinc-500">${j.results.map(r=>'• '+r.platform+': '+esc(r.detail)).join('<br>')}</div>`);
+  loadReels();
+}
+
+// ─── Programar ───
+function defaultStart(){ const d=new Date(); d.setDate(d.getDate()+1); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T09:00`; }
+function openScheduleBulk(){ openSchedule([...SEL]); }
+function openSchedule(ids){
+  if(!ids.length) return;
+  openModal(`
+    <div class="flex items-center justify-between mb-3"><h3 class="font-bold">Programar ${ids.length} reel${ids.length>1?'s':''}</h3><button onclick="closeModal()" class="text-zinc-500 hover:text-zinc-200">✕</button></div>
+    <p class="text-sm text-zinc-400 mb-3">${ids.length>1?'Se publicará uno cada intervalo, empezando en la fecha elegida.':'Se publicará en la fecha elegida.'}</p>
+    <label class="block text-[11px] text-zinc-500 mb-1">Empezar</label>
+    <input id="sc-start" type="datetime-local" value="${defaultStart()}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3"/>
+    ${ids.length>1?`<label class="block text-[11px] text-zinc-500 mb-1">Cada cuántos días</label>
+    <input id="sc-interval" type="number" min="1" max="30" value="1" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3"/>`:'<input id="sc-interval" type="hidden" value="1"/>'}
+    <label class="block text-[11px] text-zinc-500 mb-1">Plataformas</label>
+    <div class="mb-4">${platformChecks([], 'sc-plat')}</div>
+    <button type="button" onclick='doSchedule(${JSON.stringify(ids)})' class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-5 py-2 text-sm font-semibold">Programar</button>
+    <p id="sc-status" class="text-xs text-zinc-500 mt-3"></p>`);
+}
+async function doSchedule(ids){
+  const platforms = [...document.querySelectorAll('.sc-plat:checked')].map(c=>c.value);
+  if(!platforms.length){ $('sc-status').textContent='Elige al menos una plataforma.'; return; }
+  const body = { reel_ids: ids, platforms, start: $('sc-start').value, interval_days: +($('sc-interval').value||1) };
+  const j = await (await fetch('/api/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(j.error){ $('sc-status').textContent='✗ '+j.error; return; }
+  closeModal(); clearSel(); loadReels();
+  document.querySelector('.nav-item[data-view="agenda"]').click();
+}
+
+// ─── Agenda ───
+const STATUS_ES = { pending:'⏳ programado', ready:'✅ listo (manual)', published:'✅ publicado', failed:'✗ error' };
+async function loadSchedule(){
+  const j = await (await fetch('/api/schedule')).json();
+  const list = j.queue || [];
+  const el = $('agendaList');
+  if(!list.length){ el.innerHTML='<p class="text-zinc-600 text-sm">Nada programado todavía. Ve a Library, elige reels y prográmalos.</p>'; return; }
+  el.innerHTML = list.map(it=>`
+    <div class="flex items-center gap-3 bg-zinc-900/50 border border-zinc-800 rounded-xl p-3">
+      <span class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300 shrink-0">${STATUS_ES[it.status]||esc(it.status)}</span>
+      <div class="min-w-0 flex-1">
+        <div class="text-sm truncate">${esc(it.title)}</div>
+        <div class="text-[11px] text-zinc-500">${esc(it.platform)} · ${esc((it.scheduled_at||'').replace('T',' '))}</div>
+      </div>
+      <button type="button" onclick="cancelSchedule('${it.id}')" class="text-xs text-red-400/70 hover:text-red-400 shrink-0">cancelar</button>
+    </div>`).join('');
+}
+async function cancelSchedule(id){
+  await fetch('/api/schedule/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  loadSchedule(); loadReels();
+}
+
+// ─── Canales (Ajustes) ───
+const CHANNEL_FIELDS = {
+  youtube:['client_id','client_secret','refresh_token'],
+  instagram:['ig_user_id','access_token'],
+  facebook:['page_id','access_token'],
+  tiktok:['client_key','client_secret','access_token'],
+};
+async function loadChannels(){
+  const j = await (await fetch('/api/channels')).json();
+  const ch = j.channels||{};
+  $('channelsList').innerHTML = PLATFORMS.map(([v,l])=>`
+    <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+      <div class="font-semibold text-sm mb-2">${l}</div>
+      ${(CHANNEL_FIELDS[v]||[]).map(f=>`
+        <label class="block text-[11px] text-zinc-500 mb-1">${f}</label>
+        <input data-ch="${v}" data-field="${f}" value="${esc((ch[v]||{})[f]||'')}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>`).join('')}
+      <p class="text-[11px] text-zinc-600">Publicación real: próximamente. Hoy se prepara el caption (manual).</p>
+    </div>`).join('');
+}
+async function saveChannels(){
+  const ch = {};
+  document.querySelectorAll('[data-ch]').forEach(i=>{ (ch[i.dataset.ch] = ch[i.dataset.ch]||{})[i.dataset.field] = i.value; });
+  await fetch('/api/channels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channels:ch})});
+  $('channelsStatus').textContent='✓ Canales guardados';
 }
 
 $('refreshReels').addEventListener('click', loadReels);
+$('refreshAgenda').addEventListener('click', loadSchedule);
 $('refreshMusic').addEventListener('click', loadMusic);
 injectIcons();
 loadMusic();

@@ -10,6 +10,9 @@ venv/
 output/
 !output/.gitkeep
 
+# Datos locales de publicación (cola, canales con tokens) — nunca al repo
+data/
+
 # OS / editor
 .DS_Store
 Thumbs.db
