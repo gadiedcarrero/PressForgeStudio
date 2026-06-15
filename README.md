@@ -80,6 +80,27 @@ python -m pressforge doctor             # debe dar todo ✓
 python -m pressforge serve              # http://127.0.0.1:8000
 ```
 
+### 🍎 macOS (Apple Silicon M1/M2/M3) — modo fácil (doble clic)
+
+Ideal para correrlo en una Mac. Una sola vez:
+
+```bash
+# 1. Requisitos (una vez): Homebrew + FFmpeg
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install ffmpeg python git
+
+# 2. Clonar
+git clone https://github.com/gadiedcarrero/PressForgeStudio.git
+cd PressForgeStudio
+```
+
+Luego, en Finder, dentro de la carpeta:
+1. Doble clic en **`setup.command`** (instala todo). *La primera vez, si macOS bloquea el archivo: clic derecho → Abrir → Abrir.*
+2. Abre **`.env`** y pega tu `OPENAI_API_KEY`.
+3. Doble clic en **`run.command`** → se abre la app en el navegador.
+
+> Para volver a usarla otro día: solo **doble clic en `run.command`**.
+
 ### Importante al cambiar de PC
 Estos NO viajan en el repo (están en `.gitignore`):
 - **`.env`** → recréalo con tu `OPENAI_API_KEY`.
