@@ -879,6 +879,13 @@ function openBrandEditor(id){
     </div>
     <label class="block text-[11px] text-zinc-500 mb-1">Hashtags por defecto (sin #)</label>
     <input id="br-tags" value="${esc((b.hashtags||[]).join(' '))}" placeholder="terror historia misterio" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
+
+    <div class="border-t border-zinc-800 pt-3 mb-4">
+      <button type="button" id="br-brandingBtn" onclick="genBranding()" class="inline-flex items-center gap-1.5 text-sm border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 rounded-lg px-3 py-1.5">${icon('create','w-4 h-4')} Generar logo + banners con IA</button>
+      <p class="text-[11px] text-zinc-600 mt-1">Usa el nombre y el nicho de arriba. Tarda ~20-30 s.</p>
+      <div id="br-branding" class="mt-3"></div>
+    </div>
+
     <div class="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">Cuentas conectadas</div>
     <div class="space-y-3 mb-4">
       ${PLATFORMS.map(([v,l])=>`
@@ -905,6 +912,25 @@ async function deleteBrand(id){
   if(!confirm('¿Eliminar esta marca? (no borra los reels)')) return;
   await fetch('/api/brands/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
   loadBrands();
+}
+async function genBranding(){
+  const name = $('br-name').value.trim();
+  if(!name){ $('br-status').textContent='Pon el nombre de la marca primero.'; return; }
+  const btn = $('br-brandingBtn'); btn.disabled = true;
+  const box = $('br-branding');
+  box.innerHTML = '<p class="text-xs text-zinc-500">🎨 Generando logo + banners… (~20-30 s)</p>';
+  try {
+    const j = await (await fetch('/api/brands/branding',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ name, niche: $('br-niche').value })})).json();
+    if(j.error){ box.innerHTML = '<p class="text-xs text-red-400">✗ '+esc(j.error)+'</p>'; return; }
+    box.innerHTML = '<div class="grid grid-cols-2 gap-2">' + j.assets.map(a=>`
+      <div class="border border-zinc-800 rounded-lg p-2">
+        <img src="${a.url}" class="w-full ${a.logo?'aspect-square object-contain bg-white/5':'object-cover'} rounded mb-1"/>
+        <div class="text-[10px] text-zinc-400 mb-1">${esc(a.label)}</div>
+        <a href="${a.url}" download="${esc(a.filename)}" class="inline-flex items-center gap-1 text-[11px] text-indigo-300 hover:underline">${icon('download','w-3 h-3')} descargar</a>
+      </div>`).join('') + '</div>';
+  } catch(e){ box.innerHTML = '<p class="text-xs text-red-400">✗ error generando</p>'; }
+  finally { btn.disabled = false; }
 }
 
 // ─── Muestra de voz ───

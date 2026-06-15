@@ -623,3 +623,19 @@ def save_brand(payload: dict = Body(...)):
 def remove_brand(payload: dict = Body(...)):
     pubstore.delete_brand((payload.get("id") or "").strip())
     return {"brands": pubstore.list_brands()}
+
+
+@app.post("/api/brands/branding")
+def brand_branding(payload: dict = Body(...)):
+    """Genera logo(s) + banners por red para una marca (Brand Kit con IA)."""
+    from ..branding import generate_brand_kit
+
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return JSONResponse({"error": "Escribe el nombre de la marca primero."}, status_code=400)
+    niche = (payload.get("niche") or "").strip()
+    style = (payload.get("style") or "").strip()
+    try:
+        return generate_brand_kit(name, niche, style)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"error": str(exc)}, status_code=500)
