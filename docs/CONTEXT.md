@@ -46,7 +46,8 @@ cuando se trata de historia real.
 - **Producción:** nº de imágenes **auto-escalado** por longitud (~1 cada 4 s, tope 18). Subtítulos sin desbordarse. Resiliencia ante el filtro de seguridad de imágenes (reintento → reutiliza anterior → neutral → sólido).
 - **Música:** subir + tags (lápiz para editar con sugerencias), selección `Auto` por mood.
 - **Marcas/Canales:** una marca por nicho con nicho, hashtags/voz/música por defecto y cuentas por plataforma. Reels se asignan a marca (hereda estilo); Library tiene badge y filtro por marca.
-- **Publicación:** editor de reel (caption auto-sugerido + hashtags + plataformas), **publicar ahora** (manual asistido) y **programar** (individual o en lote: N reels, 1/día). **Agenda** con estado. Scheduler en hilo de fondo.
+- **Publicación:** editor de reel (caption auto-sugerido + hashtags + plataformas), **publicar ahora** (manual asistido) y **programar** (individual o en lote: N reels, 1/día). **Agenda** con estado. Scheduler en hilo de fondo. Descarga con el **título** del vídeo (`/api/reels/{id}/download`).
+- **Internal linking:** botón "Generar con IA" en el editor → descripción + hashtags + **entidades clave** (`describe()` en el ScriptProvider). `/api/reels/{id}/related` cruza esas entidades con otros reels (substring sobre su story.json) para sugerir **reels relacionados** e insertar referencias en el caption (telaraña Medusa→Poseidón→…).
 - **Branding:** logo isotipo + favicon; iconos SVG outline monocromos.
 
 ---

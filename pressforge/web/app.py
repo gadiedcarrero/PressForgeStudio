@@ -427,6 +427,70 @@ def save_post(reel_id: str, payload: dict = Body(...)):
                              platforms=platforms, brand_id=brand_id)
 
 
+def _reel_story(reel_id: str) -> dict:
+    try:
+        return json.loads((OUTPUT / reel_id / "story.json").read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+# ─── Descripción IA + reels relacionados (internal linking) ──────────────────
+@app.post("/api/reels/{reel_id}/describe")
+def describe_reel(reel_id: str):
+    from ..registry import get_script_provider
+
+    data = _reel_story(reel_id)
+    if not data:
+        return JSONResponse({"error": "reel no encontrado"}, status_code=404)
+    title = data.get("title", "")
+    narration = data.get("full_narration") or " ".join(
+        s.get("narration", "") for s in data.get("scenes", [])
+    )
+    try:
+        desc = get_script_provider().describe(title=title, narration=narration)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"error": str(exc)}, status_code=400)
+
+    cur = pubstore.get_post(reel_id)
+    pubstore.set_post(
+        reel_id, caption=desc["caption"], hashtags=desc["hashtags"],
+        platforms=cur.get("platforms", []), brand_id=cur.get("brand_id"),
+        entities=desc["entities"],
+    )
+    return desc
+
+
+@app.get("/api/reels/{reel_id}/related")
+def related_reels(reel_id: str):
+    """Otros reels que mencionan las mismas entidades (para enlazarlos)."""
+    ents = [e.lower() for e in pubstore.get_post(reel_id).get("entities", []) if e.strip()]
+    if not ents:
+        return {"related": [], "needs_describe": True}
+
+    out = []
+    for d in sorted(OUTPUT.iterdir(), reverse=True):
+        if not d.is_dir() or d.name == reel_id:
+            continue
+        if not ((d / "reel.mp4").exists() and (d / "story.json").exists()):
+            continue
+        data = _reel_story(d.name)
+        haystack = " ".join([
+            data.get("title", ""), data.get("hook", ""),
+            data.get("full_narration", ""), data.get("niche", ""),
+        ]).lower()
+        matched = sorted({e for e in ents if e in haystack})
+        if matched:
+            imgs = sorted((d / "images").glob("*.png")) if (d / "images").exists() else []
+            out.append({
+                "id": d.name,
+                "title": data.get("title") or d.name,
+                "video": f"/output/{d.name}/reel.mp4",
+                "thumb": f"/output/{d.name}/images/{imgs[0].name}" if imgs else None,
+                "matched": matched,
+            })
+    return {"related": out, "needs_describe": False}
+
+
 # ─── Programación ────────────────────────────────────────────────────────────
 @app.post("/api/schedule")
 def schedule(payload: dict = Body(...)):

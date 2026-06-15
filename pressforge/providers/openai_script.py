@@ -20,6 +20,19 @@ class _EventSelection(BaseModel):
     )
 
 
+class _Description(BaseModel):
+    caption: str = Field(
+        description="Descripción/caption del reel para redes (2-4 líneas), con "
+        "gancho, que invite a ver y comentar. SIN hashtags dentro del texto."
+    )
+    hashtags: list[str] = Field(description="5-8 hashtags relevantes, SIN el símbolo #.")
+    entities: list[str] = Field(
+        description="3-8 entidades clave mencionadas en la historia (personajes, "
+        "dioses, lugares, eventos, civilizaciones) que podrían ser su PROPIO "
+        "reel. Nombres propios, sin artículos. Ej: 'Poseidón', 'Atenea'."
+    )
+
+
 # Inyectada en TODOS los prompts de guion. El hook es ~50% del éxito del reel.
 _HOOK_DOCTRINE = """
 
@@ -234,6 +247,29 @@ class OpenAIScriptProvider:
             if len(clean) >= count:
                 break
         return clean or list(range(min(count, len(events))))
+
+    def describe(self, *, title: str, narration: str) -> dict:
+        """Descripción para redes + hashtags + entidades clave (para enlazar reels)."""
+        completion = client().beta.chat.completions.parse(
+            model=self.settings.script_model,
+            messages=[
+                {"role": "system", "content": (
+                    f"Eres community manager de un canal de reels históricos. Escribes en "
+                    f"{self.settings.language}. Generas la descripción para publicar el reel."
+                )},
+                {"role": "user", "content": f"Título: {title}\n\nNarración:\n{narration}"},
+            ],
+            response_format=_Description,
+            temperature=0.6,
+        )
+        d = completion.choices[0].message.parsed
+        if d is None:
+            raise RuntimeError("No se pudo generar la descripción.")
+        return {
+            "caption": d.caption.strip(),
+            "hashtags": [h.lstrip("#").strip() for h in d.hashtags if h.strip()],
+            "entities": [e.strip() for e in d.entities if e.strip()],
+        }
 
     @staticmethod
     def _to_story(draft: StoryDraft, *, niche: str) -> Story:

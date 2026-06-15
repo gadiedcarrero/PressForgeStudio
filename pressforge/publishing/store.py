@@ -47,7 +47,7 @@ def get_post(reel_id: str) -> dict:
 
 def set_post(
     reel_id: str, *, caption: str, hashtags: list[str], platforms: list[str],
-    brand_id: str | None = None,
+    brand_id: str | None = None, entities: list[str] | None = None,
 ) -> dict:
     with _lock:
         data = _load()
@@ -56,8 +56,9 @@ def set_post(
             "caption": caption,
             "hashtags": hashtags,
             "platforms": platforms,
-            # conserva la marca si no se pasa una nueva
+            # conserva marca y entidades si no se pasan nuevas
             "brand_id": brand_id if brand_id is not None else prev.get("brand_id", ""),
+            "entities": entities if entities is not None else prev.get("entities", []),
         }
         _save(data)
         return data["posts"][reel_id]

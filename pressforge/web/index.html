@@ -678,8 +678,13 @@ async function openEditor(id){
       <option value="">(sin marca)</option>
       ${BRANDS.map(b=>`<option value="${esc(b.id)}" ${(post.brand_id||reel.brand_id)===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}
     </select>
-    <label class="block text-[11px] text-zinc-500 mb-1">Caption</label>
-    <textarea id="ed-caption" rows="4" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(post.caption||'')}</textarea>
+    <div class="flex items-center justify-between mb-1">
+      <label class="block text-[11px] text-zinc-500">Descripción / caption</label>
+      <button type="button" id="ed-ai" onclick="describeReel('${esc(id)}')" class="inline-flex items-center gap-1 text-[11px] text-indigo-300 hover:text-indigo-200">${icon('create','w-3.5 h-3.5')} Generar con IA</button>
+    </div>
+    <textarea id="ed-caption" rows="4" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(post.caption||'')}</textarea>
+    <div id="ed-entities" class="flex flex-wrap gap-1 mb-3"></div>
+    <div id="ed-related" class="mb-3"></div>
     <label class="block text-[11px] text-zinc-500 mb-1">Hashtags (sin #, separados por espacio)</label>
     <input id="ed-tags" value="${esc((post.hashtags||[]).join(' '))}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
     <label class="block text-[11px] text-zinc-500 mb-1">Plataformas</label>
@@ -691,10 +696,49 @@ async function openEditor(id){
       <a href="/api/reels/${esc(id)}/download" class="inline-flex items-center gap-1.5 border border-zinc-700 hover:bg-zinc-800 rounded-lg px-4 py-2 text-sm">${icon('download','w-4 h-4')} mp4</a>
     </div>
     <p id="ed-status" class="text-xs text-zinc-500 mt-3"></p>`);
+  renderEntities(post.entities||[]);
+  loadRelated(id);
 }
 function readEditor(){
   const platforms = [...document.querySelectorAll('.ed-plat:checked')].map(c=>c.value);
   return { caption: $('ed-caption').value, hashtags: $('ed-tags').value, platforms, brand_id: $('ed-brand').value };
+}
+function renderEntities(ents){
+  const el = $('ed-entities'); if(!el) return;
+  el.innerHTML = (ents&&ents.length) ? ('<span class="text-[11px] text-zinc-500 mr-1">menciona:</span>'+ents.map(e=>`<span class="text-[11px] px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">${esc(e)}</span>`).join(' ')) : '';
+}
+async function describeReel(id){
+  $('ed-ai').disabled = true; $('ed-status').textContent='Generando descripción con IA…';
+  try {
+    const j = await (await fetch('/api/reels/'+encodeURIComponent(id)+'/describe',{method:'POST'})).json();
+    if(j.error){ $('ed-status').textContent='✗ '+j.error; return; }
+    $('ed-caption').value = j.caption || ''; $('ed-tags').value = (j.hashtags||[]).join(' ');
+    renderEntities(j.entities||[]);
+    $('ed-status').textContent='✓ Descripción generada';
+    loadRelated(id);
+  } catch(e){ $('ed-status').textContent='✗ error generando'; }
+  finally { $('ed-ai').disabled = false; }
+}
+async function loadRelated(id){
+  const el = $('ed-related'); if(!el) return;
+  let j; try { j = await (await fetch('/api/reels/'+encodeURIComponent(id)+'/related')).json(); } catch(e){ return; }
+  if(j.needs_describe){ el.innerHTML = '<p class="text-[11px] text-zinc-600">Pulsa «Generar con IA» para detectar reels relacionados.</p>'; return; }
+  if(!j.related || !j.related.length){ el.innerHTML = '<p class="text-[11px] text-zinc-600">Aún no hay otros reels que mencionen lo mismo.</p>'; return; }
+  el.innerHTML = '<div class="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">🔗 Reels relacionados (enlázalos)</div>'+
+    j.related.map(r=>`
+    <div class="flex items-center gap-2 mb-2">
+      ${r.thumb?`<img src="${r.thumb}" class="w-8 h-12 object-cover rounded shrink-0"/>`:''}
+      <div class="min-w-0 flex-1">
+        <div class="text-xs truncate">${esc(r.title)}</div>
+        <div class="text-[10px] text-zinc-500 truncate">menciona: ${r.matched.map(esc).join(', ')}</div>
+      </div>
+      <button type="button" onclick='insertRelated(${JSON.stringify(r.title)})' class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 shrink-0">insertar</button>
+    </div>`).join('');
+}
+function insertRelated(title){
+  const t = $('ed-caption');
+  t.value = (t.value||'').replace(/\s+$/,'') + '\n👉 Mira también: «' + title + '»';
+  t.focus();
 }
 async function savePost(id){
   await fetch('/api/reels/'+encodeURIComponent(id)+'/post', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readEditor())});
