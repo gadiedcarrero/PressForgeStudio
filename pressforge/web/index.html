@@ -324,6 +324,7 @@ const IC = {
   download:'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3',
   brand:'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.1 18.1 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z M6 6h.008v.008H6V6Z',
   play:'M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z',
+  stop:'M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z',
 };
 function icon(name, cls='w-4 h-4') {
   const d = IC[name]; if (!d) return '';
@@ -686,7 +687,7 @@ function updateSelBar(){
 
 // ─── Modal ───
 function openModal(html){ $('modalBody').innerHTML = html; $('modal').classList.remove('hidden'); }
-function closeModal(){ $('modal').classList.add('hidden'); }
+function closeModal(){ try { if(typeof _libStop==='function') _libStop(); } catch(e){} $('modal').classList.add('hidden'); }
 function platformChecks(selected, cls){
   return PLATFORMS.map(([v,l]) => `<label class="inline-flex items-center gap-1.5 text-sm mr-3 mb-1"><input type="checkbox" value="${v}" ${selected.includes(v)?'checked':''} class="${cls} accent-indigo-500"/> ${l}</label>`).join('');
 }
@@ -1043,6 +1044,7 @@ function openVoiceBrowser(){
   browseVoices();
 }
 async function browseVoices(){
+  _libStop();
   const box = $('lib-results');
   box.innerHTML = '<p class="text-zinc-500 text-sm">Buscando…</p>';
   const qs = new URLSearchParams({ language:$('lib-lang').value, use_case:$('lib-uc').value, search:$('lib-q').value });
@@ -1052,7 +1054,7 @@ async function browseVoices(){
   if (!j.voices.length){ box.innerHTML='<p class="text-zinc-500 text-sm">Sin resultados. Prueba otro filtro.</p>'; return; }
   box.innerHTML = j.voices.map(v=>`
     <div class="flex items-center gap-2 border border-zinc-800 rounded-lg p-2 mb-2">
-      <button type="button" onclick='playPreview(${JSON.stringify(v.preview)})' title="Escuchar" class="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200">${icon('play','w-3.5 h-3.5')}</button>
+      <button type="button" onclick='playPreview(this, ${JSON.stringify(v.preview)})' title="Escuchar / parar" class="shrink-0 w-8 h-8 grid place-items-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200">${icon('play','w-3.5 h-3.5')}</button>
       <div class="min-w-0 flex-1">
         <div class="text-sm truncate">${esc(v.name)}</div>
         <div class="text-[10px] text-zinc-500 truncate">${[v.accent,v.use_case,v.gender,v.description].filter(Boolean).map(esc).join(' · ')}</div>
@@ -1060,12 +1062,20 @@ async function browseVoices(){
       <button type="button" onclick='useLibraryVoice(${JSON.stringify(v.id)}, ${JSON.stringify(v.name)})' class="shrink-0 text-xs px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 font-medium">Usar</button>
     </div>`).join('');
 }
-let _libAudio = null;
-function playPreview(url){
+let _libAudio = null, _libBtn = null;
+function _libReset(){ if (_libBtn) _libBtn.innerHTML = icon('play','w-3.5 h-3.5'); _libBtn = null; }
+function _libStop(){ try { if(_libAudio){ _libAudio.pause(); _libAudio = null; } } catch(e){} _libReset(); }
+function playPreview(btn, url){
   if (!url) return;
-  try { if(_libAudio) _libAudio.pause(); } catch(e){}
+  // Si ya está sonando esta misma voz, este clic la para.
+  if (_libBtn === btn && _libAudio && !_libAudio.paused){ _libStop(); return; }
+  _libStop();
+  _libBtn = btn;
+  btn.innerHTML = icon('stop','w-3.5 h-3.5');
   _libAudio = new Audio(url);
-  _libAudio.play().catch(()=>{});
+  _libAudio.addEventListener('ended', _libReset);
+  _libAudio.addEventListener('error', _libReset);
+  _libAudio.play().catch(_libReset);
 }
 function useLibraryVoice(id, name){
   const sel = $('voiceSel');
