@@ -15,11 +15,11 @@ class OpenAIVoiceProvider:
     def __init__(self) -> None:
         self.settings = get_settings()
 
-    def synthesize(self, text: str, out_path: Path) -> Path:
+    def synthesize(self, text: str, out_path: Path, voice: str | None = None) -> Path:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         kwargs = dict(
             model=self.settings.voice_model,
-            voice=self.settings.voice_name,
+            voice=voice or self.settings.voice_name,
             input=text,
             response_format="mp3",
         )

@@ -125,12 +125,16 @@
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm mb-1 text-zinc-400">Voz</label>
-                <select id="voice" title="Voz" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                  <option value="">(por defecto)</option>
-                  <option>onyx</option><option>nova</option><option>echo</option>
-                  <option>fable</option><option>shimmer</option><option>alloy</option>
-                  <option>ash</option><option>ballad</option><option>coral</option><option>sage</option>
-                </select>
+                <div class="flex gap-1.5">
+                  <select id="voice" title="Voz" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">(por defecto)</option>
+                    <option>onyx</option><option>nova</option><option>echo</option>
+                    <option>fable</option><option>shimmer</option><option>alloy</option>
+                    <option>ash</option><option>ballad</option><option>coral</option><option>sage</option>
+                  </select>
+                  <button type="button" id="voicePlay" onclick="playVoice()" title="Escuchar muestra de la voz"
+                    class="shrink-0 grid place-items-center w-9 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800 text-zinc-300"><span data-ic="play" class="w-4 h-4"></span></button>
+                </div>
               </div>
               <div>
                 <label class="block text-sm mb-1 text-zinc-400">Música</label>
@@ -297,6 +301,7 @@ const IC = {
   settings:'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.214 1.281c.06.36.293.674.622.84.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.7 7.7 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.5 6.5 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.5 6.5 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.9 6.9 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
   download:'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3',
   brand:'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.1 18.1 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z M6 6h.008v.008H6V6Z',
+  play:'M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z',
 };
 function icon(name, cls='w-4 h-4') {
   const d = IC[name]; if (!d) return '';
@@ -900,6 +905,15 @@ async function deleteBrand(id){
   if(!confirm('¿Eliminar esta marca? (no borra los reels)')) return;
   await fetch('/api/brands/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
   loadBrands();
+}
+
+// ─── Muestra de voz ───
+let _voiceAudio = null;
+function playVoice(){
+  const v = $('voice').value || 'onyx';
+  try { if(_voiceAudio) _voiceAudio.pause(); } catch(e){}
+  _voiceAudio = new Audio('/api/voice-sample/' + encodeURIComponent(v));
+  _voiceAudio.play().catch(()=>{});
 }
 
 $('refreshReels').addEventListener('click', loadReels);

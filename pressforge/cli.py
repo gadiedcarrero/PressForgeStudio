@@ -59,6 +59,18 @@ def serve(
 
 
 @app.command()
+def voices(force: bool = typer.Option(False, "--force", help="Regenera aunque existan.")):
+    """Genera las muestras de audio de cada voz (assets/voice_samples/)."""
+    from .voice_samples import VOICES, generate_all
+
+    console.print(f"[bold]Generando {len(VOICES)} muestras de voz…[/]")
+    for v in VOICES:
+        console.print(f"  ♪ {v}")
+    generate_all(force=force)
+    console.print("[green]✓ Listas en assets/voice_samples/[/]")
+
+
+@app.command()
 def music():
     """Lista las pistas de música disponibles en assets/music/."""
     from .registry import get_music_provider

@@ -316,6 +316,20 @@ def job_status(job_id: str):
         return dict(job)
 
 
+@app.get("/api/voice-sample/{voice}")
+def voice_sample(voice: str):
+    """Muestra de audio de una voz (se genera la primera vez que se pide)."""
+    from ..voice_samples import VOICES, ensure_sample
+
+    if voice not in VOICES:
+        return JSONResponse({"error": "voz desconocida"}, status_code=404)
+    try:
+        path = ensure_sample(voice)
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"error": str(exc)}, status_code=500)
+    return FileResponse(path, media_type="audio/mpeg")
+
+
 @app.get("/api/reels")
 def list_reels():
     queue = pubstore.list_queue()
