@@ -1088,7 +1088,11 @@ function useLibraryVoice(id, name){
 
 // ─── Preview de voz (OpenAI: muestra fija · ElevenLabs: genera con la voz elegida) ───
 let _voiceAudio = null;
+function _voiceIcon(name){ const b = $('voicePlay'); if (b) b.innerHTML = icon(name, 'w-4 h-4'); }
+function _voiceStop(){ try { if(_voiceAudio){ _voiceAudio.pause(); _voiceAudio = null; } } catch(e){} _voiceIcon('play'); }
 function playVoice(){
+  // Si ya está sonando, este clic la para.
+  if (_voiceAudio && !_voiceAudio.paused){ _voiceStop(); return; }
   const p = $('voiceProvider').value;
   let url;
   if (p === 'openai') {
@@ -1099,11 +1103,13 @@ function playVoice(){
     $('voiceNote').textContent = 'Generando muestra…';
     url = '/api/voice-preview/elevenlabs?voice_id=' + encodeURIComponent(vid) + '&v=' + Date.now();
   }
-  try { if(_voiceAudio) _voiceAudio.pause(); } catch(e){}
+  _voiceStop();
+  _voiceIcon('stop');
   _voiceAudio = new Audio(url);
   _voiceAudio.addEventListener('playing', () => { if (p !== 'openai') $('voiceNote').textContent = ''; });
-  _voiceAudio.addEventListener('error', () => { if (p !== 'openai') $('voiceNote').textContent = '✗ no se pudo generar la muestra'; });
-  _voiceAudio.play().catch(()=>{});
+  _voiceAudio.addEventListener('ended', _voiceStop);
+  _voiceAudio.addEventListener('error', () => { if (p !== 'openai') $('voiceNote').textContent = '✗ no se pudo generar la muestra'; _voiceStop(); });
+  _voiceAudio.play().catch(_voiceStop);
 }
 
 $('refreshReels').addEventListener('click', loadReels);
