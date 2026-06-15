@@ -19,12 +19,13 @@ from .providers.base import (
 from .providers.ffmpeg_render import FFmpegRenderProvider
 from .providers.local_music import LocalLibraryMusicProvider
 from .providers.openai_image import OpenAIImageProvider
+from .providers.ollama_script import OllamaScriptProvider
 from .providers.openai_script import OpenAIScriptProvider
 from .providers.openai_voice import OpenAIVoiceProvider
 from .providers.whisper_subtitle import WhisperSubtitleProvider
 from .providers.wikipedia_research import WikipediaResearch
 
-_SCRIPT = {"openai": OpenAIScriptProvider}
+_SCRIPT = {"openai": OpenAIScriptProvider, "ollama": OllamaScriptProvider}
 _IMAGE = {"openai": OpenAIImageProvider}
 _VOICE = {"openai": OpenAIVoiceProvider}
 _SUBTITLE = {"whisper": WhisperSubtitleProvider}

@@ -82,6 +82,14 @@ cuando se trata de historia real.
 4. **Scheduler 24/7** sin la app abierta (servicio/cron del sistema, o cloud).
 5. **Pulidos pendientes**: énfasis de subtítulos por palabra clave (que el guion marque las palabras), elegir fecha en Efemérides (no solo hoy), duración objetivo del reel, más pistas de música por mood (íbamos por la pista 6: oscuro/terror).
 
+### Migración a local/gratis (V6) — estado
+La arquitectura permite mezclar pago/local por `.env`. Análisis honesto de calidad:
+- **Guion → Ollama** (`SCRIPT_PROVIDER=ollama`): YA construido (`providers/ollama_script.py`, subclase de OpenAIScriptProvider vía endpoint OpenAI-compat de Ollama). Default `qwen3:30b` (mejor que deepseek-r1 para esto: r1 "piensa" y rompe el JSON). **Falta probar/afinar en la Mac** (incl. desactivar el "thinking" de Qwen3 para JSON limpio). Calidad ~90% de GPT-4o.
+- **Subtítulos → Whisper local** (whisper.cpp/faster-whisper en la M1): calidad **idéntica**, gratis. Pendiente crear el provider. Mejor primer win.
+- **Imágenes → FLUX/SDXL local** (Draw Things/ComfyUI/mflux, NO Ollama): puede igualar a gpt-image-1, más setup/lento. Pendiente.
+- **Voz → TTS local** (XTTS/F5, NO Ollama): lo más difícil de igualar; mantener OpenAI por ahora.
+El usuario trabajará en una **Mac M1 Pro Max con Ollama** (modelos: qwen3:30b, deepseek-r1:32b/14b). Claude también estará en la Mac.
+
 ---
 
 ## 7. Cómo retomar con Claude en otra PC

@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     voice_model: str = "gpt-4o-mini-tts"
     subtitle_model: str = "whisper-1"
 
+    # --- Ollama (guion local gratis; SCRIPT_PROVIDER=ollama) ---
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model: str = "qwen3:30b"
+
     # --- Voz ---
     voice_name: str = "onyx"
     voice_instructions: str = (

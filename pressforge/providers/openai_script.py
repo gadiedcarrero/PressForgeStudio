@@ -133,8 +133,11 @@ Sugiere music_mood acorde.""" + _HOOK_DOCTRINE
 
 
 class OpenAIScriptProvider:
-    def __init__(self) -> None:
+    def __init__(self, client_obj=None, model: str | None = None) -> None:
         self.settings = get_settings()
+        # Parametrizable para reutilizar toda la lógica con otro motor (Ollama).
+        self._client = client_obj or client()
+        self._model = model or self.settings.script_model
 
     def generate(self, niche: str, *, scenes: int, extra: str | None = None) -> Story:
         user = (
@@ -146,8 +149,8 @@ class OpenAIScriptProvider:
         if extra:
             user += f"Indicaciones extra: {extra}\n"
 
-        completion = client().beta.chat.completions.parse(
-            model=self.settings.script_model,
+        completion = self._client.beta.chat.completions.parse(
+            model=self._model,
             messages=[
                 {"role": "system", "content": _SYSTEM.format(language=self.settings.language)},
                 {"role": "user", "content": user},
@@ -172,8 +175,8 @@ class OpenAIScriptProvider:
         if extra:
             user += f"Indicaciones extra: {extra}\n"
 
-        completion = client().beta.chat.completions.parse(
-            model=self.settings.script_model,
+        completion = self._client.beta.chat.completions.parse(
+            model=self._model,
             messages=[
                 {"role": "system", "content": _REFINE_SYSTEM.format(language=self.settings.language)},
                 {"role": "user", "content": user},
@@ -198,8 +201,8 @@ class OpenAIScriptProvider:
         if extra:
             user += f"Indicaciones extra: {extra}\n"
 
-        completion = client().beta.chat.completions.parse(
-            model=self.settings.script_model,
+        completion = self._client.beta.chat.completions.parse(
+            model=self._model,
             messages=[
                 {"role": "system", "content": _SOURCE_SYSTEM.format(language=self.settings.language)},
                 {"role": "user", "content": user},
@@ -227,8 +230,8 @@ class OpenAIScriptProvider:
             f"Eventos reales de un día como hoy:\n{listing}\n\n"
             f"Elige los {count} más interesantes/virales que encajen con el tema."
         )
-        completion = client().beta.chat.completions.parse(
-            model=self.settings.script_model,
+        completion = self._client.beta.chat.completions.parse(
+            model=self._model,
             messages=[
                 {"role": "system", "content": "Seleccionas eventos históricos para reels virales."},
                 {"role": "user", "content": user},
@@ -250,8 +253,8 @@ class OpenAIScriptProvider:
 
     def describe(self, *, title: str, narration: str) -> dict:
         """Descripción para redes + hashtags + entidades clave (para enlazar reels)."""
-        completion = client().beta.chat.completions.parse(
-            model=self.settings.script_model,
+        completion = self._client.beta.chat.completions.parse(
+            model=self._model,
             messages=[
                 {"role": "system", "content": (
                     f"Eres community manager de un canal de reels históricos. Escribes en "
