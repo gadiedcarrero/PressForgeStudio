@@ -16,6 +16,7 @@ from .providers.base import (
     SubtitleProvider,
     VoiceProvider,
 )
+from .providers.elevenlabs_voice import ElevenLabsVoiceProvider
 from .providers.ffmpeg_render import FFmpegRenderProvider
 from .providers.local_music import LocalLibraryMusicProvider
 from .providers.openai_image import OpenAIImageProvider
@@ -27,7 +28,7 @@ from .providers.wikipedia_research import WikipediaResearch
 
 _SCRIPT = {"openai": OpenAIScriptProvider, "ollama": OllamaScriptProvider}
 _IMAGE = {"openai": OpenAIImageProvider}
-_VOICE = {"openai": OpenAIVoiceProvider}
+_VOICE = {"openai": OpenAIVoiceProvider, "elevenlabs": ElevenLabsVoiceProvider}
 _SUBTITLE = {"whisper": WhisperSubtitleProvider}
 _RENDER = {"ffmpeg": FFmpegRenderProvider}
 _MUSIC = {"local": LocalLibraryMusicProvider}

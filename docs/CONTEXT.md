@@ -92,7 +92,7 @@ La arquitectura permite mezclar pago/local por `.env`. Análisis honesto de cali
 - **Guion → Ollama** (`SCRIPT_PROVIDER=ollama`): YA construido (`providers/ollama_script.py`, subclase de OpenAIScriptProvider vía endpoint OpenAI-compat de Ollama). Default `qwen3:30b` (mejor que deepseek-r1 para esto: r1 "piensa" y rompe el JSON). **Falta probar/afinar en la Mac** (incl. desactivar el "thinking" de Qwen3 para JSON limpio). Calidad ~90% de GPT-4o.
 - **Subtítulos → Whisper local** (whisper.cpp/faster-whisper en la M1): calidad **idéntica**, gratis. Pendiente crear el provider. Mejor primer win.
 - **Imágenes → FLUX/SDXL local** (Draw Things/ComfyUI/mflux, NO Ollama): puede igualar a gpt-image-1, más setup/lento. Pendiente.
-- **Voz → TTS local** (XTTS/F5, NO Ollama): lo más difícil de igualar; mantener OpenAI por ahora.
+- **Voz → TTS local** (XTTS/F5, NO Ollama): lo más difícil de igualar gratis. Alternativa premium YA integrada: **ElevenLabs** (`providers/elevenlabs_voice.py`, `VOICE_PROVIDER=elevenlabs`, key en Ajustes/BYOK, `ELEVENLABS_VOICE_ID`/`ELEVENLABS_MODEL=eleven_multilingual_v2`) — voz muy natural en español, de pago por caracteres.
 El usuario trabajará en una **Mac M1 Pro Max con Ollama** (modelos: qwen3:30b, deepseek-r1:32b/14b). Claude también estará en la Mac.
 
 ---

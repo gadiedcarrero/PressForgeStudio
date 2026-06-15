@@ -19,6 +19,7 @@ _lock = threading.RLock()
 # Claves conocidas: nombre interno -> etiqueta para la UI.
 KNOWN = {
     "openai_api_key": "OpenAI API Key",
+    "elevenlabs_api_key": "ElevenLabs API Key (voz, opcional)",
 }
 
 

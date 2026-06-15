@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model: str = "qwen3:30b"
 
+    # --- ElevenLabs (voz premium; VOICE_PROVIDER=elevenlabs) ---
+    elevenlabs_api_key: str = ""  # respaldo .env; preferido: Ajustes → API Keys
+    elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"  # voz por defecto (cámbiala por una en español)
+    elevenlabs_model: str = "eleven_multilingual_v2"
+
     # --- Voz ---
     voice_name: str = "onyx"
     voice_instructions: str = (
