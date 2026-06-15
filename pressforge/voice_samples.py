@@ -12,8 +12,8 @@ from .registry import get_voice_provider
 VOICES = ["onyx", "nova", "echo", "fable", "shimmer", "alloy", "ash", "ballad", "coral", "sage"]
 
 SAMPLE_TEXT = (
-    "Así sonará la narración de tus reels. Una historia que parece imposible… "
-    "pero ocurrió de verdad."
+    "Esta es la voz que narrará tus reels: cuenta historias reales que parecen "
+    "imposibles, con un ritmo ágil que engancha de principio a fin."
 )
 
 SAMPLES_DIR = Path("assets/voice_samples")

@@ -912,7 +912,7 @@ let _voiceAudio = null;
 function playVoice(){
   const v = $('voice').value || 'onyx';
   try { if(_voiceAudio) _voiceAudio.pause(); } catch(e){}
-  _voiceAudio = new Audio('/api/voice-sample/' + encodeURIComponent(v));
+  _voiceAudio = new Audio('/api/voice-sample/' + encodeURIComponent(v) + '?v=' + Date.now());
   _voiceAudio.play().catch(()=>{});
 }
 
