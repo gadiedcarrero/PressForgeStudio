@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     storage_dir: str = ""
     data_dir: str = ""
     output_dir: str = ""
+    music_dir: str = ""
 
     # --- Render ---
     fps: int = 30
@@ -98,3 +99,14 @@ def output_path() -> Path:
     """Carpeta raíz de los reels generados (output/<fecha>-<slug>/)."""
     s = get_settings()
     return _resolve(s.storage_dir, s.output_dir, "output")
+
+
+def music_path() -> Path:
+    """Biblioteca de música. Por defecto `assets/music` (incluida en el repo);
+    si hay STORAGE_DIR, va a `<STORAGE_DIR>/music` para compartirla entre PCs."""
+    s = get_settings()
+    if s.music_dir:
+        return Path(s.music_dir).expanduser()
+    if s.storage_dir:
+        return Path(s.storage_dir).expanduser() / "music"
+    return Path("assets/music")

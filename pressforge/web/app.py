@@ -21,7 +21,7 @@ from fastapi import Body, FastAPI, File, Form, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from ..config import output_path
+from ..config import music_path, output_path
 from ..models import SourceFact, story_from_dict, story_to_dict
 from ..pipeline import (
     auto_scene_count,
@@ -38,7 +38,7 @@ _PLATFORMS = ["youtube", "instagram", "facebook", "tiktok"]
 
 OUTPUT = output_path()  # carpeta raíz de reels (configurable vía STORAGE_DIR)
 WEB_DIR = Path(__file__).parent
-MUSIC_DIR = Path("assets/music")
+MUSIC_DIR = music_path()  # biblioteca de música (configurable vía STORAGE_DIR)
 _AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
 _MAX_MUSIC_BYTES = 50 * 1024 * 1024  # 50 MB
 

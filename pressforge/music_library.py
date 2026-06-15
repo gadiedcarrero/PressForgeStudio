@@ -12,7 +12,6 @@ import random
 import re
 from pathlib import Path
 
-_MUSIC_DIR = Path("assets/music")
 _EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}
 
 
@@ -21,9 +20,10 @@ def _tokens(text: str) -> set[str]:
 
 
 class MusicLibrary:
-    def __init__(self, directory: Path = _MUSIC_DIR) -> None:
-        self.dir = directory
-        self.meta_path = directory / "library.json"
+    def __init__(self, directory: Path | None = None) -> None:
+        from .config import music_path
+        self.dir = directory or music_path()
+        self.meta_path = self.dir / "library.json"
 
     # --- metadatos ---
     def _load(self) -> dict:

@@ -281,13 +281,13 @@ def produce_reel(
             if on_event:
                 on_event("    ♪ música no encontrada; sin música")
 
-    output_path = workdir / "reel.mp4"
+    final_path = workdir / "reel.mp4"
     job = RenderJob(
         workdir=workdir,
         scenes=story.scenes,
         audio_path=audio_path,
         subtitles_path=subs_path,
-        output_path=output_path,
+        output_path=final_path,
         music_path=music_path,
         width=settings.video_width,
         height=settings.video_height,
@@ -297,7 +297,7 @@ def produce_reel(
     get_render_provider().render(job)
     step("[bold cyan]5/5[/] [green]✓ Reel listo[/]", "5/5 · ✓ Reel listo")
 
-    return ReelResult(story=story, video_path=output_path, workdir=workdir, duration=total)
+    return ReelResult(story=story, video_path=final_path, workdir=workdir, duration=total)
 
 
 # ─── Conveniencia: guion + producción en un paso (usado por la CLI) ──────────
