@@ -48,7 +48,7 @@ def _process_once() -> None:
                 caption=post.get("caption", ""),
                 hashtags=post.get("hashtags", []),
                 platform=platform,
-                channel=store.get_channels().get(platform, {}),
+                channel=store.channels_for_reel(reel_id, platform),
             )
             store.update_queue(
                 it["id"], status=res.status, detail=res.detail,

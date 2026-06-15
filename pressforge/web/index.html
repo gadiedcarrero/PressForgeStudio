@@ -47,9 +47,9 @@
       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
       Agenda
     </button>
-    <button type="button" data-view="settings"
+    <button type="button" data-view="brands"
       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
-      Ajustes
+      Marcas
     </button>
 
     <div class="mt-auto px-3 py-2 text-[11px] text-zinc-600 border-t border-zinc-800/80">
@@ -76,6 +76,12 @@
       <div class="grid lg:grid-cols-[400px_1fr] gap-6 items-start">
         <!-- Formulario -->
         <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+          <label class="block text-sm mb-1 text-zinc-400">Marca / canal</label>
+          <select id="brandSel" title="Marca" onchange="onBrandChange()"
+            class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">(sin marca)</option>
+          </select>
+
           <div id="modeHint" class="hidden mb-4 text-xs bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 rounded-lg p-3"></div>
 
           <!-- Inventar / Histórico / Qué pasó hoy (campo tema) -->
@@ -188,6 +194,11 @@
         <button id="refreshReels" type="button" class="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"><span data-ic="refresh" class="w-3.5 h-3.5"></span> refrescar</button>
       </div>
       <p class="text-sm text-zinc-500 mb-4">Clic en un reel para editar su caption y publicar/programar. Marca varios para programarlos en lote (ej. 1 al día).</p>
+      <div class="mb-4">
+        <select id="brandFilter" title="Filtrar por marca" onchange="loadReels()" class="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="">Todas las marcas</option>
+        </select>
+      </div>
       <div id="selBar" class="hidden items-center gap-3 mb-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl px-4 py-2.5">
         <span id="selCount" class="text-sm font-medium">0 seleccionados</span>
         <button type="button" onclick="openScheduleBulk()" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-1.5 text-sm font-semibold">Programar en lote</button>
@@ -242,13 +253,14 @@
       <div id="agendaList" class="space-y-2"><p class="text-zinc-600 text-sm">Cargando…</p></div>
     </section>
 
-    <!-- ─────────── VISTA: AJUSTES (canales) ─────────── -->
-    <section id="view-settings" class="hidden">
-      <h1 class="text-2xl font-bold tracking-tight mb-1">Ajustes · Canales</h1>
-      <p class="text-sm text-zinc-500 mb-5">Conecta tus cuentas. La publicación automática real se irá activando por plataforma (hoy: asistente manual).</p>
-      <div id="channelsList" class="grid sm:grid-cols-2 gap-4 max-w-3xl"></div>
-      <button id="saveChannelsBtn" type="button" onclick="saveChannels()" class="mt-5 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-5 py-2.5 font-semibold text-sm">Guardar canales</button>
-      <p id="channelsStatus" class="text-xs text-zinc-500 mt-2"></p>
+    <!-- ─────────── VISTA: MARCAS ─────────── -->
+    <section id="view-brands" class="hidden">
+      <div class="flex items-center justify-between mb-1">
+        <h1 class="text-2xl font-bold tracking-tight">Marcas / Canales</h1>
+        <button type="button" onclick="openBrandEditor()" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-4 py-2 text-sm font-semibold">+ Nueva marca</button>
+      </div>
+      <p class="text-sm text-zinc-500 mb-5">Una marca por nicho (ej. terror histórico, dietas…), cada una con su nicho, estilo y sus propias cuentas conectadas.</p>
+      <div id="brandsList" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
     </section>
 
   </main>
@@ -284,13 +296,14 @@ const IC = {
   agenda:'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5',
   settings:'M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.214 1.281c.06.36.293.674.622.84.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.7 7.7 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.5 6.5 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.5 6.5 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.9 6.9 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
   download:'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3',
+  brand:'M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.1 18.1 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z M6 6h.008v.008H6V6Z',
 };
 function icon(name, cls='w-4 h-4') {
   const d = IC[name]; if (!d) return '';
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 function injectIcons() {
-  const NAV = { create:'create', library:'library', music:'music', agenda:'agenda', settings:'settings' };
+  const NAV = { create:'create', library:'library', music:'music', agenda:'agenda', brands:'brand' };
   document.querySelectorAll('.nav-item').forEach(b => b.insertAdjacentHTML('afterbegin', icon(NAV[b.dataset.view], 'w-[18px] h-[18px] shrink-0')));
   document.querySelectorAll('.mode-pill').forEach(b => b.insertAdjacentHTML('afterbegin', icon(b.dataset.mode, 'w-4 h-4 shrink-0')));
   document.querySelectorAll('[data-ic]').forEach(el => el.innerHTML = icon(el.dataset.ic, el.className));
@@ -300,11 +313,11 @@ function injectIcons() {
 document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
-  ['create','library','music','agenda','settings'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
+  ['create','library','music','agenda','brands'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
   if (b.dataset.view === 'library') loadReels();
   if (b.dataset.view === 'music') loadMusic();
   if (b.dataset.view === 'agenda') loadSchedule();
-  if (b.dataset.view === 'settings') loadChannels();
+  if (b.dataset.view === 'brands') loadBrands();
 }));
 
 // ─── Modos ───
@@ -497,7 +510,7 @@ async function produce(sid) {
   $('prod').scrollIntoView({behavior:'smooth', block:'center'});
   const r = await fetch('/api/produce', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ id: sid, script, voice: $('voice').value, music: $('music').value })
+    body: JSON.stringify({ id: sid, script, voice: $('voice').value, music: $('music').value, brand_id: $('brandSel').value })
   });
   const j = await r.json();
   if (j.error) { $('prodEvents').textContent = 'ERROR: ' + j.error; return; }
@@ -612,9 +625,13 @@ let REELS = [], SEL = new Set();
 
 async function loadReels() {
   REELS = await (await fetch('/api/reels')).json();
+  await refreshBrands();
   const g = $('gallery');
   if (!REELS.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">Aún no hay reels.</p>'; $('selBar').classList.add('hidden'); return; }
-  g.innerHTML = REELS.map(x => {
+  const filter = $('brandFilter') ? $('brandFilter').value : '';
+  const shown = filter ? REELS.filter(r => r.brand_id === filter) : REELS;
+  if (!shown.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">No hay reels de esa marca.</p>'; }
+  g.innerHTML = shown.map(x => {
     const sel = SEL.has(x.id);
     const badge = x.scheduled ? `<span class="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500 text-white">⏱ ${x.scheduled}</span>` : (x.has_post ? `<span class="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-700 text-zinc-200">✎</span>` : '');
     return `
@@ -626,7 +643,7 @@ async function loadReels() {
         <div onclick="openEditor('${esc(x.id)}')" class="absolute inset-0 grid place-items-center bg-black/20 opacity-0 group-hover:opacity-100 transition cursor-pointer"><div class="h-9 w-9 rounded-full bg-white/90 text-black grid place-items-center">${icon('pencil','w-4 h-4')}</div></div>
       </div>
       <p class="text-xs mt-1.5 line-clamp-2 text-zinc-300">${esc(x.title)||x.id}</p>
-      <p class="text-[11px] text-zinc-600">${x.duration ? x.duration.toFixed(1)+'s' : ''}</p>
+      <p class="text-[11px] text-zinc-600">${x.brand_name?('<span class=\"text-indigo-400\">'+esc(x.brand_name)+'</span> · '):''}${x.duration ? x.duration.toFixed(1)+'s' : ''}</p>
     </div>`;
   }).join('');
   updateSelBar();
@@ -656,6 +673,11 @@ async function openEditor(id){
       <button type="button" onclick="closeModal()" class="text-zinc-500 hover:text-zinc-200 shrink-0 ml-2">✕</button>
     </div>
     <video src="/output/${esc(id)}/reel.mp4" controls class="reel-vid w-40 rounded-lg bg-black mb-3"></video>
+    <label class="block text-[11px] text-zinc-500 mb-1">Marca</label>
+    <select id="ed-brand" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+      <option value="">(sin marca)</option>
+      ${BRANDS.map(b=>`<option value="${esc(b.id)}" ${(post.brand_id||reel.brand_id)===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}
+    </select>
     <label class="block text-[11px] text-zinc-500 mb-1">Caption</label>
     <textarea id="ed-caption" rows="4" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(post.caption||'')}</textarea>
     <label class="block text-[11px] text-zinc-500 mb-1">Hashtags (sin #, separados por espacio)</label>
@@ -672,7 +694,7 @@ async function openEditor(id){
 }
 function readEditor(){
   const platforms = [...document.querySelectorAll('.ed-plat:checked')].map(c=>c.value);
-  return { caption: $('ed-caption').value, hashtags: $('ed-tags').value, platforms };
+  return { caption: $('ed-caption').value, hashtags: $('ed-tags').value, platforms, brand_id: $('ed-brand').value };
 }
 async function savePost(id){
   await fetch('/api/reels/'+encodeURIComponent(id)+'/post', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readEditor())});
@@ -750,29 +772,97 @@ const CHANNEL_FIELDS = {
   facebook:['page_id','access_token'],
   tiktok:['client_key','client_secret','access_token'],
 };
-async function loadChannels(){
-  const j = await (await fetch('/api/channels')).json();
-  const ch = j.channels||{};
-  $('channelsList').innerHTML = PLATFORMS.map(([v,l])=>`
-    <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-      <div class="font-semibold text-sm mb-2">${l}</div>
-      ${(CHANNEL_FIELDS[v]||[]).map(f=>`
-        <label class="block text-[11px] text-zinc-500 mb-1">${f}</label>
-        <input data-ch="${v}" data-field="${f}" value="${esc((ch[v]||{})[f]||'')}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>`).join('')}
-      <p class="text-[11px] text-zinc-600">Publicación real: próximamente. Hoy se prepara el caption (manual).</p>
-    </div>`).join('');
+let BRANDS = [];
+
+async function refreshBrands(){
+  try { BRANDS = (await (await fetch('/api/brands')).json()).brands || []; } catch(e){ BRANDS = []; }
+  // selector en Crear
+  const prev = $('brandSel').value;
+  $('brandSel').innerHTML = '<option value="">(sin marca)</option>' + BRANDS.map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
+  $('brandSel').value = prev;
+  // filtro en Library
+  const fp = $('brandFilter');
+  if (fp){ const pv = fp.value; fp.innerHTML = '<option value="">Todas las marcas</option>' + BRANDS.map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join(''); fp.value = pv; }
 }
-async function saveChannels(){
-  const ch = {};
-  document.querySelectorAll('[data-ch]').forEach(i=>{ (ch[i.dataset.ch] = ch[i.dataset.ch]||{})[i.dataset.field] = i.value; });
-  await fetch('/api/channels',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channels:ch})});
-  $('channelsStatus').textContent='✓ Canales guardados';
+function brandById(id){ return BRANDS.find(b=>b.id===id); }
+function onBrandChange(){
+  const b = brandById($('brandSel').value);
+  if (b && b.niche && (MODE==='invent'||MODE==='historic')) { $('niche').value = b.niche; }
+  if (b && b.voice) $('voice').value = b.voice;
+  if (b && b.music) $('music').value = b.music;
+}
+
+async function loadBrands(){
+  await refreshBrands();
+  const el = $('brandsList');
+  if (!BRANDS.length){ el.innerHTML = '<p class="text-zinc-600 text-sm">Aún no hay marcas. Crea la primera (ej. una para terror, otra para historia).</p>'; return; }
+  el.innerHTML = BRANDS.map(b=>{
+    const conn = PLATFORMS.filter(([v])=> b.channels && b.channels[v] && Object.values(b.channels[v]).some(x=>x)).map(([,l])=>l);
+    return `
+    <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="font-semibold truncate">${esc(b.name)}</div>
+        <div class="flex items-center gap-2 shrink-0 text-zinc-400">
+          <button type="button" title="Editar" onclick='openBrandEditor(${JSON.stringify(b.id)})' class="hover:text-zinc-100">${icon('pencil','w-4 h-4')}</button>
+          <button type="button" title="Eliminar" onclick='deleteBrand(${JSON.stringify(b.id)})' class="hover:text-red-400">${icon('trash','w-4 h-4')}</button>
+        </div>
+      </div>
+      <div class="text-xs text-zinc-500 mb-2">${esc(b.niche||'sin nicho')}</div>
+      <div class="flex flex-wrap gap-1 mb-2">${(b.hashtags||[]).slice(0,5).map(h=>`<span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">#${esc(h)}</span>`).join('')}</div>
+      <div class="text-[11px] text-zinc-500">Canales: ${conn.length?esc(conn.join(', ')):'sin conectar'}</div>
+    </div>`;
+  }).join('');
+}
+
+function openBrandEditor(id){
+  const b = id ? (brandById(id)||{}) : {};
+  const ch = b.channels || {};
+  openModal(`
+    <div class="flex items-center justify-between mb-3"><h3 class="font-bold">${id?'Editar marca':'Nueva marca'}</h3><button onclick="closeModal()" class="text-zinc-500 hover:text-zinc-200">✕</button></div>
+    <input type="hidden" id="br-id" value="${esc(b.id||'')}"/>
+    <label class="block text-[11px] text-zinc-500 mb-1">Nombre</label>
+    <input id="br-name" value="${esc(b.name||'')}" placeholder="HistoriasOscuras" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div><label class="block text-[11px] text-zinc-500 mb-1">Nicho</label>
+      <input id="br-niche" value="${esc(b.niche||'')}" placeholder="terror histórico" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"/></div>
+      <div><label class="block text-[11px] text-zinc-500 mb-1">Voz por defecto</label>
+      <input id="br-voice" value="${esc(b.voice||'')}" placeholder="onyx" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"/></div>
+    </div>
+    <label class="block text-[11px] text-zinc-500 mb-1">Hashtags por defecto (sin #)</label>
+    <input id="br-tags" value="${esc((b.hashtags||[]).join(' '))}" placeholder="terror historia misterio" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
+    <div class="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">Cuentas conectadas</div>
+    <div class="space-y-3 mb-4">
+      ${PLATFORMS.map(([v,l])=>`
+        <details class="border border-zinc-800 rounded-lg p-2">
+          <summary class="text-sm cursor-pointer">${l}</summary>
+          <div class="mt-2">${(CHANNEL_FIELDS[v]||[]).map(f=>`
+            <input data-ch="${v}" data-field="${f}" value="${esc((ch[v]||{})[f]||'')}" placeholder="${f}" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>`).join('')}
+          <p class="text-[11px] text-zinc-600">Publicación real: próximamente. Hoy se prepara el caption (manual).</p></div>
+        </details>`).join('')}
+    </div>
+    <button type="button" onclick="saveBrand()" class="bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-5 py-2 text-sm font-semibold">Guardar marca</button>
+    <p id="br-status" class="text-xs text-zinc-500 mt-2"></p>`);
+}
+async function saveBrand(){
+  const channels = {};
+  document.querySelectorAll('[data-ch]').forEach(i=>{ if(i.value.trim()){ (channels[i.dataset.ch]=channels[i.dataset.ch]||{})[i.dataset.field]=i.value.trim(); } });
+  const body = { id: $('br-id').value, name: $('br-name').value, niche: $('br-niche').value,
+                 voice: $('br-voice').value, hashtags: $('br-tags').value, channels };
+  const j = await (await fetch('/api/brands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  if(j.error){ $('br-status').textContent='✗ '+j.error; return; }
+  closeModal(); loadBrands();
+}
+async function deleteBrand(id){
+  if(!confirm('¿Eliminar esta marca? (no borra los reels)')) return;
+  await fetch('/api/brands/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+  loadBrands();
 }
 
 $('refreshReels').addEventListener('click', loadReels);
 $('refreshAgenda').addEventListener('click', loadSchedule);
 $('refreshMusic').addEventListener('click', loadMusic);
 injectIcons();
+refreshBrands();
 loadMusic();
 </script>
 </body>

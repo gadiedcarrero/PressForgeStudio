@@ -196,7 +196,7 @@ def update_script(sid: str, payload: dict = Body(...)):
 
 
 # ─── Paso 2: producir el reel desde un guion (ya editado) ─────────────────────
-def _run_job(job_id: str, story_dict: dict, voice: str, music: str) -> None:
+def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: str) -> None:
     def on_event(msg: str) -> None:
         with _lock:
             _jobs[job_id]["events"].append(msg)
@@ -208,6 +208,8 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str) -> None:
             music=music or None,
             on_event=on_event,
         )
+        if brand_id:
+            pubstore.set_reel_brand(result.workdir.name, brand_id)
         with _lock:
             _jobs[job_id].update(
                 status="done",
@@ -236,11 +238,12 @@ def produce(payload: dict = Body(...)):
 
     voice = (payload.get("voice") or "").strip()
     music = (payload.get("music") or "").strip()
+    brand_id = (payload.get("brand_id") or "").strip()
     job_id = uuid.uuid4().hex[:12]
     with _lock:
         _jobs[job_id] = {"status": "running", "events": [], "title": story_dict.get("title", "")}
     threading.Thread(
-        target=_run_job, args=(job_id, dict(story_dict), voice, music), daemon=True
+        target=_run_job, args=(job_id, dict(story_dict), voice, music, brand_id), daemon=True
     ).start()
     return {"job_id": job_id}
 
@@ -344,6 +347,8 @@ def list_reels():
                     "thumb": f"/output/{d.name}/images/{imgs[0].name}" if imgs else None,
                     "has_post": bool(pubstore.get_post(d.name)),
                     "scheduled": sched_count.get(d.name, 0),
+                    "brand_id": pubstore.get_reel_brand(d.name),
+                    "brand_name": pubstore.get_brand(pubstore.get_reel_brand(d.name)).get("name", ""),
                 }
             )
     return reels
@@ -367,12 +372,16 @@ def _suggest_post(reel_id: str) -> dict:
         caption += f"\n\nFuente: {src}"
     base_tags = ["historia", "curiosidades", "shorts", "reels", "viral"]
     niche_tags = [w.lower() for w in (data.get("niche", "") or "").split() if len(w) > 3][:3]
+    brand = pubstore.get_brand(pubstore.get_reel_brand(reel_id))
+    brand_tags = [str(t).lstrip("#") for t in (brand.get("hashtags") or [])]
     seen, hashtags = set(), []
-    for t in niche_tags + base_tags:
-        if t not in seen:
+    for t in brand_tags + niche_tags + base_tags:
+        if t and t not in seen:
             seen.add(t)
             hashtags.append(t)
-    return {"caption": caption.strip(), "hashtags": hashtags, "platforms": []}
+    platforms = list((brand.get("channels") or {}).keys())
+    return {"caption": caption.strip(), "hashtags": hashtags, "platforms": platforms,
+            "brand_id": brand.get("id", "")}
 
 
 @app.get("/api/reels/{reel_id}/post")
@@ -393,7 +402,9 @@ def save_post(reel_id: str, payload: dict = Body(...)):
         raw_tags = raw_tags.replace(",", " ").split()
     hashtags = [str(t).lstrip("#").strip() for t in raw_tags if str(t).strip()]
     platforms = [p for p in (payload.get("platforms") or []) if p in _PLATFORMS]
-    return pubstore.set_post(reel_id, caption=caption, hashtags=hashtags, platforms=platforms)
+    brand_id = payload.get("brand_id")
+    return pubstore.set_post(reel_id, caption=caption, hashtags=hashtags,
+                             platforms=platforms, brand_id=brand_id)
 
 
 # ─── Programación ────────────────────────────────────────────────────────────
@@ -473,7 +484,7 @@ def publish_now(payload: dict = Body(...)):
             caption=post.get("caption", ""),
             hashtags=post.get("hashtags", []),
             platform=platform,
-            channel=pubstore.get_channels().get(platform, {}),
+            channel=pubstore.channels_for_reel(reel_id, platform),
         )
         results.append({"platform": platform, "status": res.status, "detail": res.detail, "url": res.url})
     # Texto listo para copiar/pegar
@@ -481,14 +492,36 @@ def publish_now(payload: dict = Body(...)):
     return {"results": results, "caption_text": text, "video": f"/output/{reel_id}/reel.mp4"}
 
 
-# ─── Canales ─────────────────────────────────────────────────────────────────
-@app.get("/api/channels")
-def get_channels():
-    return {"channels": pubstore.get_channels(), "platforms": _PLATFORMS}
+# ─── Marcas / canales por nicho ──────────────────────────────────────────────
+@app.get("/api/brands")
+def list_brands():
+    return {"brands": pubstore.list_brands(), "platforms": _PLATFORMS}
 
 
-@app.post("/api/channels")
-def save_channels(payload: dict = Body(...)):
+@app.post("/api/brands")
+def save_brand(payload: dict = Body(...)):
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return JSONResponse({"error": "La marca necesita un nombre."}, status_code=400)
+    raw_tags = payload.get("hashtags", [])
+    if isinstance(raw_tags, str):
+        raw_tags = raw_tags.replace(",", " ").split()
     channels = payload.get("channels") or {}
-    clean = {p: channels[p] for p in channels if p in _PLATFORMS and isinstance(channels[p], dict)}
-    return {"channels": pubstore.set_channels(clean)}
+    clean_ch = {p: channels[p] for p in channels if p in _PLATFORMS and isinstance(channels[p], dict)}
+    brand = pubstore.upsert_brand({
+        "id": (payload.get("id") or "").strip() or None,
+        "name": name,
+        "niche": (payload.get("niche") or "").strip(),
+        "description": (payload.get("description") or "").strip(),
+        "hashtags": [str(t).lstrip("#").strip() for t in raw_tags if str(t).strip()],
+        "voice": (payload.get("voice") or "").strip(),
+        "music": (payload.get("music") or "").strip(),
+        "channels": clean_ch,
+    })
+    return {"brand": brand, "brands": pubstore.list_brands()}
+
+
+@app.post("/api/brands/delete")
+def remove_brand(payload: dict = Body(...)):
+    pubstore.delete_brand((payload.get("id") or "").strip())
+    return {"brands": pubstore.list_brands()}

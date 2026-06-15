@@ -18,7 +18,8 @@ _lock = threading.RLock()
 
 
 def _default() -> dict:
-    return {"posts": {}, "queue": [], "channels": {}}
+    # brands: marcas/canales por nicho, cada una con sus cuentas conectadas.
+    return {"posts": {}, "queue": [], "channels": {}, "brands": {}}
 
 
 def _load() -> dict:
@@ -44,16 +45,68 @@ def get_post(reel_id: str) -> dict:
         return _load()["posts"].get(reel_id, {})
 
 
-def set_post(reel_id: str, *, caption: str, hashtags: list[str], platforms: list[str]) -> dict:
+def set_post(
+    reel_id: str, *, caption: str, hashtags: list[str], platforms: list[str],
+    brand_id: str | None = None,
+) -> dict:
     with _lock:
         data = _load()
+        prev = data["posts"].get(reel_id, {})
         data["posts"][reel_id] = {
             "caption": caption,
             "hashtags": hashtags,
             "platforms": platforms,
+            # conserva la marca si no se pasa una nueva
+            "brand_id": brand_id if brand_id is not None else prev.get("brand_id", ""),
         }
         _save(data)
         return data["posts"][reel_id]
+
+
+def set_reel_brand(reel_id: str, brand_id: str) -> None:
+    with _lock:
+        data = _load()
+        post = data["posts"].setdefault(reel_id, {"caption": "", "hashtags": [], "platforms": []})
+        post["brand_id"] = brand_id
+        _save(data)
+
+
+def get_reel_brand(reel_id: str) -> str:
+    return get_post(reel_id).get("brand_id", "")
+
+
+# ─── Marcas / canales por nicho ───
+def list_brands() -> list[dict]:
+    with _lock:
+        return sorted(_load()["brands"].values(), key=lambda b: b.get("name", ""))
+
+
+def get_brand(brand_id: str) -> dict:
+    with _lock:
+        return _load()["brands"].get(brand_id, {})
+
+
+def upsert_brand(brand: dict) -> dict:
+    with _lock:
+        data = _load()
+        bid = brand.get("id") or uuid.uuid4().hex[:12]
+        brand = {**data["brands"].get(bid, {}), **brand, "id": bid}
+        data["brands"][bid] = brand
+        _save(data)
+        return brand
+
+
+def delete_brand(brand_id: str) -> None:
+    with _lock:
+        data = _load()
+        data["brands"].pop(brand_id, None)
+        _save(data)
+
+
+def channels_for_reel(reel_id: str, platform: str) -> dict:
+    """Credenciales de la plataforma según la marca del reel."""
+    brand = get_brand(get_reel_brand(reel_id))
+    return (brand.get("channels") or {}).get(platform, {})
 
 
 # ─── Cola programada ───
