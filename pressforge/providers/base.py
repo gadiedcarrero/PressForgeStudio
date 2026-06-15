@@ -12,6 +12,10 @@ from typing import Protocol, runtime_checkable
 from ..models import RenderJob, SourceFact, Story, Word
 
 
+class ImageBlockedError(RuntimeError):
+    """La generación de imagen fue rechazada por el filtro de seguridad."""
+
+
 @runtime_checkable
 class ScriptProvider(Protocol):
     def generate(self, niche: str, *, scenes: int, extra: str | None = None) -> Story:

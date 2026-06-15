@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import unicodedata
 from dataclasses import asdict
 from datetime import datetime
@@ -17,7 +18,8 @@ from typing import Callable
 from rich.console import Console
 
 from .config import get_settings
-from .ffmpeg_utils import ffprobe_duration
+from .ffmpeg_utils import ffprobe_duration, run_ffmpeg
+from .providers.base import ImageBlockedError
 from .models import RenderJob, ReelResult, Story
 from .registry import (
     get_image_provider,
@@ -65,6 +67,31 @@ def _resolve_music(music: str | None, niche: str) -> Path | None:
     if music.lower() == "auto":
         return provider.get_track(mood=niche)
     return provider.get_track(track=music)
+
+
+def _fallback_image(path, last_image, image_provider, idx, total, console, on_event) -> None:
+    """Cuando una imagen se bloquea por seguridad: reutiliza la anterior, o genera
+    una neutral, o en último caso un fondo sólido. El reel nunca se cae por esto."""
+    msg = f"    ⚠ imagen {idx + 1}/{total} bloqueada por seguridad"
+    # 1) Reutiliza la última imagen válida (continuidad visual, sin coste).
+    if last_image and Path(last_image).exists():
+        shutil.copy(last_image, path)
+        note = f"{msg}; reutilizo la anterior"
+    else:
+        # 2) Imagen neutral garantizada-segura.
+        try:
+            image_provider.generate(
+                "dark cinematic atmospheric background, moody dramatic lighting, "
+                "fog and shadows, abstract, no people", path,
+            )
+            note = f"{msg}; uso una alternativa neutral"
+        except Exception:  # noqa: BLE001
+            # 3) Fondo sólido vía ffmpeg (sin API), por si todo falla.
+            run_ffmpeg(["-f", "lavfi", "-i", "color=c=0x0d1117:s=1024x1536", "-frames:v", "1", str(path)])
+            note = f"{msg}; uso un fondo sólido"
+    console.print(f"    [yellow]{note}[/]")
+    if on_event:
+        on_event(note)
 
 
 def _assign_durations(story: Story, total: float) -> None:
@@ -205,13 +232,20 @@ def produce_reel(
     # --- 1. Imágenes ---
     step("[bold cyan]1/5[/] Generando imágenes…", "1/5 · Generando imágenes…")
     image_provider = get_image_provider()
+    last_image: Path | None = None
+    n = len(story.scenes)
     for scene in story.scenes:
         path = workdir / "images" / f"scene_{scene.index:02d}.png"
-        image_provider.generate(scene.image_prompt, path)
+        try:
+            image_provider.generate(scene.image_prompt, path)
+            last_image = path
+            console.print(f"    [green]✓[/] escena {scene.index + 1}/{n}")
+            if on_event:
+                on_event(f"    ✓ imagen {scene.index + 1}/{n}")
+        except ImageBlockedError:
+            _fallback_image(path, last_image, image_provider, scene.index, n, console, on_event)
+            last_image = path
         scene.image_path = path
-        console.print(f"    [green]✓[/] escena {scene.index + 1}/{len(story.scenes)}")
-        if on_event:
-            on_event(f"    ✓ imagen {scene.index + 1}/{len(story.scenes)}")
 
     # --- 2. Voz ---
     step("[bold cyan]2/5[/] Generando narración…", "2/5 · Generando narración…")

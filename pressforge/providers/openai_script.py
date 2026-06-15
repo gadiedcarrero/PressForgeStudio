@@ -71,7 +71,9 @@ Reglas de los image_prompt (en INGLÉS):
 - Estilo "cinematic historical realism", iluminación dramática, 9:16 vertical.
 - Coherencia visual entre escenas (misma época, paleta, calidad).
 - Describe la escena concreta, sin texto ni letras en la imagen, sin marcas \
-modernas si la época no corresponde.""" + _HOOK_DOCTRINE
+modernas si la época no corresponde.
+- No gráfico: nada de gore, sangre, desnudez ni violencia explícita. Sugiere el \
+drama con atmósfera, sombras, siluetas y expresión (evita disparar filtros).""" + _HOOK_DOCTRINE
 
 _REFINE_SYSTEM = """Eres un editor de guiones para reels históricos verticales \
 (TikTok/Reels/Shorts). Escribes en {language}.
@@ -111,7 +113,9 @@ Formato: hook potente (0-3s) basado en el dato más sorprendente; desarrollo \
 es el hook, la última el cierre).
 
 image_prompt en INGLÉS por escena: "cinematic historical realism", 9:16 \
-vertical, sin texto en la imagen, coherente y fiel a la época real del hecho.
+vertical, sin texto en la imagen, coherente y fiel a la época real del hecho. \
+No gráfico (sin gore, sangre, desnudez ni violencia explícita): sugiere el \
+drama con atmósfera y sombras.
 Sugiere music_mood acorde.""" + _HOOK_DOCTRINE
 
 
