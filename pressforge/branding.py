@@ -52,20 +52,26 @@ def generate_brand_kit(name: str, niche: str = "", style: str = "") -> dict:
     style = (style or "").strip()
 
     logo_base = (
-        f"Emblem badge logo for a social media channel about {theme}. "
-        f"{style + '. ' if style else ''}Circular emblem, dramatic rim lighting, "
-        f"reads well at tiny sizes, {_NO_TEXT}."
+        f"Professional emblem logo inspired by {theme}. "
+        f"ONE single bold iconic symbol centered inside a circular golden badge with a thin "
+        f"ornamental ring (laurel or greek-key). Flat vector emblem, thick clean lines, "
+        f"generous negative space, SIMPLE and uncluttered — not a collage of many objects, "
+        f"a single focal element. Premium gold-on-deep-dark color scheme, dramatic rim "
+        f"lighting, crisp and highly legible at very small sizes. "
+        f"{style + '. ' if style else ''}{_NO_TEXT}."
     )
-    _gen(logo_base + " Style A: bold symbolic icon, golden on deep dark background.",
+    _gen(logo_base + " Choose the most iconic single symbol; bold and heroic.",
          "1024x1024", d / "logo_1.png")
-    _gen(logo_base + " Style B: alternative symbol, elegant, metallic on dark background.",
+    _gen(logo_base + " A DIFFERENT single symbol; elegant minimal line-art emblem.",
          "1024x1024", d / "logo_2.png")
 
     hero = d / "_hero.png"
     _gen(
-        f"Wide cinematic channel banner background about {theme}. "
-        f"{style + '. ' if style else ''}Dramatic moody atmosphere, depth, "
-        f"empty clear space in the CENTER for a title, ultra wide composition, {_NO_TEXT}.",
+        f"Wide cinematic channel banner background about {theme}. Epic dramatic scene, "
+        f"golden divine volumetric light rays breaking through, atmospheric depth, fog and "
+        f"shadows, subtle relevant scenery and silhouettes, rich moody dark tones, premium "
+        f"cinematic color grading. Keep a clear darker EMPTY space in the CENTER for a title. "
+        f"Ultra-wide composition. {style + '. ' if style else ''}{_NO_TEXT}.",
         "1536x1024", hero,
     )
 
