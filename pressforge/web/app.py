@@ -17,10 +17,11 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from fastapi import Body, FastAPI, File, Form, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Body, FastAPI, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+from .. import auth
 from ..config import music_path, output_path
 from ..models import SourceFact, story_from_dict, story_to_dict
 from ..pipeline import (
@@ -63,10 +64,66 @@ if ASSETS_DIR.exists():
 
 start_scheduler()  # motor de publicación programada (hilo de fondo)
 
+# Rutas accesibles SIN sesión (login + assets públicos para la pantalla de login).
+_PUBLIC = ("/login", "/api/login", "/api/setup", "/api/auth-status", "/assets", "/favicon.ico")
+
+
+@app.middleware("http")
+async def auth_gate(request: Request, call_next):
+    path = request.url.path
+    if any(path == p or path.startswith(p + "/") or path == p for p in _PUBLIC) or path in _PUBLIC:
+        return await call_next(request)
+    if auth.valid_session(request.cookies.get("pf_session", "")):
+        return await call_next(request)
+    if path.startswith("/api/"):
+        return JSONResponse({"error": "no autenticado"}, status_code=401)
+    return RedirectResponse("/login")
+
 
 @app.get("/")
 def index():
     return FileResponse(WEB_DIR / "index.html")
+
+
+@app.get("/login")
+def login_page():
+    return FileResponse(WEB_DIR / "login.html")
+
+
+@app.get("/api/auth-status")
+def auth_status():
+    return {"has_password": auth.has_password()}
+
+
+@app.post("/api/setup")
+def setup(payload: dict = Body(...)):
+    """Primer arranque: el usuario crea su contraseña."""
+    if auth.has_password():
+        return JSONResponse({"error": "Ya hay una contraseña configurada."}, status_code=400)
+    pw = (payload.get("password") or "")
+    if len(pw) < 4:
+        return JSONResponse({"error": "La contraseña debe tener al menos 4 caracteres."}, status_code=400)
+    auth.set_password(pw)
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie("pf_session", auth.new_session(), httponly=True, samesite="lax", max_age=14 * 24 * 3600)
+    return resp
+
+
+@app.post("/api/login")
+def login(payload: dict = Body(...)):
+    if not auth.verify_password(payload.get("password") or ""):
+        return JSONResponse({"error": "Contraseña incorrecta."}, status_code=401)
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie("pf_session", auth.new_session(), httponly=True, samesite="lax", max_age=14 * 24 * 3600)
+    return resp
+
+
+@app.post("/api/logout")
+def logout(request: Request):
+    auth.end_session(request.cookies.get("pf_session", ""))
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie("pf_session")
+    return resp
 
 
 @app.get("/api/keys")

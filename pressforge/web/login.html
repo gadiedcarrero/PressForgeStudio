@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PressForge Studio · Acceso</title>
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{background:#0a0b0f}</style>
+</head>
+<body class="text-zinc-100 min-h-screen grid place-items-center p-4">
+  <div class="w-full max-w-sm">
+    <div class="flex flex-col items-center mb-6">
+      <img src="/assets/IsoTipo.png" alt="PressForge" class="h-16 w-16 rounded-2xl bg-white object-cover mb-3" />
+      <div class="text-xl font-bold tracking-tight">PressForge Studio</div>
+      <div id="subtitle" class="text-sm text-zinc-500">Inicia sesión</div>
+    </div>
+    <div class="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-5">
+      <label id="lbl" class="block text-sm mb-1 text-zinc-400">Contraseña</label>
+      <input id="pw" type="password" autocomplete="current-password"
+        class="w-full mb-3 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <input id="pw2" type="password" placeholder="Repite la contraseña" autocomplete="new-password"
+        class="hidden w-full mb-3 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      <button id="btn" type="button"
+        class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 rounded-lg py-2.5 font-semibold text-sm transition">Entrar</button>
+      <p id="msg" class="text-xs text-red-400 mt-2 min-h-[1rem]"></p>
+    </div>
+  </div>
+<script>
+const $ = (id) => document.getElementById(id);
+let SETUP = false;
+
+async function init(){
+  try {
+    const j = await (await fetch('/api/auth-status')).json();
+    SETUP = !j.has_password;
+  } catch(e){}
+  if (SETUP){
+    $('subtitle').textContent = 'Crea tu contraseña';
+    $('lbl').textContent = 'Nueva contraseña';
+    $('pw').autocomplete = 'new-password';
+    $('pw2').classList.remove('hidden');
+    $('btn').textContent = 'Crear y entrar';
+  }
+}
+
+async function submit(){
+  const pw = $('pw').value;
+  $('msg').textContent = '';
+  if (SETUP){
+    if (pw.length < 4){ $('msg').textContent = 'Mínimo 4 caracteres.'; return; }
+    if (pw !== $('pw2').value){ $('msg').textContent = 'Las contraseñas no coinciden.'; return; }
+  }
+  $('btn').disabled = true;
+  const url = SETUP ? '/api/setup' : '/api/login';
+  try {
+    const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+    const j = await r.json();
+    if (j.ok){ location.href = '/'; return; }
+    $('msg').textContent = j.error || 'Error';
+  } catch(e){ $('msg').textContent = 'Error de conexión'; }
+  finally { $('btn').disabled = false; }
+}
+
+$('btn').addEventListener('click', submit);
+$('pw').addEventListener('keydown', e => { if(e.key==='Enter' && !SETUP) submit(); });
+$('pw2').addEventListener('keydown', e => { if(e.key==='Enter') submit(); });
+init();
+</script>
+</body>
+</html>

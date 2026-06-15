@@ -56,8 +56,9 @@
       Ajustes
     </button>
 
-    <div class="mt-auto px-3 py-2 text-[11px] text-zinc-600 border-t border-zinc-800/80">
-      Recursos · OpenAI + FFmpeg
+    <div class="mt-auto border-t border-zinc-800/80 pt-2">
+      <button type="button" onclick="logout()" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 transition">Cerrar sesión</button>
+      <div class="px-3 py-1 text-[11px] text-zinc-600">OpenAI + FFmpeg</div>
     </div>
   </aside>
 
@@ -949,6 +950,11 @@ async function genBranding(){
       </div>`).join('') + '</div>';
   } catch(e){ box.innerHTML = '<p class="text-xs text-red-400">✗ error generando</p>'; }
   finally { btn.disabled = false; }
+}
+
+async function logout(){
+  try { await fetch('/api/logout', { method:'POST' }); } catch(e){}
+  location.href = '/login';
 }
 
 // ─── API Keys (Ajustes) ───
