@@ -16,10 +16,13 @@ class OpenAIVoiceProvider:
         self.settings = get_settings()
 
     def synthesize(self, text: str, out_path: Path, voice: str | None = None) -> Path:
+        from ..secrets_store import get_secret
+
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        chosen = voice or get_secret("openai_voice") or self.settings.voice_name
         kwargs = dict(
             model=self.settings.voice_model,
-            voice=voice or self.settings.voice_name,
+            voice=chosen,
             input=text,
             response_format="mp3",
         )

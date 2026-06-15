@@ -169,6 +169,38 @@ def save_keys(payload: dict = Body(...)):
     return {"ok": True, "keys": status()}
 
 
+_VOICE_PROVIDERS = ("openai", "elevenlabs")
+
+
+@app.get("/api/voice-config")
+def get_voice_config():
+    from ..config import get_settings
+    from ..providers.elevenlabs_voice import resolve_key as eleven_key
+    from ..secrets_store import get_secret
+
+    s = get_settings()
+    return {
+        "provider": get_secret("voice_provider") or s.voice_provider,
+        "openai_voice": get_secret("openai_voice") or s.voice_name,
+        "elevenlabs_voice_id": get_secret("elevenlabs_voice_id") or s.elevenlabs_voice_id,
+        "elevenlabs_ready": bool(eleven_key()),
+    }
+
+
+@app.post("/api/voice-config")
+def set_voice_config(payload: dict = Body(...)):
+    from ..secrets_store import set_secret
+
+    provider = (payload.get("provider") or "").strip()
+    if provider in _VOICE_PROVIDERS:
+        set_secret("voice_provider", provider)
+    if (payload.get("openai_voice") or "").strip():
+        set_secret("openai_voice", payload["openai_voice"].strip())
+    if "elevenlabs_voice_id" in payload:
+        set_secret("elevenlabs_voice_id", (payload.get("elevenlabs_voice_id") or "").strip())
+    return get_voice_config()
+
+
 @app.get("/favicon.ico")
 def favicon():
     ico = ASSETS_DIR / "favicon.ico"

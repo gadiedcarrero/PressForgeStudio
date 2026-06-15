@@ -54,7 +54,11 @@ def get_image_provider() -> ImageProvider:
 
 
 def get_voice_provider() -> VoiceProvider:
-    return _pick(_VOICE, get_settings().voice_provider, "Voice")
+    # Preferencia elegida en la UI (Ajustes → Voz) por encima del .env.
+    from .secrets_store import get_secret
+
+    name = get_secret("voice_provider") or get_settings().voice_provider
+    return _pick(_VOICE, name, "Voice")
 
 
 def get_subtitle_provider() -> SubtitleProvider:

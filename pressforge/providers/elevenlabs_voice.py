@@ -33,9 +33,9 @@ class ElevenLabsVoiceProvider:
         key = resolve_key()
         if not key:
             raise RuntimeError("Falta la API key de ElevenLabs (Ajustes → API Keys).")
-        # `voice` del selector son nombres de OpenAI (onyx…), no sirven aquí:
-        # usamos un voice_id explícito solo si parece uno (largo), si no el de config.
-        voice_id = voice if (voice and len(voice) >= 15) else self.settings.elevenlabs_voice_id
+        # voice_id explícito (largo) → el elegido en Ajustes → el de .env.
+        voice_id = (voice if (voice and len(voice) >= 15) else None) \
+            or get_secret("elevenlabs_voice_id") or self.settings.elevenlabs_voice_id
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         url = f"{_API}/{voice_id}?output_format=mp3_44100_128"
