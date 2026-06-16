@@ -156,6 +156,17 @@
             <button type="button" id="voiceBrowseBtn" onclick="openVoiceBrowser()" class="hidden text-[11px] text-indigo-300 hover:underline mb-1">Explorar más voces (biblioteca) →</button>
             <p id="voiceNote" class="text-[11px] text-zinc-600 mb-3"></p>
 
+            <label class="block text-sm mb-1 text-zinc-400">Estilo visual</label>
+            <select id="imageStyle" title="Estilo visual de las imágenes" onchange="saveImageStyle()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="cinematic">Cinematográfico histórico (por defecto)</option>
+              <option value="photo">Fotorrealista</option>
+              <option value="vivid">Colores vivos / vibrante</option>
+              <option value="painting">Pintura clásica (óleo)</option>
+              <option value="illustration">Ilustración digital</option>
+              <option value="vintage">Vintage / sepia antiguo</option>
+              <option value="anime">Anime / manga</option>
+            </select>
+
             <label class="block text-sm mb-1 text-zinc-400">Música</label>
             <select id="music" title="Música" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="">(sin música)</option>
@@ -1036,6 +1047,17 @@ async function saveVoiceSel(){
   try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
 }
 
+// ─── Estilo visual de las imágenes ───
+async function loadImageStyle(){
+  try {
+    const j = await (await fetch('/api/image-config')).json();
+    if (j.style) $('imageStyle').value = j.style;
+  } catch(e){}
+}
+async function saveImageStyle(){
+  try { await fetch('/api/image-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({style:$('imageStyle').value})}); } catch(e){}
+}
+
 // ─── Explorar biblioteca de voces de ElevenLabs (filtros + preview) ───
 const USE_CASES = [['','Todos los usos'],['narrative_story','Narración'],['conversational','Conversacional'],['characters_animation','Personajes'],['social_media','Redes sociales'],['informative_educational','Educativo'],['advertisement','Anuncio']];
 function openVoiceBrowser(){
@@ -1130,6 +1152,7 @@ injectIcons();
 refreshBrands();
 loadMusic();
 loadCreateVoice();
+loadImageStyle();
 </script>
 </body>
 </html>

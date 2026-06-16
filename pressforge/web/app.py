@@ -172,6 +172,28 @@ def save_keys(payload: dict = Body(...)):
 _VOICE_PROVIDERS = ("openai", "elevenlabs")
 
 
+@app.get("/api/image-config")
+def get_image_config():
+    from ..providers.openai_image import STYLES, DEFAULT_STYLE
+    from ..secrets_store import get_secret
+
+    return {
+        "style": get_secret("image_style") or DEFAULT_STYLE,
+        "styles": list(STYLES.keys()),
+    }
+
+
+@app.post("/api/image-config")
+def set_image_config(payload: dict = Body(...)):
+    from ..providers.openai_image import STYLES
+    from ..secrets_store import set_secret
+
+    style = (payload.get("style") or "").strip()
+    if style in STYLES:
+        set_secret("image_style", style)
+    return get_image_config()
+
+
 @app.get("/api/voice-config")
 def get_voice_config():
     from ..config import get_settings

@@ -14,16 +14,35 @@ import base64
 from pathlib import Path
 
 from ..config import get_settings
+from ..secrets_store import get_secret
 from .base import ImageBlockedError
 from ._openai_client import client
 
-# Sufijo añadido a cada prompt: formato + estilo + barandillas de seguridad.
-_STYLE_SUFFIX = (
-    ", cinematic historical realism, dramatic lighting, highly detailed, "
-    "vertical 9:16 composition, no text, no watermark, no modern objects, "
+# "Looks" visuales seleccionables (la parte estética del prompt). El usuario los
+# elige en Crear; el de seguridad/formato se añade siempre por separado.
+STYLES: dict[str, str] = {
+    "cinematic": "cinematic historical realism, dramatic moody lighting, highly detailed, filmic color grade",
+    "photo": "photorealistic, ultra-realistic, lifelike detail, natural lighting, shot on a 50mm lens, shallow depth of field",
+    "vivid": "vibrant saturated colors, rich vivid color grading, bold dramatic lighting, high color contrast, eye-catching",
+    "painting": "classical oil painting style, painterly visible brushwork, baroque fine-art look, warm tones",
+    "illustration": "stylized digital illustration, clean shapes and lines, concept-art look, artistic",
+    "vintage": "vintage aged photograph, sepia and faded tones, old archival film look, subtle grain",
+    "anime": "anime / manga illustration style, cel shading, expressive, detailed background art",
+}
+DEFAULT_STYLE = "cinematic"
+
+# Barandillas de formato + seguridad: SIEMPRE se añaden, sea cual sea el look.
+_FORMAT_SAFETY = (
+    ", vertical 9:16 composition, no text, no watermark, no modern objects, "
     "tasteful and non-graphic, suitable for general audiences, "
     "no gore, no blood, no nudity, no explicit violence"
 )
+
+
+def _style_suffix() -> str:
+    key = (get_secret("image_style") or DEFAULT_STYLE).strip()
+    look = STYLES.get(key, STYLES[DEFAULT_STYLE])
+    return ", " + look + _FORMAT_SAFETY
 
 # Prefijo para el reintento cuando el primero se bloquea.
 _SANITIZE_PREFIX = (
@@ -55,9 +74,10 @@ class OpenAIImageProvider:
         return out_path
 
     def generate(self, prompt: str, out_path: Path) -> Path:
+        suffix = _style_suffix()
         attempts = [
-            prompt + _STYLE_SUFFIX,
-            _SANITIZE_PREFIX + prompt + _STYLE_SUFFIX,
+            prompt + suffix,
+            _SANITIZE_PREFIX + prompt + suffix,
         ]
         last_exc: Exception | None = None
         for p in attempts:
