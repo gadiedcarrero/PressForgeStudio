@@ -144,6 +144,15 @@
                 <option value="eleven_flash_v2_5">Flash v2.5 — más barato y rápido (~$0.045/reel)</option>
               </select>
             </div>
+            <div id="voiceSpeedWrap" class="hidden mb-1">
+              <select id="voiceSpeed" title="Velocidad de la voz" onchange="saveVoiceSel()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="0.9">Velocidad: lenta (0.9)</option>
+                <option value="1.0">Velocidad: normal (1.0)</option>
+                <option value="1.1">Velocidad: rápida (1.1)</option>
+                <option value="1.15">Velocidad: más rápida (1.15)</option>
+                <option value="1.2">Velocidad: máxima (1.2)</option>
+              </select>
+            </div>
             <button type="button" id="voiceBrowseBtn" onclick="openVoiceBrowser()" class="hidden text-[11px] text-indigo-300 hover:underline mb-1">Explorar más voces (biblioteca) →</button>
             <p id="voiceNote" class="text-[11px] text-zinc-600 mb-3"></p>
 
@@ -989,6 +998,7 @@ async function loadCreateVoice(){
   try { VOICE_CFG = await (await fetch('/api/voice-config')).json(); } catch(e){}
   $('voiceProvider').value = VOICE_CFG.provider || 'openai';
   if (VOICE_CFG.elevenlabs_model) $('voiceModel').value = VOICE_CFG.elevenlabs_model;
+  if (VOICE_CFG.elevenlabs_speed) $('voiceSpeed').value = VOICE_CFG.elevenlabs_speed;
   await populateVoiceSel();
 }
 async function onCreateVoiceProvider(){
@@ -1000,6 +1010,7 @@ async function populateVoiceSel(){
   const p = $('voiceProvider').value;
   const sel = $('voiceSel');
   $('voiceModelWrap').classList.toggle('hidden', p !== 'elevenlabs');  // modelo solo ElevenLabs
+  $('voiceSpeedWrap').classList.toggle('hidden', p !== 'elevenlabs');  // velocidad solo ElevenLabs
   $('voiceBrowseBtn').classList.toggle('hidden', p !== 'elevenlabs');  // explorar biblioteca solo ElevenLabs
   if (p === 'openai'){
     sel.innerHTML = OPENAI_VOICES.map(v=>`<option>${v}</option>`).join('');
@@ -1021,7 +1032,7 @@ async function saveVoiceSel(){
   const p = $('voiceProvider').value;
   const body = { provider: p };
   if (p === 'openai'){ body.openai_voice = $('voiceSel').value; VOICE_CFG.openai_voice = $('voiceSel').value; }
-  else { body.elevenlabs_voice_id = $('voiceSel').value; body.elevenlabs_model = $('voiceModel').value; VOICE_CFG.elevenlabs_voice_id = $('voiceSel').value; VOICE_CFG.elevenlabs_model = $('voiceModel').value; }
+  else { body.elevenlabs_voice_id = $('voiceSel').value; body.elevenlabs_model = $('voiceModel').value; body.elevenlabs_speed = $('voiceSpeed').value; VOICE_CFG.elevenlabs_voice_id = $('voiceSel').value; VOICE_CFG.elevenlabs_model = $('voiceModel').value; VOICE_CFG.elevenlabs_speed = $('voiceSpeed').value; }
   try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
 }
 

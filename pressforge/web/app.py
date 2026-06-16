@@ -184,6 +184,7 @@ def get_voice_config():
         "openai_voice": get_secret("openai_voice") or s.voice_name,
         "elevenlabs_voice_id": get_secret("elevenlabs_voice_id") or s.elevenlabs_voice_id,
         "elevenlabs_model": get_secret("elevenlabs_model") or s.elevenlabs_model,
+        "elevenlabs_speed": get_secret("elevenlabs_speed") or "1.0",
         "elevenlabs_ready": bool(eleven_key()),
     }
 
@@ -201,9 +202,10 @@ def voice_preview_elevenlabs(voice_id: str = ""):
         return JSONResponse({"error": "voice_id requerido"}, status_code=400)
 
     model = get_secret("elevenlabs_model") or get_settings().elevenlabs_model
+    speed = get_secret("elevenlabs_speed") or "1.0"
     cache = Path("voice_previews")
     cache.mkdir(parents=True, exist_ok=True)
-    safe = re.sub(r"[^a-zA-Z0-9_]", "", f"{voice_id}_{model}")
+    safe = re.sub(r"[^a-zA-Z0-9_]", "", f"{voice_id}_{model}_{speed}")
     out = cache / f"{safe}.mp3"
     if not out.exists():
         try:
@@ -255,6 +257,8 @@ def set_voice_config(payload: dict = Body(...)):
         set_secret("elevenlabs_voice_id", (payload.get("elevenlabs_voice_id") or "").strip())
     if (payload.get("elevenlabs_model") or "").strip():
         set_secret("elevenlabs_model", payload["elevenlabs_model"].strip())
+    if (payload.get("elevenlabs_speed") or "").strip():
+        set_secret("elevenlabs_speed", payload["elevenlabs_speed"].strip())
     return get_voice_config()
 
 

@@ -92,9 +92,23 @@ class ElevenLabsVoiceProvider:
             or get_secret("elevenlabs_voice_id") or self.settings.elevenlabs_voice_id
 
         model = get_secret("elevenlabs_model") or self.settings.elevenlabs_model
+
+        # Velocidad (0.7 lenta … 1.2 rápida). Las voces "cinematic" tienden a ir
+        # lentas y con pausas dramáticas; subir speed acorta esas pausas.
+        try:
+            speed = float(get_secret("elevenlabs_speed") or "1.0")
+        except ValueError:
+            speed = 1.0
+        speed = max(0.7, min(1.2, speed))
+        voice_settings = {
+            "stability": 0.5, "similarity_boost": 0.75,
+            "style": 0.0, "use_speaker_boost": True, "speed": speed,
+        }
+
         out_path.parent.mkdir(parents=True, exist_ok=True)
         url = f"{_API}/{voice_id}?output_format=mp3_44100_128"
-        body = json.dumps({"text": text, "model_id": model}).encode("utf-8")
+        body = json.dumps({"text": text, "model_id": model,
+                           "voice_settings": voice_settings}).encode("utf-8")
         req = urllib.request.Request(
             url, data=body, method="POST",
             headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
