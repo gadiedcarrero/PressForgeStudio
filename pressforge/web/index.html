@@ -505,13 +505,21 @@ function renderScripts() {
   $('scripts').innerHTML = SCRIPTS.map((s, idx) => {
     const k = cssId(s.id);
     const open = idx === 0;
-    const scenes = s.scenes.map((sc, i) => `
+    const scenes = s.scenes.map((sc, i) => {
+      const chips = (s.characters || []).map(c => {
+        const on = (sc.characters || []).includes(c.name);
+        return `<button type="button" onclick="toggleSceneChar('${esc(s.id)}',${i},'${esc(c.name).replace(/'/g,"\\'")}',this)" class="text-[10px] px-2 py-0.5 rounded-full border ${on?'border-indigo-500 bg-indigo-500/20 text-indigo-200':'border-zinc-700 text-zinc-500'}">${on?'✓ ':''}${esc(c.name)}</button>`;
+      }).join('');
+      const chipRow = (s.characters || []).length ? `<div class="flex flex-wrap gap-1.5 mb-2" title="¿Quién aparece en esta escena? La descripción se repite en su imagen.">${chips}</div>` : '';
+      return `
       <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-950/40">
         <div class="text-[11px] text-zinc-500 mb-1">Escena ${i+1} · narración</div>
         <textarea id="nar-${k}-${i}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(sc.narration)}</textarea>
+        ${chipRow}
         <div class="text-[11px] text-zinc-500 mb-1">prompt de imagen (inglés)</div>
         <textarea id="img-${k}-${i}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(sc.image_prompt)}</textarea>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     const chars = (s.characters || []).map((c, ci) => `
       <div class="border border-zinc-800 rounded-lg p-2.5 bg-zinc-950/40">
         <div class="text-[11px] text-zinc-400 mb-1">${icon('user','w-3 h-3 inline -mt-0.5')} ${esc(c.name)}</div>
@@ -550,6 +558,15 @@ function renderScripts() {
       </div>
     </div>`;
   }).join('');
+}
+
+function toggleSceneChar(sid, sceneIdx, name, btn){
+  const s = SCRIPTS.find(x => x.id === sid); if(!s) return;
+  const sc = s.scenes[sceneIdx]; if(!sc) return;
+  sc.characters = sc.characters || [];
+  const i = sc.characters.indexOf(name);
+  if(i >= 0){ sc.characters.splice(i,1); btn.className = 'text-[10px] px-2 py-0.5 rounded-full border border-zinc-700 text-zinc-500'; btn.textContent = name; }
+  else { sc.characters.push(name); btn.className = 'text-[10px] px-2 py-0.5 rounded-full border border-indigo-500 bg-indigo-500/20 text-indigo-200'; btn.textContent = '✓ ' + name; }
 }
 
 function collectScript(sid) {

@@ -100,7 +100,8 @@ def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]
         return prompt
     who = "; ".join(parts)
     return (f"{prompt}. The person(s) in this image must look exactly like: {who}. "
-            f"Keep their appearance consistent and recognizable.")
+            f"Keep their appearance consistent and recognizable across all scenes. "
+            f"Do NOT add any other people who are not described here.")
 
 
 def _assign_durations(story: Story, total: float) -> None:
@@ -339,6 +340,7 @@ def _save_story(story: Story, workdir: Path, duration: float) -> None:
         "title": story.title,
         "hook": story.hook,
         "cta": story.cta,
+        "characters": [{"name": c.name, "description": c.description} for c in story.characters],
         "source_title": story.source_title,
         "source_url": story.source_url,
         "duration_s": duration,
