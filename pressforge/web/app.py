@@ -299,21 +299,25 @@ def research(payload: dict = Body(...)):
 
     mode = (payload.get("mode") or "").strip()
     niche = (payload.get("niche") or "").strip()
-    rp = get_research_provider()
     try:
         if mode == "historic":
             if not niche:
                 return JSONResponse({"error": "Escribe un tema a buscar."}, status_code=400)
-            facts = rp.search(niche, limit=10)
+            facts = get_research_provider().search(niche, limit=10)
             dates = ["" for _ in facts]
         elif mode == "onthisday":
             today = datetime.now()
-            facts = rp.on_this_day(today.month, today.day, limit=60)
+            facts = get_research_provider().on_this_day(today.month, today.day, limit=60)
             dates = [human_date(today.day, today.month, f.year) for f in facts]
+        elif mode == "reddit":
+            from ..providers.reddit_research import RedditResearch
+            facts = RedditResearch().curiosities(query=niche, limit=20)
+            dates = ["" for _ in facts]
         else:
             return JSONResponse({"error": "Este modo no usa búsqueda."}, status_code=400)
     except Exception as exc:  # noqa: BLE001
-        return JSONResponse({"error": f"Error consultando Wikipedia: {exc}"}, status_code=502)
+        src = "Reddit" if mode == "reddit" else "Wikipedia"
+        return JSONResponse({"error": f"Error consultando {src}: {exc}"}, status_code=502)
 
     cands = []
     for f, date in zip(facts, dates):

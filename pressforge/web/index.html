@@ -76,6 +76,7 @@
         <button type="button" data-mode="mine"      class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Mi guion</button>
         <button type="button" data-mode="historic"  class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Histórico</button>
         <button type="button" data-mode="onthisday"  class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Qué pasó hoy</button>
+        <button type="button" data-mode="reddit"    class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Curiosidades virales</button>
       </div>
 
       <div class="grid lg:grid-cols-[400px_1fr] gap-6 items-start">
@@ -375,6 +376,7 @@ const MODE_CFG = {
   mine:      { label: '', ph: '', hint: 'Pega tu guion: la IA solo lo pule y divide en escenas, sin inventar hechos.', btn: 'Corregir y dividir' },
   historic:  { label: 'Tema histórico (busca en Wikipedia)', ph: 'imperio romano, peste negra, Tesla…', count: 'Resultados', hint: 'Busca en Wikipedia y elige TÚ cuáles convertir en guion (la IA no trabaja en las que descartes).', btn: 'Buscar en Wikipedia' },
   onthisday: { label: 'Filtro (opcional)', ph: 'filtra por texto al elegir…', count: 'Efemérides', hint: 'Eventos reales de un día como hoy. Elige cuáles convertir en guion; la IA solo trabaja en esos.', btn: 'Ver efemérides de hoy' },
+  reddit:    { label: 'Tema (opcional)', ph: 'deja vacío para lo más viral, o filtra: egipto, ciencia…', count: 'Resultados', hint: 'Curiosidades de Reddit (r/todayilearned + r/history) con su fuente. Elige cuáles convertir; la IA solo trabaja en esas.', btn: 'Buscar curiosidades' },
 };
 let MODE = 'invent';
 document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click', () => {
@@ -397,8 +399,8 @@ document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click',
 // ─── Generar guion(es) ───
 let SCRIPTS = [];
 $('genBtn').addEventListener('click', async () => {
-  // Histórico / Efemérides: primero BUSCAR (sin IA), luego el usuario elige.
-  if (MODE === 'historic' || MODE === 'onthisday') return searchCandidates();
+  // Histórico / Efemérides / Curiosidades: primero BUSCAR (sin IA), luego el usuario elige.
+  if (MODE === 'historic' || MODE === 'onthisday' || MODE === 'reddit') return searchCandidates();
 
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
                     niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value };
@@ -425,7 +427,7 @@ async function searchCandidates() {
   const niche = $('niche').value.trim();
   if (MODE === 'historic' && !niche) { $('niche').focus(); return; }
   $('genBtn').disabled = true;
-  $('genStatus').textContent = 'Buscando en Wikipedia…';
+  $('genStatus').textContent = MODE === 'reddit' ? 'Buscando curiosidades en Reddit…' : 'Buscando en Wikipedia…';
   try {
     const r = await fetch('/api/research', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ mode: MODE, niche }) });
     const j = await r.json();
