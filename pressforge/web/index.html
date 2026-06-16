@@ -940,8 +940,9 @@ function openBrandEditor(id){
     <input id="br-tags" value="${esc((b.hashtags||[]).join(' '))}" placeholder="terror historia misterio" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
 
     <div class="border-t border-zinc-800 pt-3 mb-4">
-      <button type="button" id="br-brandingBtn" onclick="genBranding()" class="inline-flex items-center gap-1.5 text-sm border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 rounded-lg px-3 py-1.5">${icon('create','w-4 h-4')} Generar logo + banners con IA</button>
+      <button type="button" id="br-brandingBtn" onclick="genBranding()" class="inline-flex items-center gap-1.5 text-sm border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10 rounded-lg px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">${icon('create','w-4 h-4')} Generar logo + banners con IA</button>
       <p class="text-[11px] text-zinc-600 mt-1">Usa el nombre y el nicho de arriba. Tarda ~20-30 s.</p>
+      <p id="br-brandingStatus" class="hidden text-[11px] text-indigo-300 mt-2"></p>
       <div id="br-branding" class="mt-3"></div>
     </div>
 
@@ -1006,17 +1007,23 @@ async function deleteBrand(id){
 async function genBranding(){
   const name = $('br-name').value.trim();
   if(!name){ $('br-status').textContent='Pon el nombre de la marca primero.'; return; }
-  const btn = $('br-brandingBtn'); btn.disabled = true;
-  const status = $('br-status');
-  status.textContent = '🎨 Generando nueva versión de logo + banners… (~20-30 s)';
+  const btn = $('br-brandingBtn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-90" d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg> Generando…`;
+  const status = $('br-brandingStatus');
+  status.classList.remove('hidden');
+  status.className = 'text-[11px] text-indigo-300 mt-2';
+  status.textContent = '🎨 Generando nueva versión de logo + banners… (~20-30 s, no cierres esta ventana)';
   try {
     const j = await (await fetch('/api/brands/branding',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ name, niche: $('br-niche').value })})).json();
-    if(j.error){ status.textContent = '✗ '+j.error; return; }
+    if(j.error){ status.className = 'text-[11px] text-red-400 mt-2'; status.textContent = '✗ '+j.error; return; }
+    status.className = 'text-[11px] text-emerald-400 mt-2';
     status.textContent = '✓ Nueva generación guardada en Drive.';
     await loadExistingBranding(name);  // recarga el acordeón con la nueva versión arriba
-  } catch(e){ status.textContent = '✗ error generando'; }
-  finally { btn.disabled = false; }
+  } catch(e){ status.className = 'text-[11px] text-red-400 mt-2'; status.textContent = '✗ error generando'; }
+  finally { btn.disabled = false; btn.innerHTML = orig; }
 }
 
 async function logout(){
