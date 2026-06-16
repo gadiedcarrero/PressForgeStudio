@@ -847,12 +847,27 @@ def remove_brand(payload: dict = Body(...)):
 
 @app.get("/api/brands/branding")
 def brand_branding_existing(name: str = ""):
-    """Devuelve el brand kit ya generado para una marca (si existe en disco)."""
-    from ..branding import list_kit
+    """Todas las generaciones (intentos) de brand kit de una marca, en Drive."""
+    from ..branding import list_kits
 
     if not name.strip():
-        return {"assets": []}
-    return list_kit(name.strip())
+        return {"kits": []}
+    return list_kits(name.strip())
+
+
+@app.get("/branding/{slug}/{attempt}/{filename}")
+def branding_file(slug: str, attempt: str, filename: str):
+    """Sirve una pieza del brand kit desde STORAGE_DIR/branding (Drive)."""
+    from ..config import branding_path
+
+    # saneo anti path-traversal: solo nombres simples.
+    for part in (slug, attempt, filename):
+        if "/" in part or "\\" in part or ".." in part:
+            return JSONResponse({"error": "ruta inválida"}, status_code=400)
+    path = branding_path() / slug / attempt / filename
+    if not path.is_file():
+        return JSONResponse({"error": "no encontrado"}, status_code=404)
+    return FileResponse(path, media_type="image/png")
 
 
 @app.post("/api/brands/branding")

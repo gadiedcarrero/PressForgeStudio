@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import base64
 import re
+from datetime import datetime
 from pathlib import Path
 
+from .config import branding_path
 from .ffmpeg_utils import run_ffmpeg
 from .providers._openai_client import client
-
-BRANDING_DIR = Path("assets/branding")
 
 # Banners derivados de la imagen base (clave, ancho, alto, etiqueta).
 _BANNERS = [
@@ -44,30 +44,46 @@ def _crop(src: Path, w: int, h: int, out: Path) -> None:
                 f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}", str(out)])
 
 
-def _asset_entry(slug: str, key: str, label: str, w: int, h: int, is_logo: bool) -> dict:
-    return {"key": key, "label": label, "filename": f"{slug}-{key}.png",
-            "url": f"/assets/branding/{slug}/{key}.png", "w": w, "h": h, "logo": is_logo}
+# Piezas que componen un kit (clave, etiqueta, ancho, alto, es_logo).
+_KIT_FILES = [
+    ("logo_1", "Logo opción A (perfil)", 1024, 1024, True),
+    ("logo_2", "Logo opción B (perfil)", 1024, 1024, True),
+] + [(k, label, w, h, False) for (k, w, h, label) in _BANNERS]
 
 
-def list_kit(name: str) -> dict:
-    """Brand kit YA generado para una marca (si existe en disco). Mismo formato
-    que `generate_brand_kit`, pero solo con los archivos presentes."""
+def _asset_entry(slug: str, attempt: str, key: str, label: str,
+                 w: int, h: int, is_logo: bool) -> dict:
+    return {"key": key, "label": label, "filename": f"{slug}-{attempt}-{key}.png",
+            "url": f"/branding/{slug}/{attempt}/{key}.png", "w": w, "h": h, "logo": is_logo}
+
+
+def _attempt_assets(slug: str, attempt_dir: Path) -> list[dict]:
+    attempt = attempt_dir.name
+    out = []
+    for key, label, w, h, is_logo in _KIT_FILES:
+        if (attempt_dir / f"{key}.png").exists():
+            out.append(_asset_entry(slug, attempt, key, label, w, h, is_logo))
+    return out
+
+
+def list_kits(name: str) -> dict:
+    """Todas las generaciones (intentos) de brand kit de una marca, más nuevas
+    primero. Cada intento es una carpeta con su propio juego de piezas."""
     slug = _slug(name)
-    d = BRANDING_DIR / slug
-    assets = []
-    if (d / "logo_1.png").exists():
-        assets.append(_asset_entry(slug, "logo_1", "Logo opción A (perfil)", 1024, 1024, True))
-    if (d / "logo_2.png").exists():
-        assets.append(_asset_entry(slug, "logo_2", "Logo opción B (perfil)", 1024, 1024, True))
-    for key, w, h, label in _BANNERS:
-        if (d / f"{key}.png").exists():
-            assets.append(_asset_entry(slug, key, label, w, h, False))
-    return {"slug": slug, "assets": assets}
+    base = branding_path() / slug
+    kits = []
+    if base.exists():
+        for attempt_dir in sorted((p for p in base.iterdir() if p.is_dir()), reverse=True):
+            assets = _attempt_assets(slug, attempt_dir)
+            if assets:
+                kits.append({"attempt": attempt_dir.name, "assets": assets})
+    return {"slug": slug, "kits": kits}
 
 
 def generate_brand_kit(name: str, niche: str = "", style: str = "") -> dict:
     slug = _slug(name)
-    d = BRANDING_DIR / slug
+    attempt = datetime.now().strftime("%Y%m%d-%H%M%S")
+    d = branding_path() / slug / attempt
     d.mkdir(parents=True, exist_ok=True)
     theme = (niche or name).strip()
     style = (style or "").strip()
@@ -96,15 +112,7 @@ def generate_brand_kit(name: str, niche: str = "", style: str = "") -> dict:
         "1536x1024", hero,
     )
 
-    assets = [
-        {"key": "logo_1", "label": "Logo opción A (perfil)", "filename": f"{slug}-logo-A.png",
-         "url": f"/assets/branding/{slug}/logo_1.png", "w": 1024, "h": 1024, "logo": True},
-        {"key": "logo_2", "label": "Logo opción B (perfil)", "filename": f"{slug}-logo-B.png",
-         "url": f"/assets/branding/{slug}/logo_2.png", "w": 1024, "h": 1024, "logo": True},
-    ]
     for key, w, h, label in _BANNERS:
         _crop(hero, w, h, d / f"{key}.png")
-        assets.append({"key": key, "label": label, "filename": f"{slug}-{key}.png",
-                       "url": f"/assets/branding/{slug}/{key}.png", "w": w, "h": h, "logo": False})
 
-    return {"slug": slug, "assets": assets}
+    return {"slug": slug, "attempt": attempt, "assets": _attempt_assets(slug, d)}

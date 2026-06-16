@@ -115,3 +115,12 @@ def music_path() -> Path:
     if s.storage_dir:
         return Path(s.storage_dir).expanduser() / "music"
     return Path("assets/music")
+
+
+def branding_path() -> Path:
+    """Brand kits (logos + banners por marca). En `<STORAGE_DIR>/branding` si hay
+    STORAGE_DIR (compartido entre PCs vía Drive); si no, `assets/branding`."""
+    s = get_settings()
+    if s.storage_dir:
+        return Path(s.storage_dir).expanduser() / "branding"
+    return Path("assets/branding")

@@ -30,3 +30,6 @@ Thumbs.db
 
 # Misc tooling
 .qodo/
+
+# Brand kits: ahora viven en STORAGE_DIR/branding (Drive), no en el repo
+assets/branding/
