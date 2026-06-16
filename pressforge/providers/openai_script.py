@@ -9,7 +9,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
-from ..models import Scene, SourceFact, Story, StoryDraft
+from ..models import Character, Scene, SourceFact, Story, StoryDraft
 from ._openai_client import client
 
 
@@ -64,6 +64,28 @@ El campo `hook` y la narración de la escena 1 deben COINCIDIR: ambos son ese
 pattern interrupt. Mantén el resto de escenas con ritmo alto y un cierre con payoff."""
 
 
+# Inyectada en los prompts que generan storyboard. Resuelve que cada imagen
+# saque a la MISMA persona y que el prompt no se desligue del sujeto real.
+_CHARACTER_DOCTRINE = """
+
+═══ CONSISTENCIA DE PERSONAJES (imágenes coherentes) ═══
+Antes de escribir las escenas, LEE toda la historia e identifica a las personas
+concretas que aparecen (protagonista y secundarios recurrentes). Para cada una
+rellena `characters` con una descripción VISUAL fija y detallada EN INGLÉS
+(edad, género, etnia/tono de piel, color y estilo de pelo, complexión, ropa de
+la época, rasgos distintivos). Esa descripción se repetirá en cada imagen para
+que el personaje salga IGUAL en todas.
+
+Luego, en CADA escena, rellena `characters` con los nombres (exactos, de tu
+lista) de quienes aparecen en esa escena. Si la escena no muestra a una persona
+concreta (un lugar, un objeto, un símbolo), déjala vacía.
+
+CADA `image_prompt` debe mostrar el SUJETO REAL de su narración, nunca algo
+genérico/simbólico desligado del tema. Si la narración habla de una persona
+concreta, la imagen es ESA persona (usando su descripción), no un desconocido al
+azar. Mantén coherencia de época, vestuario y paleta en todo el reel."""
+
+
 _SYSTEM = """Eres un guionista experto en contenido viral histórico para reels \
 verticales (TikTok/Reels/Shorts). Escribes en {language}.
 
@@ -86,7 +108,7 @@ Reglas de los image_prompt (en INGLÉS):
 - Describe la escena concreta, sin texto ni letras en la imagen, sin marcas \
 modernas si la época no corresponde.
 - No gráfico: nada de gore, sangre, desnudez ni violencia explícita. Sugiere el \
-drama con atmósfera, sombras, siluetas y expresión (evita disparar filtros).""" + _HOOK_DOCTRINE
+drama con atmósfera, sombras, siluetas y expresión (evita disparar filtros).""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE
 
 _REFINE_SYSTEM = """Eres un editor de guiones para reels históricos verticales \
 (TikTok/Reels/Shorts). Escribes en {language}.
@@ -105,7 +127,7 @@ aporta.
 - Sugiere music_mood acorde al tono del guion del usuario.
 - IMPORTANTE: aunque el usuario empiece lento, REESCRIBE el arranque como un \
 hook potente usando el dato más fuerte que ÉL aporta (no inventes datos \
-nuevos).""" + _HOOK_DOCTRINE
+nuevos).""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE
 
 _SOURCE_SYSTEM = """Eres un guionista de reels históricos virales. Escribes en \
 {language}.
@@ -129,7 +151,7 @@ image_prompt en INGLÉS por escena: "cinematic historical realism", 9:16 \
 vertical, sin texto en la imagen, coherente y fiel a la época real del hecho. \
 No gráfico (sin gore, sangre, desnudez ni violencia explícita): sugiere el \
 drama con atmósfera y sombras.
-Sugiere music_mood acorde.""" + _HOOK_DOCTRINE
+Sugiere music_mood acorde.""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE
 
 
 class OpenAIScriptProvider:
@@ -276,14 +298,23 @@ class OpenAIScriptProvider:
 
     @staticmethod
     def _to_story(draft: StoryDraft, *, niche: str) -> Story:
+        characters = [
+            Character(name=c.name.strip(), description=c.description.strip())
+            for c in (draft.characters or []) if c.name.strip() and c.description.strip()
+        ]
+        valid = {c.name for c in characters}
         return Story(
             niche=niche,
             title=draft.title,
             hook=draft.hook,
             cta=draft.cta,
             music_mood=draft.music_mood,
+            characters=characters,
             scenes=[
-                Scene(index=i, narration=s.narration, image_prompt=s.image_prompt)
+                Scene(
+                    index=i, narration=s.narration, image_prompt=s.image_prompt,
+                    characters=[n for n in (s.characters or []) if n in valid],
+                )
                 for i, s in enumerate(draft.scenes)
             ],
         )

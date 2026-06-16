@@ -92,6 +92,17 @@ def _fallback_image(path, last_image, image_provider, idx, total, console, on_ev
         on_event(note)
 
 
+def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]) -> str:
+    """Añade al prompt la descripción fija de los personajes de la escena, para
+    que salgan iguales en todas las imágenes donde aparecen."""
+    parts = [descriptions[n] for n in names if descriptions.get(n)]
+    if not parts:
+        return prompt
+    who = "; ".join(parts)
+    return (f"{prompt}. The person(s) in this image must look exactly like: {who}. "
+            f"Keep their appearance consistent and recognizable.")
+
+
 def _assign_durations(story: Story, total: float) -> None:
     """Reparte la duración total del audio entre escenas, proporcional a las
     palabras de cada narración."""
@@ -230,12 +241,14 @@ def produce_reel(
     # --- 1. Imágenes ---
     step("[bold cyan]1/5[/] Generando imágenes…", "1/5 · Generando imágenes…")
     image_provider = get_image_provider()
+    char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
     last_image: Path | None = None
     n = len(story.scenes)
     for scene in story.scenes:
         path = workdir / "images" / f"scene_{scene.index:02d}.png"
+        prompt = _with_characters(scene.image_prompt, scene.characters, char_desc)
         try:
-            image_provider.generate(scene.image_prompt, path)
+            image_provider.generate(prompt, path)
             last_image = path
             console.print(f"    [green]✓[/] escena {scene.index + 1}/{n}")
             if on_event:
