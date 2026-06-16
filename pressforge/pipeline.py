@@ -17,7 +17,7 @@ from typing import Callable
 
 from rich.console import Console
 
-from .config import get_settings, output_path
+from .config import data_path, get_settings, output_path
 from .ffmpeg_utils import ffprobe_duration, run_ffmpeg
 from .providers.base import ImageBlockedError
 from .models import RenderJob, ReelResult, Story
@@ -243,13 +243,18 @@ def produce_reel(
     step("[bold cyan]1/5[/] Generando imágenes…", "1/5 · Generando imágenes…")
     image_provider = get_image_provider()
     char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
+    refs_dir = data_path() / "refs"
     last_image: Path | None = None
     n = len(story.scenes)
     for scene in story.scenes:
         path = workdir / "images" / f"scene_{scene.index:02d}.png"
-        prompt = _with_characters(scene.image_prompt, scene.characters, char_desc)
+        ref = refs_dir / scene.reference if scene.reference else None
+        ref = ref if (ref and ref.is_file()) else None
+        # Con referencia, la foto define la composición/personas; sin ella, se
+        # inyecta la descripción fija de los personajes etiquetados.
+        prompt = scene.image_prompt if ref else _with_characters(scene.image_prompt, scene.characters, char_desc)
         try:
-            image_provider.generate(prompt, path)
+            image_provider.generate(prompt, path, reference=ref)
             last_image = path
             console.print(f"    [green]✓[/] escena {scene.index + 1}/{n}")
             if on_event:

@@ -48,8 +48,10 @@ class ResearchProvider(Protocol):
 
 @runtime_checkable
 class ImageProvider(Protocol):
-    def generate(self, prompt: str, out_path: Path) -> Path:
-        """Genera una imagen 9:16 para una escena y la guarda en out_path."""
+    def generate(self, prompt: str, out_path: Path, reference: Path | None = None) -> Path:
+        """Genera una imagen 9:16 para una escena y la guarda en out_path.
+
+        Si `reference` es una imagen, recrea su composición en el estilo elegido."""
         ...
 
 

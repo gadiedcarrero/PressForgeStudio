@@ -481,6 +481,39 @@ def list_music():
     return {"tracks": _library().entries()}
 
 
+_IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+@app.post("/api/reference/upload")
+async def upload_reference(file: UploadFile = File(...)):
+    """Sube una imagen de referencia para una escena (se recreará en el estilo)."""
+    from ..config import data_path
+
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _IMG_EXTS:
+        return JSONResponse({"error": f"formato no soportado ({ext or '?'}). Usa PNG/JPG/WEBP."},
+                            status_code=400)
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        return JSONResponse({"error": "imagen demasiado grande (máx 15 MB)."}, status_code=400)
+    refs = data_path() / "refs"
+    refs.mkdir(parents=True, exist_ok=True)
+    name = uuid.uuid4().hex + ext
+    (refs / name).write_bytes(data)
+    return {"id": name, "url": f"/reference/{name}"}
+
+
+@app.get("/reference/{name}")
+def reference_file(name: str):
+    from ..config import data_path
+
+    safe = Path(name).name  # anti path-traversal
+    path = data_path() / "refs" / safe
+    if not path.is_file():
+        return JSONResponse({"error": "no encontrado"}, status_code=404)
+    return FileResponse(path)
+
+
 @app.post("/api/music/upload")
 async def upload_music(file: UploadFile = File(...), tags: str = Form("")):
     name = Path(file.filename or "").name  # evita path traversal

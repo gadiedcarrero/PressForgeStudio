@@ -76,16 +76,37 @@ class OpenAIImageProvider:
         out_path.write_bytes(base64.b64decode(result.data[0].b64_json))
         return out_path
 
-    def generate(self, prompt: str, out_path: Path) -> Path:
+    def _edit_once(self, prompt: str, reference: Path, out_path: Path) -> Path:
+        with open(reference, "rb") as f:
+            result = client().images.edit(
+                model=self.settings.image_model,
+                image=f,
+                prompt=prompt,
+                size="1024x1536",
+                quality=self.settings.image_quality,
+                n=1,
+            )
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_bytes(base64.b64decode(result.data[0].b64_json))
+        return out_path
+
+    def generate(self, prompt: str, out_path: Path, reference: Path | None = None) -> Path:
         suffix = _style_suffix()
-        attempts = [
-            prompt + suffix,
-            _SANITIZE_PREFIX + prompt + suffix,
-        ]
+        if reference and Path(reference).is_file():
+            # Recrea la composición de la foto de referencia en el estilo elegido.
+            base = ("Recreate the same composition, framing, poses, gestures and emotion "
+                    "as the reference image, but redraw it completely in this style. "
+                    + prompt)
+            attempts = [base + suffix, _SANITIZE_PREFIX + base + suffix]
+            gen = lambda p: self._edit_once(p, Path(reference), out_path)  # noqa: E731
+        else:
+            attempts = [prompt + suffix, _SANITIZE_PREFIX + prompt + suffix]
+            gen = lambda p: self._generate_once(p, out_path)  # noqa: E731
+
         last_exc: Exception | None = None
         for p in attempts:
             try:
-                return self._generate_once(p, out_path)
+                return gen(p)
             except Exception as exc:  # noqa: BLE001
                 if _is_moderation(exc):
                     last_exc = exc

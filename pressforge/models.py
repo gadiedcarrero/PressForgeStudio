@@ -94,6 +94,7 @@ class Scene:
     narration: str
     image_prompt: str
     characters: list[str] = field(default_factory=list)  # nombres que aparecen aquí
+    reference: str = ""  # archivo de imagen de referencia (opcional) para recrear la escena
     image_path: Path | None = None
     duration: float = 0.0  # segundos, asignado tras conocer la duración del audio
 
@@ -141,7 +142,7 @@ def story_to_dict(story: "Story") -> dict:
         "source_date": story.source_date,
         "scenes": [
             {"index": s.index, "narration": s.narration, "image_prompt": s.image_prompt,
-             "characters": list(s.characters)}
+             "characters": list(s.characters), "reference": s.reference}
             for s in story.scenes
         ],
     }
@@ -151,7 +152,7 @@ def story_from_dict(d: dict) -> "Story":
     """Reconstruye un Story desde el dict (posiblemente editado) de la UI."""
     scenes = [
         Scene(index=i, narration=s.get("narration", ""), image_prompt=s.get("image_prompt", ""),
-              characters=list(s.get("characters") or []))
+              characters=list(s.get("characters") or []), reference=s.get("reference", "") or "")
         for i, s in enumerate(d.get("scenes", []))
     ]
     characters = [
