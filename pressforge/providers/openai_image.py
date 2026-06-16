@@ -28,6 +28,9 @@ STYLES: dict[str, str] = {
     "illustration": "stylized digital illustration, clean shapes and lines, concept-art look, artistic",
     "vintage": "vintage aged photograph, sepia and faded tones, old archival film look, subtle grain",
     "anime": "anime / manga illustration style, cel shading, expressive, detailed background art",
+    "3d": ("3D animated feature-film style (Pixar/Disney-like CGI), stylized characters "
+           "with soft rounded features and big expressive faces, smooth subsurface-scattering "
+           "skin, polished glossy render, warm cinematic lighting, shallow depth of field"),
 }
 DEFAULT_STYLE = "cinematic"
 
