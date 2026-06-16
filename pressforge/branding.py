@@ -44,6 +44,27 @@ def _crop(src: Path, w: int, h: int, out: Path) -> None:
                 f"scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}", str(out)])
 
 
+def _asset_entry(slug: str, key: str, label: str, w: int, h: int, is_logo: bool) -> dict:
+    return {"key": key, "label": label, "filename": f"{slug}-{key}.png",
+            "url": f"/assets/branding/{slug}/{key}.png", "w": w, "h": h, "logo": is_logo}
+
+
+def list_kit(name: str) -> dict:
+    """Brand kit YA generado para una marca (si existe en disco). Mismo formato
+    que `generate_brand_kit`, pero solo con los archivos presentes."""
+    slug = _slug(name)
+    d = BRANDING_DIR / slug
+    assets = []
+    if (d / "logo_1.png").exists():
+        assets.append(_asset_entry(slug, "logo_1", "Logo opción A (perfil)", 1024, 1024, True))
+    if (d / "logo_2.png").exists():
+        assets.append(_asset_entry(slug, "logo_2", "Logo opción B (perfil)", 1024, 1024, True))
+    for key, w, h, label in _BANNERS:
+        if (d / f"{key}.png").exists():
+            assets.append(_asset_entry(slug, key, label, w, h, False))
+    return {"slug": slug, "assets": assets}
+
+
 def generate_brand_kit(name: str, niche: str = "", style: str = "") -> dict:
     slug = _slug(name)
     d = BRANDING_DIR / slug

@@ -845,6 +845,16 @@ def remove_brand(payload: dict = Body(...)):
     return {"brands": pubstore.list_brands()}
 
 
+@app.get("/api/brands/branding")
+def brand_branding_existing(name: str = ""):
+    """Devuelve el brand kit ya generado para una marca (si existe en disco)."""
+    from ..branding import list_kit
+
+    if not name.strip():
+        return {"assets": []}
+    return list_kit(name.strip())
+
+
 @app.post("/api/brands/branding")
 def brand_branding(payload: dict = Body(...)):
     """Genera logo(s) + banners por red para una marca (Brand Kit con IA)."""
