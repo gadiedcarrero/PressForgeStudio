@@ -834,6 +834,22 @@ async function loadReels() {
   const shown = filter ? REELS.filter(r => r.brand_id === filter) : REELS;
   if (!shown.length) { g.innerHTML = '<p class="text-zinc-600 text-sm col-span-full">No hay reels de esa marca.</p>'; }
   g.innerHTML = shown.map(x => {
+    if (x.incomplete) {
+      return `
+      <div class="group">
+        <div class="reel-vid rounded-xl overflow-hidden bg-zinc-800 border border-amber-600/50 relative">
+          ${x.thumb ? `<img src="${x.thumb}" class="w-full h-full object-cover opacity-50" alt=""/>` : ''}
+          <div class="absolute inset-0 grid place-items-center bg-black/55 p-2 text-center">
+            <div>
+              <div class="text-[11px] text-amber-300 mb-2">Media lista · falta montar</div>
+              <button type="button" id="resume-${cssId(x.id)}" onclick="resumeReel('${esc(x.id)}')" class="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded-lg px-3 py-1.5 text-xs font-semibold">${icon('refresh','w-3.5 h-3.5')} Reintentar montaje</button>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs mt-1.5 line-clamp-2 text-zinc-300">${esc(x.title)||x.id}</p>
+        <p class="text-[11px] text-amber-500/80">sin terminar</p>
+      </div>`;
+    }
     const sel = SEL.has(x.id);
     const badge = x.scheduled ? `<span class="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500 text-white">⏱ ${x.scheduled}</span>` : (x.has_post ? `<span class="absolute top-1.5 right-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-700 text-zinc-200">✎</span>` : '');
     return `
@@ -849,6 +865,20 @@ async function loadReels() {
     </div>`;
   }).join('');
   updateSelBar();
+}
+async function resumeReel(id){
+  const btn = $('resume-'+cssId(id)); if(btn){ btn.disabled = true; btn.textContent = 'Montando…'; }
+  try {
+    const j = await (await fetch('/api/reels/'+encodeURIComponent(id)+'/resume',{method:'POST'})).json();
+    if(j.error){ alert('✗ '+j.error); if(btn){btn.disabled=false;} return; }
+    // esperar a que termine el montaje
+    while(true){
+      await new Promise(r=>setTimeout(r,3000));
+      const s = await (await fetch('/api/jobs/'+j.job_id)).json();
+      if(s.status==='done'){ loadReels(); return; }
+      if(s.status==='error'){ alert('✗ '+(s.error||'falló el montaje')); if(btn){btn.disabled=false; btn.textContent='Reintentar montaje';} return; }
+    }
+  } catch(e){ if(btn){btn.disabled=false; btn.textContent='Reintentar montaje';} }
 }
 function toggleSel(id){ SEL.has(id)?SEL.delete(id):SEL.add(id); loadReels(); }
 function clearSel(){ SEL = new Set(); loadReels(); }

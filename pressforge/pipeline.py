@@ -105,6 +105,13 @@ def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]
             f"between scenes). Do NOT add any other people who are not described here.")
 
 
+def _save_montage_cfg(workdir: Path, music: str | None) -> None:
+    """Guarda la música elegida para poder REANUDAR el montaje si falla."""
+    import json
+    (workdir / "_montage.json").write_text(
+        json.dumps({"music": music or ""}, ensure_ascii=False), encoding="utf-8")
+
+
 def _finalize_narration(text: str) -> str:
     """Asegura que el texto que va a TTS cierre con puntuación final fuerte, para
     que la voz baje el tono al terminar (no suene a 'sigo hablando')."""
@@ -271,6 +278,7 @@ def produce_reel(
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     workdir = output_path() / f"{stamp}-{_slug(story.niche or story.title)}"
     (workdir / "images").mkdir(parents=True, exist_ok=True)
+    _save_montage_cfg(workdir, music)
 
     # --- 1. Imágenes ---
     step("[bold cyan]1/5[/] Generando imágenes…", "1/5 · Generando imágenes…")
@@ -409,6 +417,7 @@ def produce_talking_reel(
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     workdir = output_path() / f"{stamp}-{_slug(story.niche or story.title)}-talk"
     workdir.mkdir(parents=True, exist_ok=True)
+    _save_montage_cfg(workdir, music)
 
     # 1. Presentador (imagen de frente, buena para lip-sync).
     step("[bold cyan]1/5[/] Generando presentador 3D…", "1/5 · Generando presentador 3D…")
@@ -484,6 +493,7 @@ def produce_dialogue_reel(
     (workdir / "images").mkdir(parents=True, exist_ok=True)
     (workdir / "clips").mkdir(parents=True, exist_ok=True)
     (workdir / "audio").mkdir(parents=True, exist_ok=True)
+    _save_montage_cfg(workdir, music)
 
     char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
     char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
@@ -582,6 +592,12 @@ def resume_render(workdir: Path, *, music: str | None = None) -> Path:
     story = Story(niche=data.get("niche", ""), title=data.get("title", ""),
                   hook=data.get("hook", ""), cta=data.get("cta", ""), scenes=scenes)
 
+    # Música: la del montaje guardado (_montage.json) salvo override explícito.
+    if music is None:
+        try:
+            music = json.loads((workdir / "_montage.json").read_text(encoding="utf-8")).get("music") or None
+        except Exception:  # noqa: BLE001
+            music = None
     audio_path = workdir / "narration.mp3"
     subs_path = workdir / "subs.ass"
     music_path = _resolve_music(music, story.niche) if music else None

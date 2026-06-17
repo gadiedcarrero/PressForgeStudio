@@ -655,7 +655,12 @@ def list_reels():
             if not d.is_dir():
                 continue
             mp4, sj = d / "reel.mp4", d / "story.json"
-            if not (mp4.exists() and sj.exists()):
+            if not sj.exists():
+                continue
+            done = mp4.exists()
+            # Incompleto pero RECUPERABLE: media lista (voz + subs), falta montar.
+            resumable = (not done) and (d / "narration.mp3").exists() and (d / "subs.ass").exists()
+            if not done and not resumable:
                 continue
             try:
                 data = json.loads(sj.read_text(encoding="utf-8"))
@@ -669,8 +674,9 @@ def list_reels():
                     "niche": data.get("niche", ""),
                     "hook": data.get("hook", ""),
                     "duration": data.get("duration_s"),
-                    "video": f"/output/{d.name}/reel.mp4",
+                    "video": f"/output/{d.name}/reel.mp4" if done else None,
                     "thumb": f"/output/{d.name}/images/{imgs[0].name}" if imgs else None,
+                    "incomplete": not done,
                     "has_post": bool(pubstore.get_post(d.name)),
                     "scheduled": sched_count.get(d.name, 0),
                     "brand_id": pubstore.get_reel_brand(d.name),
@@ -678,6 +684,36 @@ def list_reels():
                 }
             )
     return reels
+
+
+@app.post("/api/reels/{reel_id}/resume")
+def resume_reel(reel_id: str):
+    """Rehace SOLO el montaje final de un reel cuya media ya está generada."""
+    from ..pipeline import resume_render
+
+    wd = OUTPUT / Path(reel_id).name
+    if not (wd / "story.json").exists():
+        return JSONResponse({"error": "reel no encontrado"}, status_code=404)
+    if (wd / "reel.mp4").exists():
+        return JSONResponse({"error": "este reel ya está montado"}, status_code=400)
+
+    job_id = uuid.uuid4().hex[:12]
+    with _lock:
+        _jobs[job_id] = {"status": "running", "events": ["Reanudando montaje…"], "title": reel_id}
+
+    def _run():
+        try:
+            resume_render(wd)
+            with _lock:
+                _jobs[job_id]["events"].append("✓ Montaje listo")
+                _jobs[job_id].update(status="done", workdir=wd.name,
+                                     video=f"/output/{wd.name}/reel.mp4")
+        except Exception as exc:  # noqa: BLE001
+            with _lock:
+                _jobs[job_id].update(status="error", error=str(exc))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"job_id": job_id}
 
 
 # ─── Editor de post (caption / hashtags / plataformas) ───────────────────────
