@@ -136,6 +136,20 @@
           <div class="border-t border-zinc-800 pt-4 mb-4">
             <p class="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">Producción</p>
 
+            <label class="block text-sm mb-1 text-zinc-400">Formato</label>
+            <select id="format" title="Formato del reel" onchange="onFormatChange()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="still">Imagen fija (Ken Burns) — económico</option>
+              <option value="talking">Video animado: presentador 3D que habla (fal) — premium</option>
+            </select>
+            <div id="presenterWrap" class="hidden mb-3">
+              <input id="presenter" placeholder="Presentador (opcional): ej. mujer joven 3D estilo Pixar, elegante" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <select id="videoModel" title="Modelo de video" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="kling-avatar">Kling Avatar — ~$0.056/s (equilibrado)</option>
+                <option value="omnihuman">OmniHuman — ~$0.14/s (más gesto/cuerpo)</option>
+              </select>
+              <p class="text-[11px] text-amber-400/80 mt-1">Genera 1 personaje que narra todo el reel hablando. Coste por segundo (fal.ai). Requiere tu fal API Key en Ajustes.</p>
+            </div>
+
             <label class="block text-sm mb-1 text-zinc-400">Voz</label>
             <select id="voiceProvider" title="Proveedor de voz" onchange="onCreateVoiceProvider()" class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="openai">OpenAI — económica</option>
@@ -623,9 +637,15 @@ function collectScript(sid) {
   };
 }
 
+// ─── Formato (imagen fija vs video animado) ───
+function onFormatChange(){
+  $('presenterWrap').classList.toggle('hidden', $('format').value !== 'talking');
+}
+
 // ─── Producir reel ───
 async function produce(sid) {
   const script = collectScript(sid);
+  const videoMode = $('format').value === 'talking';
   $('prod').classList.remove('hidden');
   $('prodResult').classList.add('hidden');
   $('prodDot').className = 'h-2 w-2 rounded-full bg-indigo-400 animate-pulse';
@@ -634,7 +654,8 @@ async function produce(sid) {
   $('prod').scrollIntoView({behavior:'smooth', block:'center'});
   const r = await fetch('/api/produce', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ id: sid, script, music: $('music').value, brand_id: $('brandSel').value })
+    body: JSON.stringify({ id: sid, script, music: $('music').value, brand_id: $('brandSel').value,
+      video_mode: videoMode, presenter: $('presenter').value, video_model: $('videoModel').value })
   });
   const j = await r.json();
   if (j.error) { $('prodEvents').textContent = 'ERROR: ' + j.error; return; }

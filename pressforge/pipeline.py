@@ -349,6 +349,82 @@ def produce_reel(
     return ReelResult(story=story, video_path=final_path, workdir=workdir, duration=total)
 
 
+# ─── Paso 2 (alternativo): reel con PRESENTADOR 3D que habla (video IA) ──────
+def produce_talking_reel(
+    story: Story,
+    *,
+    presenter: str | None = None,
+    music: str | None = None,
+    voice: str | None = None,
+    model: str = "kling-avatar",
+    console: Console | None = None,
+    on_event: Callable[[str], None] | None = None,
+) -> ReelResult:
+    """Genera un reel donde un personaje 3D narra hablando (lip-sync vía fal),
+    con subtítulos + música + outro montados encima."""
+    from .providers.fal_video import talking_avatar
+    from .providers.ffmpeg_render import render_talking
+
+    settings = get_settings()
+    if voice:
+        settings.voice_name = voice
+    console = console or Console()
+
+    def step(rich_msg: str, plain_msg: str) -> None:
+        console.print(rich_msg)
+        if on_event:
+            on_event(plain_msg)
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    workdir = output_path() / f"{stamp}-{_slug(story.niche or story.title)}-talk"
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Presentador (imagen de frente, buena para lip-sync).
+    step("[bold cyan]1/5[/] Generando presentador 3D…", "1/5 · Generando presentador 3D…")
+    base_prompt = (presenter or "").strip() or (
+        f"a friendly charismatic presenter for a channel about {story.niche or story.title}")
+    presenter_prompt = (base_prompt + ", upper body, looking straight at the camera, "
+                        "warm confident expression, centered portrait, simple clean background")
+    pres_img = workdir / "presenter.png"
+    get_image_provider().generate(presenter_prompt, pres_img)
+
+    # 2. Voz (una sola narración continua).
+    step("[bold cyan]2/5[/] Generando narración…", "2/5 · Generando narración…")
+    narration = _finalize_narration(story.full_narration)
+    audio_path = get_voice_provider().synthesize(narration, workdir / "narration.mp3")
+    total = ffprobe_duration(audio_path)
+    console.print(f"    [green]✓[/] {total:.1f}s de audio")
+    if on_event:
+        on_event(f"    ✓ {total:.1f}s de audio")
+
+    # 3. Animar al presentador (fal: imagen + audio → video hablando).
+    step("[bold cyan]3/5[/] Animando al presentador (puede tardar 1-3 min)…",
+         "3/5 · Animando al presentador (puede tardar 1-3 min)…")
+    talking = talking_avatar(pres_img, audio_path, workdir / "talking.mp4",
+                             model=model, on_event=on_event)
+
+    # 4. Subtítulos (sobre la misma narración).
+    step("[bold cyan]4/5[/] Transcribiendo para subtítulos…", "4/5 · Transcribiendo para subtítulos…")
+    words = get_subtitle_provider().transcribe(audio_path)
+    subs_path = build_ass(words, workdir / "subs.ass",
+                          width=settings.video_width, height=settings.video_height)
+
+    _save_story(story, workdir, total)
+
+    # 5. Montaje final: subtítulos + música + outro (cola + fundidos) sobre el video.
+    step("[bold cyan]5/5[/] Montaje final (subtítulos + música + outro)…",
+         "5/5 · Montaje final (subtítulos + música + outro)…")
+    music_path = _resolve_music(music, story.music_mood or story.niche)
+    if music_path and on_event:
+        on_event(f"    ♪ música: {music_path.name}")
+    final_path = workdir / "reel.mp4"
+    render_talking(talking, subs_path, final_path, music_path=music_path,
+                   width=settings.video_width, height=settings.video_height,
+                   fps=settings.fps, music_volume=settings.music_volume)
+    step("[bold cyan]✓[/] [green]Reel listo[/]", "✓ Reel listo")
+    return ReelResult(story=story, video_path=final_path, workdir=workdir, duration=total)
+
+
 # ─── Conveniencia: guion + producción en un paso (usado por la CLI) ──────────
 def generate_reel(
     niche: str,

@@ -12,11 +12,61 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..ffmpeg_utils import run_ffmpeg
+from ..ffmpeg_utils import ffprobe_duration, run_ffmpeg
 from ..models import RenderJob, Scene
 
 _VIDEO_FADE = 1.0   # s de fundido a negro al final
 _MUSIC_FADE = 2.0   # s de fundido del sonido de la música al final
+_TALK_TAIL = 2.0    # s de cola (último fotograma congelado) tras la voz en modo video
+
+
+def render_talking(base_video: Path, subtitles_path: Path, out_path: Path, *,
+                   music_path: Path | None = None, width: int = 1080,
+                   height: int = 1920, fps: int = 30, music_volume: float = 0.12) -> Path:
+    """Monta un reel a partir de un video de presentador (con su voz): ajusta a
+    9:16, quema subtítulos, mezcla música y añade cola + fundidos."""
+    wd = out_path.parent
+    base = Path(base_video)
+    dur = ffprobe_duration(base)
+    total = dur + _TALK_TAIL
+    v_st = max(0.0, total - _VIDEO_FADE)
+    subs = subtitles_path.name
+
+    # Vídeo: rellenar 9:16 (crop centrado), subtítulos, congelar último frame en
+    # la cola y fundido a negro.
+    video_chain = (
+        f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height},ass={subs},"
+        f"tpad=stop_mode=clone:stop_duration={_TALK_TAIL},"
+        f"fade=t=out:st={v_st:.3f}:d={_VIDEO_FADE},setsar=1,format=yuv420p[v]"
+    )
+    if music_path is not None:
+        m_st = max(0.0, total - _MUSIC_FADE)
+        audio_filter = (
+            f"[0:a]apad[narr];"
+            f"[1:a]volume={music_volume},aloop=loop=-1:size=2e9,"
+            f"afade=t=out:st={m_st:.3f}:d={_MUSIC_FADE}[mus];"
+            f"[narr][mus]amix=inputs=2:duration=longest:dropout_transition=0[a]"
+        )
+        filter_complex = f"{video_chain};{audio_filter}"
+    else:
+        filter_complex = f"{video_chain};[0:a]apad[a]"
+
+    run_ffmpeg(
+        [
+            "-i", str(base.resolve()),
+            *(["-i", str(music_path.resolve())] if music_path else []),
+            "-filter_complex", filter_complex,
+            "-map", "[v]", "-map", "[a]",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            "-r", str(fps), "-t", f"{total:.3f}",
+            out_path.name,
+        ],
+        cwd=wd,
+    )
+    return out_path
 
 
 def _kenburns_filter(scene: Scene, *, w: int, h: int, fps: int) -> str:
