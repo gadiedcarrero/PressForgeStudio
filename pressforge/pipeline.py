@@ -99,9 +99,10 @@ def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]
     if not parts:
         return prompt
     who = "; ".join(parts)
-    return (f"{prompt}. The person(s) in this image must look exactly like: {who}. "
-            f"Keep their appearance consistent and recognizable across all scenes. "
-            f"Do NOT add any other people who are not described here.")
+    return (f"{prompt}. The recurring character(s) must keep the SAME face and "
+            f"identity as: {who}. Keep the face recognizable across scenes; their "
+            f"clothing and body follow THIS scene's description (these may change "
+            f"between scenes). Do NOT add any other people who are not described here.")
 
 
 def _finalize_narration(text: str) -> str:

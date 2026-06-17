@@ -19,12 +19,15 @@ class CharacterDraft(BaseModel):
         "(ej. 'el soldado', 'la niña')."
     )
     description: str = Field(
-        description="Descripción VISUAL fija y detallada del personaje, EN INGLÉS, "
-        "para repetir en cada imagen donde aparezca y mantenerlo idéntico: edad "
-        "aproximada, género, etnia/tono de piel, color y estilo de pelo, "
-        "complexión, ropa característica de la época y rasgos distintivos. "
-        "Ej: 'a woman in her late 20s, light brown shoulder-length hair, fair "
-        "skin, wearing a dark business suit'. Sin texto ni nombres en la imagen."
+        description="IDENTIDAD FIJA del personaje (lo que NUNCA cambia entre "
+        "escenas), EN INGLÉS, para repetir en cada imagen y mantener la MISMA "
+        "CARA: rostro y rasgos faciales, forma/color de ojos, etnia/tono de piel, "
+        "color y estilo de pelo, edad aproximada, género. "
+        "NO incluyas la ropa NI la complexión/cuerpo: eso PUEDE CAMBIAR escena a "
+        "escena (un personaje puede adelgazar, engordar, musculares, cambiarse de "
+        "ropa) y se describe en el image_prompt de cada escena. "
+        "Ej: 'a woman in her late 20s, Latina, oval face, warm brown eyes, long "
+        "dark wavy hair, light olive skin'. Sin texto ni nombres en la imagen."
     )
 
 

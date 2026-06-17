@@ -77,13 +77,18 @@ pattern interrupt. Mantén el resto de escenas con ritmo alto y un cierre con pa
 # saque a la MISMA persona y que el prompt no se desligue del sujeto real.
 _CHARACTER_DOCTRINE = """
 
-═══ CONSISTENCIA DE PERSONAJES (imágenes coherentes) ═══
+═══ CONSISTENCIA DE PERSONAJES (misma cara, cuerpo/ropa variables) ═══
 Antes de escribir las escenas, LEE toda la historia e identifica a las personas
 concretas que aparecen (protagonista y secundarios recurrentes). Para cada una
-rellena `characters` con una descripción VISUAL fija y detallada EN INGLÉS
-(edad, género, etnia/tono de piel, color y estilo de pelo, complexión, ropa de
-la época, rasgos distintivos). Esa descripción se repetirá en cada imagen para
-que el personaje salga IGUAL en todas.
+rellena `characters` con su IDENTIDAD FIJA EN INGLÉS: rostro y rasgos faciales,
+ojos, etnia/tono de piel, color y estilo de pelo, edad, género. Eso se repite en
+cada imagen para mantener la MISMA CARA.
+IMPORTANTE: la `description` del personaje NO lleva ropa ni complexión/cuerpo,
+porque ESO PUEDE CAMBIAR entre escenas (alguien adelgaza, engorda, se vuelve
+musculoso, se cambia de ropa, un makeover…). El vestuario y el cuerpo de cada
+momento van en el `image_prompt` de la escena correspondiente. Si la historia
+implica un cambio (de ropa o físico), refléjalo en el image_prompt de esa escena
+y en adelante, manteniendo SIEMPRE la misma cara.
 
 Luego, en CADA escena, rellena `characters` con los nombres (exactos, de tu
 lista) de quienes aparecen en esa escena. Si la escena no muestra a una persona
