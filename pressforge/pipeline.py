@@ -471,16 +471,14 @@ def produce_dialogue_reel(
     *,
     music: str | None = None,
     voice: str | None = None,
-    i2v_model: str = "kling-i2v",
-    lipsync_model: str = "latentsync",
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
-    """Reel de diálogo en 2 pasos por escena: (1) Kling anima TODA la escena
-    (ambos se mueven), (2) lip-sync sincroniza la boca SOLO del que habla con su
-    voz (el otro se mueve pero no habla). Monta todo + subtítulos + música."""
-    from .providers.fal_video import image_to_video
-    from .providers.ffmpeg_render import concat_audio
+    """Reel de diálogo con Veo 3.1 (fast): por escena, Veo genera el clip CON
+    audio nativo — solo habla el personaje indicado (lip-sync de fábrica) y el
+    otro reacciona. Luego monta subtítulos + música + outro."""
+    from .providers.fal_video import veo3_dialogue
+    from .providers.ffmpeg_render import concat_audio, extract_audio
 
     settings = get_settings()
     console = console or Console()
@@ -498,12 +496,10 @@ def produce_dialogue_reel(
     _save_montage_cfg(workdir, music)
 
     char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
-    char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
-    vp = get_voice_provider()
     image_provider = get_image_provider()
     n = len(story.scenes)
 
-    # 1. Imágenes por escena (con consistencia de personajes).
+    # 1. Imágenes por escena (consistencia de personajes; base para Veo).
     step("[bold cyan]1/4[/] Generando imágenes…", "1/4 · Generando imágenes…")
     last_image: Path | None = None
     for scene in story.scenes:
@@ -519,47 +515,49 @@ def produce_dialogue_reel(
         if on_event:
             on_event(f"    ✓ imagen {scene.index + 1}/{n}")
 
-    # 2. Por escena: voz del speaker → animar la escena con Kling, indicándole que
-    #    SOLO el que habla mueve la boca (el otro asiente, boca cerrada). El clip de
-    #    Kling YA logra eso; el audio se mezcla luego en el montaje. (No usamos un
-    #    paso de lip-sync porque re-anima ambas bocas y arruina el resultado.)
-    step("[bold cyan]2/4[/] Voz + animación por escena (fal, tarda)…",
-         "2/4 · Voz + animación por escena (fal, puede tardar)…")
+    # 2. Por escena: Veo 3 genera el clip con el personaje hablando (audio nativo).
+    step("[bold cyan]2/4[/] Animando + voz con Veo 3 por escena (tarda)…",
+         "2/4 · Animando + voz con Veo 3 por escena (puede tardar)…")
     audio_parts: list[Path] = []
+    lang = (settings.language or "es").split("-")[0]
+    lang_name = {"es": "Spanish", "en": "English"}.get(lang, settings.language)
     for scene in story.scenes:
-        line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
-        v = char_voice.get(scene.speaker) or voice or None
-        vp.synthesize(scene.narration, line_audio, voice=v)
-        scene.duration = ffprobe_duration(line_audio)
-        audio_parts.append(line_audio)
         clip = workdir / "clips" / f"scene_{scene.index:02d}.mp4"
-        dur_opt = "10" if scene.duration > 5 else "5"
+        words_n = len(scene.narration.split())
+        dur = "4s" if words_n <= 4 else ("6s" if words_n <= 9 else "8s")
+        spk_desc = char_desc.get(scene.speaker, scene.speaker)
         others = [c for c in scene.characters if c and c != scene.speaker]
-        silent = (f"{', '.join(others)} keep their mouth firmly CLOSED and do NOT talk; "
-                  f"they only react with body gestures, head nods and expressions. "
-                  if others else "")
-        motion_prompt = (
-            f"{scene.image_prompt}. ONLY {scene.speaker or 'the main character'} is "
-            f"talking, with the mouth clearly moving as they speak. {silent}"
-            f"Natural full-scene motion, gentle cinematic camera, smooth, high quality.")
+        others_txt = (" The other character(s) listen in silence with mouth closed, "
+                      "reacting with natural gestures and expressions." if others else "")
+        veo_prompt = (
+            f"{scene.image_prompt}. {scene.speaker} ({spk_desc}) speaks directly, "
+            f"clearly lip-synced, saying in {lang_name}: \"{scene.narration}\".{others_txt} "
+            f"Pixar/Disney 3D animated movie style, natural motion, cinematic camera.")
         try:
-            image_to_video(scene.image_path, clip, prompt=motion_prompt,
-                           duration=dur_opt, model=i2v_model, on_event=on_event)
+            veo3_dialogue(scene.image_path, clip, prompt=veo_prompt, duration=dur, on_event=on_event)
             scene.clip_path = clip
+            scene.duration = ffprobe_duration(clip)
+            # el audio (la voz de Veo) se extrae para subtítulos + pista continua
+            line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
+            extract_audio(clip, line_audio)
+            audio_parts.append(line_audio)
             if on_event:
-                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) animada")
+                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) lista")
         except Exception as exc:  # noqa: BLE001 — si falla, queda imagen fija
-            console.print(f"    [yellow]escena {scene.index + 1} sin animar:[/] {exc}")
+            console.print(f"    [yellow]escena {scene.index + 1} falló:[/] {exc}")
             if on_event:
-                on_event(f"    ⚠ escena {scene.index + 1} sin animar (queda fija)")
+                on_event(f"    ⚠ escena {scene.index + 1} falló (queda fija)")
 
-    # Audio continuo (todas las líneas) + cola.
+    if not audio_parts:
+        raise RuntimeError("Veo 3 no generó ninguna escena (revisa tu fal API key/saldo).")
+
+    # Audio continuo (todas las líneas que dijo Veo) + cola.
     audio_path = concat_audio(audio_parts, workdir / "narration.mp3")
     total = ffprobe_duration(audio_path)
     if story.scenes:
         story.scenes[-1].duration += _OUTRO_TAIL
 
-    # 3. Subtítulos.
+    # 3. Subtítulos (transcribiendo el audio que generó Veo).
     step("[bold cyan]3/4[/] Subtítulos…", "3/4 · Transcribiendo para subtítulos…")
     words = get_subtitle_provider().transcribe(audio_path)
     subs_path = build_ass(words, workdir / "subs.ass",

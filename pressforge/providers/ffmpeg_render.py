@@ -31,6 +31,35 @@ def concat_audio(parts: list[Path], out_path: Path) -> Path:
     return out_path
 
 
+def concat_av(clips: list[Path], out_path: Path, *, width: int = 1080, height: int = 1920,
+              fps: int = 30) -> Path:
+    """Concatena clips CON audio (re-codifica) en uno solo, normalizando a 9:16."""
+    wd = out_path.parent
+    parts = []
+    for i, c in enumerate(clips):
+        norm = wd / f"_av_{i:02d}.mp4"
+        run_ffmpeg([
+            "-i", str(Path(c).resolve()),
+            "-vf", (f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+                    f"crop={width}:{height},setsar=1,format=yuv420p,fps={fps}"),
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-threads", "2", norm.name,
+        ], cwd=wd)
+        parts.append(norm.name)
+    listing = wd / "_av_concat.txt"
+    listing.write_text("".join(f"file '{p}'\n" for p in parts), encoding="utf-8")
+    run_ffmpeg(["-f", "concat", "-safe", "0", "-i", str(listing.resolve()),
+                "-c", "copy", out_path.name], cwd=wd)
+    return out_path
+
+
+def extract_audio(video: Path, out_path: Path) -> Path:
+    """Extrae el audio de un video a mp3 (para transcribir subtítulos)."""
+    run_ffmpeg(["-i", str(Path(video).resolve()), "-vn", "-c:a", "libmp3lame",
+                "-q:a", "3", out_path.name], cwd=out_path.parent)
+    return out_path
+
+
 def render_talking(base_video: Path, subtitles_path: Path, out_path: Path, *,
                    music_path: Path | None = None, width: int = 1080,
                    height: int = 1920, fps: int = 30, music_volume: float = 0.12) -> Path:

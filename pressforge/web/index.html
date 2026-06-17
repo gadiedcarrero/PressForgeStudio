@@ -694,7 +694,7 @@ function onFormatChange(){
   const f = $('format').value;
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
   $('animatedNote').classList.toggle('hidden', f !== 'animated' && f !== 'dialogue');
-  if (f === 'dialogue') $('animatedNote').textContent = 'Diálogo: cada escena se ANIMA con Kling indicándole que SOLO el del turno mueve la boca (el otro asiente, boca cerrada), y se le pone su voz. Asigna voz a cada personaje en la tarjeta. Coste por escena · empieza con un diálogo CORTO.';
+  if (f === 'dialogue') $('animatedNote').textContent = 'Diálogo: cada escena la genera Veo 3 con audio y lip-sync NATIVO — solo habla el del turno, el otro reacciona. OJO: las VOCES las genera Veo 3 (no ElevenLabs); por eso no eliges voz por personaje aquí. Es lo más caro (~$0.9–1.2/escena) · empieza con un diálogo CORTO.';
   else if (f === 'animated') $('animatedNote').textContent = 'Cada escena se anima con movimiento (Kling) y la voz va en off. ~$0.25 por escena. Requiere tu fal API Key. Prueba con guion corto.';
 }
 
