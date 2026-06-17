@@ -20,6 +20,7 @@ _lock = threading.RLock()
 KNOWN = {
     "openai_api_key": "OpenAI API Key",
     "elevenlabs_api_key": "ElevenLabs API Key (voz, opcional)",
+    "fal_api_key": "fal.ai API Key (video animado, opcional)",
 }
 
 
