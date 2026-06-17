@@ -15,6 +15,9 @@ from pathlib import Path
 from ..ffmpeg_utils import run_ffmpeg
 from ..models import RenderJob, Scene
 
+_VIDEO_FADE = 1.0   # s de fundido a negro al final
+_MUSIC_FADE = 2.0   # s de fundido del sonido de la música al final
+
 
 def _kenburns_filter(scene: Scene, *, w: int, h: int, fps: int) -> str:
     tf = max(2, int(round(scene.duration * fps)))
@@ -75,18 +78,30 @@ class FFmpegRenderProvider:
             cwd=wd,
         )
 
-        # 3. Subtítulos + audio.
+        # 3. Subtítulos + audio + fundidos de cierre.
+        # Duración total = la del montaje (incluye la cola tras la voz). La voz
+        # acaba antes; rellenamos con silencio y bajamos vídeo y música al final.
+        total = sum(
+            max(2, int(round(s.duration * job.fps)))
+            for s in job.scenes if s.image_path is not None
+        ) / job.fps
+        v_st = max(0.0, total - _VIDEO_FADE)
         subs = job.subtitles_path.name
+        video_chain = f"[0:v]ass={subs},fade=t=out:st={v_st:.3f}:d={_VIDEO_FADE}[v]"
+
         if job.music_path is not None:
+            m_st = max(0.0, total - _MUSIC_FADE)
             audio_filter = (
-                f"[2:a]volume={job.music_volume},aloop=loop=-1:size=2e9[mus];"
-                f"[1:a][mus]amix=inputs=2:duration=first:dropout_transition=2[a]"
+                f"[1:a]apad[narr];"
+                f"[2:a]volume={job.music_volume},aloop=loop=-1:size=2e9,"
+                f"afade=t=out:st={m_st:.3f}:d={_MUSIC_FADE}[mus];"
+                f"[narr][mus]amix=inputs=2:duration=longest:dropout_transition=0[a]"
             )
-            filter_complex = f"[0:v]ass={subs}[v];{audio_filter}"
+            filter_complex = f"{video_chain};{audio_filter}"
             maps = ["-map", "[v]", "-map", "[a]"]
         else:
-            filter_complex = f"[0:v]ass={subs}[v]"
-            maps = ["-map", "[v]", "-map", "1:a"]
+            filter_complex = f"{video_chain};[1:a]apad[a]"
+            maps = ["-map", "[v]", "-map", "[a]"]
 
         run_ffmpeg(
             [
@@ -97,7 +112,7 @@ class FFmpegRenderProvider:
                 "-c:v", "libx264", "-preset", "medium", "-crf", "20",
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac", "-b:a", "192k",
-                "-r", str(job.fps), "-shortest",
+                "-r", str(job.fps), "-t", f"{total:.3f}",
                 job.output_path.name,
             ],
             cwd=wd,

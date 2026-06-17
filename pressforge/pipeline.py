@@ -126,6 +126,9 @@ def _assign_durations(story: Story, total: float) -> None:
 _WORDS_PER_SCENE = 11
 _MIN_SCENES, _MAX_SCENES = 4, 18
 
+# Segundos de "cola" que el vídeo continúa tras acabar la voz (outro con fundido).
+_OUTRO_TAIL = 2.5
+
 
 def auto_scene_count(*, mode: str, user_script: str | None = None, expected_words: int = 140) -> int:
     """Nº de escenas/imágenes en función de la longitud, no fijo.
@@ -279,6 +282,10 @@ def produce_reel(
     audio_path = get_voice_provider().synthesize(narration, workdir / "narration.mp3")
     total = ffprobe_duration(audio_path)
     _assign_durations(story, total)
+    # Cola tras la voz: el vídeo sigue unos segundos (con fundido) para no cortar
+    # en seco al acabar la narración.
+    if story.scenes:
+        story.scenes[-1].duration += _OUTRO_TAIL
     console.print(f"    [green]✓[/] {total:.1f}s de audio")
     if on_event:
         on_event(f"    ✓ {total:.1f}s de audio")
