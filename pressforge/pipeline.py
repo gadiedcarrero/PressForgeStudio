@@ -104,6 +104,15 @@ def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]
             f"Do NOT add any other people who are not described here.")
 
 
+def _finalize_narration(text: str) -> str:
+    """Asegura que el texto que va a TTS cierre con puntuación final fuerte, para
+    que la voz baje el tono al terminar (no suene a 'sigo hablando')."""
+    text = text.strip()
+    if text and text[-1] not in ".!?…":
+        text += "."
+    return text
+
+
 def _assign_durations(story: Story, total: float) -> None:
     """Reparte la duración total del audio entre escenas, proporcional a las
     palabras de cada narración."""
@@ -266,7 +275,8 @@ def produce_reel(
 
     # --- 2. Voz ---
     step("[bold cyan]2/5[/] Generando narración…", "2/5 · Generando narración…")
-    audio_path = get_voice_provider().synthesize(story.full_narration, workdir / "narration.mp3")
+    narration = _finalize_narration(story.full_narration)
+    audio_path = get_voice_provider().synthesize(narration, workdir / "narration.mp3")
     total = ffprobe_duration(audio_path)
     _assign_durations(story, total)
     console.print(f"    [green]✓[/] {total:.1f}s de audio")

@@ -106,7 +106,14 @@ historia de corrido—, NO como una lista de frases cortas, secas e inconexas.
 - Una escena es un CORTE VISUAL, no obligatoriamente una frase completa: una
   misma frase puede repartirse entre dos escenas si el sentido continúa.
 - Evita el efecto "robot" de sujeto-verbo-punto repetido. Que respire como prosa
-  real. Las imágenes se ajustan luego a ese audio continuo."""
+  real. Las imágenes se ajustan luego a ese audio continuo.
+
+CIERRE con entonación final: la narración de la ÚLTIMA escena (y el campo `cta`)
+debe ser una frase CONCLUSIVA y COMPLETA que suene a final —como cuando alguien
+cierra y baja el tono para indicar que ya no hay más—. Una afirmación rotunda o
+una reflexión que cierra el círculo, terminada en punto firme (o '?'/'!'). NUNCA
+termines con conectores ni con algo que insinúe continuación (y…, pero…, "lo que
+nadie sabe es…", "entonces…"). Debe quedar claro que ahí ACABA la historia."""
 
 
 _SYSTEM = """Eres un guionista experto en contenido viral histórico para reels \
