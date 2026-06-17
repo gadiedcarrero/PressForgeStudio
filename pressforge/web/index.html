@@ -79,7 +79,7 @@
         <button type="button" data-mode="reddit"    class="mode-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border border-zinc-700 text-zinc-300">Curiosidades virales</button>
       </div>
 
-      <div class="grid lg:grid-cols-[400px_1fr] gap-6 items-start">
+      <div class="grid lg:grid-cols-[3fr_2fr] gap-6 items-start">
         <!-- Formulario -->
         <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
           <label class="block text-sm mb-1 text-zinc-400">Marca / canal</label>
@@ -166,11 +166,12 @@
               <option value="openai">OpenAI — económica</option>
               <option value="elevenlabs">ElevenLabs — premium</option>
             </select>
-            <div class="flex gap-1.5 mb-1">
+            <div id="voiceMainWrap" class="flex gap-1.5 mb-1">
               <select id="voiceSel" title="Voz" onchange="saveVoiceSel()" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
               <button type="button" id="voicePlay" onclick="playVoice()" title="Escuchar muestra"
                 class="shrink-0 grid place-items-center w-9 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800 text-zinc-300"><span data-ic="play" class="w-4 h-4"></span></button>
             </div>
+            <p id="voiceDialogueNote" class="hidden text-[11px] text-indigo-300/90 mb-3">En diálogo, la voz de cada personaje se elige en la tarjeta del guion (abajo, "Personajes y su VOZ").</p>
             <div id="voiceModelWrap" class="hidden mb-1">
               <select id="voiceModel" title="Modelo ElevenLabs" onchange="saveVoiceSel()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="eleven_multilingual_v2">Multilingüe v2 — máxima calidad (~$0.09/reel)</option>
@@ -682,11 +683,19 @@ function collectScript(sid) {
 
 // ─── Formato (imagen fija / presentador / animado completo) ───
 function onDialogueToggle(){
-  // En diálogo, la duración y el nº de imágenes los marca el guion (no se fijan).
+  // En diálogo: la duración/imágenes las marca el guion, y la voz por personaje
+  // se elige en la tarjeta del guion (aquí solo queda el PROVEEDOR de voz).
   const d = $('dialogueChk').checked;
   $('field-duration').classList.toggle('hidden', d);
   $('field-imgcount').classList.toggle('hidden', d);
   $('dialogueDurNote').classList.toggle('hidden', !d);
+  $('voiceMainWrap').classList.toggle('hidden', d);
+  $('voiceModelWrap').classList.toggle('hidden', d);
+  $('voiceSpeedWrap').classList.toggle('hidden', d);
+  $('voiceBrowseBtn').classList.toggle('hidden', d);
+  $('voiceNote').classList.toggle('hidden', d);
+  $('voiceDialogueNote').classList.toggle('hidden', !d);
+  if (!d) populateVoiceSel();  // restaura la visibilidad correcta según el proveedor
 }
 
 function onFormatChange(){
