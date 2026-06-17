@@ -129,6 +129,14 @@ _MIN_SCENES, _MAX_SCENES = 4, 18
 # Segundos de "cola" que el vídeo continúa tras acabar la voz (outro con fundido).
 _OUTRO_TAIL = 2.5
 
+# Duración objetivo del reel → palabras de narración (español ≈ 2.4 pal/s reales).
+# corto ~30s · medio ~45s · largo 60-90s (para calificar/monetizar en TikTok).
+_DURATION_WORDS = {"short": 75, "medium": 115, "long": 200}
+
+
+def duration_target_words(duration: str | None) -> int:
+    return _DURATION_WORDS.get((duration or "medium").lower(), 150)
+
 
 def auto_scene_count(*, mode: str, user_script: str | None = None, expected_words: int = 140) -> int:
     """Nº de escenas/imágenes en función de la longitud, no fijo.
@@ -152,6 +160,7 @@ def generate_story(
     scenes: int = 6,
     extra: str | None = None,
     user_script: str | None = None,
+    target_words: int | None = None,
 ) -> Story:
     """Devuelve solo el guion + storyboard (sin imágenes/voz/render).
 
@@ -167,12 +176,13 @@ def generate_story(
     # mode == "invent"
     if not niche or not niche.strip():
         raise ValueError("El modo 'Inventar' necesita un nicho/tema.")
-    return provider.generate(niche, scenes=scenes, extra=extra)
+    return provider.generate(niche, scenes=scenes, extra=extra, target_words=target_words)
 
 
-def generate_story_from_fact(fact, *, scenes: int = 6, extra: str | None = None) -> Story:
-    """Guion fiel a un hecho real (Wikipedia)."""
-    return get_script_provider().from_source(fact, scenes=scenes, extra=extra)
+def generate_story_from_fact(fact, *, scenes: int = 6, extra: str | None = None,
+                             target_words: int | None = None) -> Story:
+    """Guion fiel a un hecho real (Wikipedia/Reddit)."""
+    return get_script_provider().from_source(fact, scenes=scenes, extra=extra, target_words=target_words)
 
 
 def generate_stories(
@@ -185,14 +195,17 @@ def generate_stories(
     count: int = 1,
     month: int | None = None,
     day: int | None = None,
+    duration: str | None = None,
 ) -> list[Story]:
     """Devuelve una o varias propuestas de guion según el modo, para que el
     usuario elija/edite antes de producir.
 
     `scenes`: nº de imágenes; si es None/0 se calcula automáticamente según la
-    longitud (más guion → más escenas)."""
+    longitud. `duration`: short/medium/long → palabras objetivo de narración."""
     count = max(1, min(3, count))
-    eff = scenes if (scenes and scenes > 0) else auto_scene_count(mode=mode, user_script=user_script)
+    tw = duration_target_words(duration)
+    eff = scenes if (scenes and scenes > 0) else auto_scene_count(
+        mode=mode, user_script=user_script, expected_words=tw)
 
     if mode == "mine":
         return [generate_story(mode="mine", user_script=user_script, scenes=eff, extra=extra)]
@@ -203,7 +216,7 @@ def generate_stories(
         facts = get_research_provider().search(niche, limit=count)
         if not facts:
             raise ValueError(f"No encontré artículos en Wikipedia para «{niche}».")
-        return [generate_story_from_fact(f, scenes=eff, extra=extra) for f in facts]
+        return [generate_story_from_fact(f, scenes=eff, extra=extra, target_words=tw) for f in facts]
 
     if mode == "onthisday":
         today = datetime.now()
@@ -215,14 +228,14 @@ def generate_stories(
         idxs = get_script_provider().select_events(events, theme=niche or "", count=count)
         stories = []
         for i in idxs:
-            story = generate_story_from_fact(events[i], scenes=eff, extra=extra)
+            story = generate_story_from_fact(events[i], scenes=eff, extra=extra, target_words=tw)
             story.source_date = human_date(d, m, events[i].year)
             stories.append(story)
         return stories
 
     # mode == "invent"
     return [
-        generate_story(mode="invent", niche=niche, scenes=eff, extra=extra)
+        generate_story(mode="invent", niche=niche, scenes=eff, extra=extra, target_words=tw)
         for _ in range(count)
     ]
 

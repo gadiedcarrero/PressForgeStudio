@@ -104,6 +104,13 @@
               class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
           </div>
 
+          <label class="block text-sm mb-1 text-zinc-400">Duración objetivo</label>
+          <select id="duration" title="Duración del reel" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="short">Corto (~30s)</option>
+            <option value="medium" selected>Medio (~45s)</option>
+            <option value="long">Largo (60-90s · para TikTok +1min)</option>
+          </select>
+
           <div class="grid grid-cols-2 gap-3 mb-4">
             <div>
               <label class="block text-sm mb-1 text-zinc-400">Imágenes</label>
@@ -192,7 +199,11 @@
               <button id="genSelBtn" type="button" onclick="generateSelected()" disabled
                 class="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg px-4 py-2 text-sm font-semibold shrink-0">Generar guion (0)</button>
             </div>
-            <p class="text-[11px] text-zinc-500 mb-3">Marca las que te interesen — la IA solo trabaja en esas, no en las que descartes.</p>
+            <p class="text-[11px] text-zinc-500 mb-2">Marca las que te interesen — la IA solo trabaja en esas, no en las que descartes.</p>
+            <label id="combineWrap" class="hidden items-center gap-2 text-[12px] text-zinc-400 mb-3 cursor-pointer">
+              <input id="combineReels" type="checkbox" class="accent-indigo-500" />
+              Combinar las elegidas en <b class="text-zinc-200">un solo reel largo</b> (ideal para +1 min)
+            </label>
             <div id="candList" class="space-y-2"></div>
           </div>
 
@@ -406,7 +417,8 @@ $('genBtn').addEventListener('click', async () => {
   if (MODE === 'historic' || MODE === 'onthisday' || MODE === 'reddit') return searchCandidates();
 
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
-                    niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value };
+                    niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value,
+                    duration: $('duration').value };
   if (MODE === 'invent' && !payload.niche.trim()) { $('niche').focus(); return; }
   if (MODE === 'mine' && !payload.user_script.trim()) { $('userScript').focus(); return; }
   $('genBtn').disabled = true;
@@ -439,6 +451,10 @@ async function searchCandidates() {
     SCRIPTS = []; $('scripts').innerHTML = ''; $('prod').classList.add('hidden'); $('emptyScripts').classList.add('hidden');
     $('candFilter').value = '';
     $('candidates').classList.remove('hidden');
+    // "Combinar en un reel largo" solo tiene sentido en Curiosidades (Reddit).
+    $('combineReels').checked = false;
+    $('combineWrap').classList.toggle('hidden', MODE !== 'reddit');
+    $('combineWrap').classList.toggle('flex', MODE === 'reddit');
     drawCandList(); updateSelCount();
     $('genStatus').textContent = '✓ ' + CANDIDATES.length + ' resultados. Marca los que te interesen.';
   } catch (e) { $('genStatus').textContent = '✗ error buscando'; }
@@ -478,7 +494,8 @@ async function generateSelected() {
   $('genStatus').textContent = 'Generando ' + SELECTED.size + ' guion(es)… (la IA solo procesa lo elegido)';
   try {
     const r = await fetch('/api/scripts', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ candidate_ids: [...SELECTED], scenes: +$('scenes').value, extra: $('extra').value }) });
+      body: JSON.stringify({ candidate_ids: [...SELECTED], scenes: +$('scenes').value, extra: $('extra').value,
+        duration: $('duration').value, combine: ($('combineReels')||{}).checked || false }) });
     const j = await r.json();
     if (j.error) { $('genStatus').textContent = '✗ ' + j.error; updateSelCount(); return; }
     SCRIPTS = j.scripts;

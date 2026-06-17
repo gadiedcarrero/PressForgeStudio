@@ -13,6 +13,15 @@ from ..models import Character, Scene, SourceFact, Story, StoryDraft
 from ._openai_client import client
 
 
+def _length_hint(target_words: int | None) -> str:
+    """Instrucción de longitud según las palabras objetivo (≈2.6 pal/s en es)."""
+    if not target_words:
+        return ""
+    secs = round(target_words / 2.4)
+    return (f"DURACIÓN OBJETIVO: ~{target_words} palabras en total de narración "
+            f"(≈{secs}s de voz). Reparte esas palabras entre las escenas.\n")
+
+
 class _EventSelection(BaseModel):
     indices: list[int] = Field(
         description="Índices (0-based) de los eventos elegidos, en orden de "
@@ -128,7 +137,7 @@ tan absurda que parece inventada."
 - DESARROLLO: explicación rápida, lenguaje sencillo, sin relleno, ritmo alto.
 - CIERRE (última escena): payoff sorprendente. Ej: "Y sí, esto quedó \
 registrado en la historia."
-- Total: 100-160 palabras repartidas entre las escenas.
+- Longitud: ajusta el total de palabras a la duración objetivo indicada.
 - Prioriza rareza, shock, ironía y finales inesperados. Nada aburrido.
 - Debe ser históricamente plausible/real, no inventado como falso.
 
@@ -174,8 +183,10 @@ sin falsear nada. Si un dato no está, no lo afirmes.
 invención.
 
 Formato: hook potente (0-3s) basado en el dato más sorprendente; desarrollo \
-ágil y claro; cierre con payoff. 100-160 palabras repartidas en escenas (la 1ª \
-es el hook, la última el cierre).
+ágil y claro; cierre con payoff. Ajusta el total de palabras a la duración \
+objetivo indicada (la 1ª escena es el hook, la última el cierre).
+Si la fuente da para poco y piden un guion largo, NO rellenes con paja: añade \
+solo contexto/consecuencias REALES que soporte la fuente, o quédate más corto.
 
 image_prompt en INGLÉS por escena: "cinematic historical realism", 9:16 \
 vertical, sin texto en la imagen, coherente y fiel a la época real del hecho. \
@@ -191,13 +202,15 @@ class OpenAIScriptProvider:
         self._client = client_obj or client()
         self._model = model or self.settings.script_model
 
-    def generate(self, niche: str, *, scenes: int, extra: str | None = None) -> Story:
+    def generate(self, niche: str, *, scenes: int, extra: str | None = None,
+                 target_words: int | None = None) -> Story:
         user = (
             f"Nicho: {niche}\n"
             f"Apunta a ~{scenes} escenas (la 1ª es el hook, la última el cierre). "
             f"Cada escena = una idea corta (~10-14 palabras) para que la imagen "
             f"cambie cada 3-5 s; ajusta el número según la longitud real.\n"
         )
+        user += _length_hint(target_words)
         if extra:
             user += f"Indicaciones extra: {extra}\n"
 
@@ -241,15 +254,17 @@ class OpenAIScriptProvider:
             raise RuntimeError("El modelo no devolvió un guion válido.")
         return self._to_story(draft, niche="Mi guion")
 
-    def from_source(self, fact: SourceFact, *, scenes: int, extra: str | None = None) -> Story:
-        """Modos Histórico / Qué pasó hoy: guion fiel a hechos reales de Wikipedia."""
+    def from_source(self, fact: SourceFact, *, scenes: int, extra: str | None = None,
+                    target_words: int | None = None) -> Story:
+        """Modos Histórico / Qué pasó hoy / Reddit: guion fiel a hechos reales."""
         year = f" (año {fact.year})" if fact.year else ""
         user = (
             f"Tema/título: {fact.title}{year}\n\n"
-            f"HECHOS REALES (Wikipedia):\n\"\"\"\n{fact.extract.strip()}\n\"\"\"\n\n"
+            f"HECHOS REALES (fuente):\n\"\"\"\n{fact.extract.strip()}\n\"\"\"\n\n"
             f"Escribe el guion en ~{scenes} escenas cortas (~10-14 palabras "
             f"cada una, imagen cada 3-5 s), fiel a estos hechos.\n"
         )
+        user += _length_hint(target_words)
         if extra:
             user += f"Indicaciones extra: {extra}\n"
 

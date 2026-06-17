@@ -26,6 +26,7 @@ from ..config import music_path, output_path
 from ..models import SourceFact, story_from_dict, story_to_dict
 from ..pipeline import (
     auto_scene_count,
+    duration_target_words,
     generate_stories,
     generate_story_from_fact,
     human_date,
@@ -350,22 +351,41 @@ def create_scripts(payload: dict = Body(...)):
     extra = (payload.get("extra") or "").strip() or None
     user_script = (payload.get("user_script") or "").strip() or None
     candidate_ids = payload.get("candidate_ids") or []
+    duration = (payload.get("duration") or "medium").strip()
+    combine = bool(payload.get("combine"))
+    tw = duration_target_words(duration)
 
-    # Camino Histórico/Efemérides: generar SOLO de lo que el usuario eligió.
+    # Camino con fuente (Histórico/Efemérides/Reddit): generar SOLO lo elegido.
     if candidate_ids:
-        eff = scenes if scenes else auto_scene_count(mode="historic")
-        drafts = []
-        for cid in candidate_ids[:6]:
+        eff = scenes if scenes else auto_scene_count(mode="historic", expected_words=tw)
+        cands = [_candidates.get(cid) for cid in candidate_ids[:6]]
+        cands = [c for c in cands if c]
+        if not cands:
+            return JSONResponse({"error": "No encuentro lo seleccionado; vuelve a buscar."}, status_code=400)
+
+        # Combinar varias curiosidades en UN solo reel largo.
+        if combine and len(cands) > 1:
+            merged = "\n\n".join(f"- {c['title']}: {c['extract']}" for c in cands)
+            fact = SourceFact(title="Varias curiosidades", extract=merged,
+                              url=cands[0].get("url", ""), year=None)
+            try:
+                story = generate_story_from_fact(fact, scenes=eff, extra=extra, target_words=tw)
+            except Exception as exc:  # noqa: BLE001
+                return JSONResponse({"error": str(exc)}, status_code=400)
+            sid = uuid.uuid4().hex[:12]
+            data = story_to_dict(story)
             with _lock:
-                cand = _candidates.get(cid)
-            if not cand:
-                continue
+                _scripts[sid] = data
+            return {"scripts": [{"id": sid, **data}]}
+
+        drafts = []
+        for cand in cands:
             fact = SourceFact(
                 title=cand["title"], extract=cand["extract"],
                 url=cand["url"], year=cand.get("year"),
             )
             try:
-                story = generate_story_from_fact(fact, scenes=eff, extra=extra)
+                story = generate_story_from_fact(fact, scenes=eff, extra=extra, target_words=tw)
             except Exception as exc:  # noqa: BLE001
                 return JSONResponse({"error": str(exc)}, status_code=400)
             story.source_date = cand.get("date", "")
@@ -387,6 +407,7 @@ def create_scripts(payload: dict = Body(...)):
             extra=extra,
             user_script=user_script,
             count=count,
+            duration=duration,
         )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"error": str(exc)}, status_code=400)
