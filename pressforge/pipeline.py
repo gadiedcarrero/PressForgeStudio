@@ -502,72 +502,102 @@ def produce_dialogue_reel(
     char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
     vp = get_voice_provider()
     image_provider = get_image_provider()
-    n = len(story.scenes)
-
-    # 1. Imágenes por escena (consistencia de personajes; base para Veo).
-    step("[bold cyan]1/4[/] Generando imágenes…", "1/4 · Generando imágenes…")
-    last_image: Path | None = None
-    for scene in story.scenes:
-        img = workdir / "images" / f"scene_{scene.index:02d}.png"
-        prompt = _with_characters(scene.image_prompt, scene.characters, char_desc)
-        try:
-            image_provider.generate(prompt, img)
-            last_image = img
-        except ImageBlockedError:
-            _fallback_image(img, last_image, image_provider, scene.index, n, console, on_event)
-            last_image = img
-        scene.image_path = img
-        if on_event:
-            on_event(f"    ✓ imagen {scene.index + 1}/{n}")
-
-    # 2. Por escena: generar el clip hablado según el motor elegido.
-    label = "Veo 3 (audio nativo)" if engine == "veo3" else "OmniHuman + voz"
-    step(f"[bold cyan]2/4[/] {label} por escena (fal, tarda)…",
-         f"2/4 · {label} por escena (puede tardar)…")
-    audio_parts: list[Path] = []
     lang = (settings.language or "es").split("-")[0]
     lang_name = {"es": "Spanish", "en": "English"}.get(lang, settings.language)
-    for scene in story.scenes:
-        clip = workdir / "clips" / f"scene_{scene.index:02d}.mp4"
-        line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
+
+    # Unidades de render. Veo 3 hace el intercambio entero, así que AGRUPAMOS varias
+    # líneas (turnos) por clip (~lo que cabe en 8s). OmniHuman: una línea por clip.
+    if engine == "veo3":
+        units: list[list[Scene]] = []
+        cur: list[Scene] = []
+        cur_w = 0
+        for sc in story.scenes:
+            w = len(sc.narration.split())
+            if cur and cur_w + w > 22:
+                units.append(cur); cur, cur_w = [], 0
+            cur.append(sc); cur_w += w
+        if cur:
+            units.append(cur)
+    else:
+        units = [[sc] for sc in story.scenes]
+
+    n = len(units)
+    label = "Veo 3 (audio nativo)" if engine == "veo3" else "OmniHuman + voz"
+    step(f"[bold cyan]1-2/4[/] Imágenes + {label} por escena (fal, tarda)…",
+         f"1-2/4 · Imágenes + {label} por escena (puede tardar)…")
+
+    render_scenes: list[Scene] = []
+    audio_parts: list[Path] = []
+    last_image: Path | None = None
+    for ui, group in enumerate(units):
+        first = group[0]
+        chars_in: list[str] = []
+        for sc in group:
+            for c in sc.characters:
+                if c and c not in chars_in:
+                    chars_in.append(c)
+        joined = " ".join(sc.narration for sc in group)
+        img = workdir / "images" / f"scene_{ui:02d}.png"
+        clip = workdir / "clips" / f"scene_{ui:02d}.mp4"
+        line_audio = workdir / "audio" / f"line_{ui:02d}.mp3"
+
+        # imagen de la unidad (escenario del primer turno, con sus personajes)
+        try:
+            image_provider.generate(_with_characters(first.image_prompt, chars_in, char_desc), img)
+            last_image = img
+        except ImageBlockedError:
+            _fallback_image(img, last_image, image_provider, ui, n, console, on_event)
+            last_image = img
+
+        unit = Scene(index=ui, narration=joined, image_prompt=first.image_prompt,
+                     characters=chars_in, image_path=img)
         try:
             if engine == "veo3":
-                words_n = len(scene.narration.split())
-                dur = "4s" if words_n <= 4 else ("6s" if words_n <= 9 else "8s")
-                spk_desc = char_desc.get(scene.speaker, scene.speaker)
-                others = [c for c in scene.characters if c and c != scene.speaker]
-                others_txt = (" The other character(s) listen in silence with mouth "
-                              "closed, reacting with natural gestures." if others else "")
+                who = "; ".join(f"{c} ({char_desc.get(c, c)})" for c in chars_in) or "the character"
+                lines = "  ".join(f'{sc.speaker}: "{sc.narration}"' for sc in group)
+                tw = sum(len(sc.narration.split()) for sc in group)
+                dur = "8s" if (tw > 9 or len(group) > 1) else ("6s" if tw > 4 else "4s")
                 veo_prompt = (
-                    f"{scene.image_prompt}. {scene.speaker} ({spk_desc}) speaks directly, "
-                    f"clearly lip-synced, saying in {lang_name}: \"{scene.narration}\".{others_txt} "
-                    f"Pixar/Disney 3D animated movie style, natural motion, cinematic camera.")
-                veo3_dialogue(scene.image_path, clip, prompt=veo_prompt, duration=dur, on_event=on_event)
-                extract_audio(clip, line_audio)  # la voz que generó Veo
-            else:  # omnihuman: voz (ElevenLabs) + lip-sync del que habla
-                v = char_voice.get(scene.speaker) or voice or None
-                vp.synthesize(scene.narration, line_audio, voice=v)
-                talking_avatar(scene.image_path, line_audio, clip, model="omnihuman", on_event=on_event)
-            scene.clip_path = clip
-            scene.duration = ffprobe_duration(clip)
+                    f"{first.image_prompt}. The characters ({who}) have a natural back-and-forth "
+                    f"conversation, taking turns; EACH one is clearly lip-synced ONLY to their OWN "
+                    f"line and stays silent (mouth closed) while the other speaks. Spoken in "
+                    f"{lang_name}, exactly these lines in order: {lines}. Pixar/Disney 3D animated "
+                    f"movie style, natural motion, cinematic camera.")
+                veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, on_event=on_event)
+                extract_audio(clip, line_audio)
+            else:  # omnihuman: una línea, voz de ElevenLabs del que habla
+                v = char_voice.get(first.speaker) or voice or None
+                vp.synthesize(first.narration, line_audio, voice=v)
+                talking_avatar(img, line_audio, clip, model="omnihuman", on_event=on_event)
+            unit.clip_path = clip
+            unit.duration = ffprobe_duration(clip)
             audio_parts.append(line_audio)
             if on_event:
-                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) lista")
-        except Exception as exc:  # noqa: BLE001 — si falla, queda imagen fija
-            console.print(f"    [yellow]escena {scene.index + 1} falló:[/] {exc}")
+                on_event(f"    ✓ escena {ui + 1}/{n} lista")
+        except Exception as exc:  # noqa: BLE001 — fallback: voz IA sobre imagen fija
+            console.print(f"    [yellow]escena {ui + 1} sin video ({exc}); uso imagen fija[/]")
+            try:
+                vp.synthesize(joined, line_audio, voice=voice or None)
+                unit.duration = ffprobe_duration(line_audio)
+                audio_parts.append(line_audio)
+            except Exception:  # noqa: BLE001
+                unit.duration = 3.0
             if on_event:
-                on_event(f"    ⚠ escena {scene.index + 1} falló (queda fija)")
+                on_event(f"    ⚠ escena {ui + 1} sin video (queda fija)")
+        render_scenes.append(unit)
 
     if not audio_parts:
         raise RuntimeError("No se generó ninguna escena (revisa tu fal API key/saldo).")
 
-    # Audio continuo (todas las líneas que dijo Veo) + cola.
+    story.scenes = render_scenes  # las unidades pasan a ser las escenas del reel
+
+    # Audio continuo + cola.
     audio_path = concat_audio(audio_parts, workdir / "narration.mp3")
     total = ffprobe_duration(audio_path)
-    if story.scenes:
-        story.scenes[-1].duration += _OUTRO_TAIL
+    if render_scenes:
+        render_scenes[-1].duration += _OUTRO_TAIL
 
-    # 3. Subtítulos (transcribiendo el audio que generó Veo).
+    # 3. Subtítulos (transcribiendo el audio real del reel).
     step("[bold cyan]3/4[/] Subtítulos…", "3/4 · Transcribiendo para subtítulos…")
     words = get_subtitle_provider().transcribe(audio_path)
     subs_path = build_ass(words, workdir / "subs.ass",

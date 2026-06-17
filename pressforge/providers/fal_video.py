@@ -189,15 +189,28 @@ def veo3_dialogue(image_path: Path, out_path: Path, *, prompt: str,
     key = resolve_key()
     if not key:
         raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
+    img_url = _upload(image_path, key)  # subir una sola vez, reusar en reintentos
     payload = {
-        "image_url": _upload(image_path, key),
+        "image_url": img_url,
         "prompt": prompt,
         "duration": duration,
         "aspect_ratio": "9:16",
         "resolution": "720p",
         "generate_audio": True,
+        "auto_fix": True,
     }
-    return _run_model(_VEO3_DIALOGUE, payload, out_path, poll_timeout=poll_timeout, on_event=on_event)
+    # Veo a veces devuelve "no_media_generated" de forma intermitente → reintentar.
+    last: Exception | None = None
+    for attempt in range(3):
+        try:
+            return _run_model(_VEO3_DIALOGUE, dict(payload), out_path,
+                              poll_timeout=poll_timeout, on_event=on_event)
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            if on_event:
+                on_event(f"    · Veo reintenta ({attempt + 1}/3)…")
+            time.sleep(3)
+    raise last if last else RuntimeError("Veo no generó el clip.")
 
 
 def lipsync(video_path: Path, audio_path: Path, out_path: Path, *,
