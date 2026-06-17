@@ -55,6 +55,35 @@ def _data_uri(path: Path) -> str:
     return f"data:{mime};base64,{b64}"
 
 
+def _put(url: str, data: bytes, content_type: str) -> None:
+    req = urllib.request.Request(url, data=data, method="PUT",
+                                 headers={"Content-Type": content_type})
+    try:
+        urllib.request.urlopen(req, timeout=300)
+    except urllib.error.URLError as exc:
+        if isinstance(getattr(exc, "reason", None), ssl.SSLError):
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            urllib.request.urlopen(req, timeout=300, context=ctx)
+        else:
+            raise
+
+
+def _upload(path: Path, key: str) -> str:
+    """Sube un archivo al almacenamiento de fal y devuelve su URL pública.
+
+    Algunos modelos (p. ej. OmniHuman) NO aceptan data URIs y exigen una URL
+    descargable; subir es lo robusto para todos."""
+    path = Path(path)
+    mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    body = json.dumps({"content_type": mime, "file_name": path.name}).encode("utf-8")
+    init = _req("https://rest.alpha.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3",
+                key=key, data=body, method="POST")
+    _put(init["upload_url"], path.read_bytes(), mime)
+    return init["file_url"]
+
+
 def _req(url: str, *, key: str, data: bytes | None = None, method: str = "GET") -> dict:
     req = urllib.request.Request(url, data=data, method=method, headers=_headers(key))
     try:
@@ -114,8 +143,11 @@ def talking_avatar(image_path: Path, audio_path: Path, out_path: Path, *,
                    model: str = DEFAULT_MODEL, prompt: str = "",
                    poll_timeout: int = 600, on_event=None) -> Path:
     """Genera un video del personaje (imagen) hablando con el audio dado (lip-sync)."""
+    key = resolve_key()
+    if not key:
+        raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
     model_id = MODELS.get(model, MODELS[DEFAULT_MODEL])
-    payload = {"image_url": _data_uri(image_path), "audio_url": _data_uri(audio_path)}
+    payload = {"image_url": _upload(image_path, key), "audio_url": _upload(audio_path, key)}
     if prompt:
         payload["prompt"] = prompt
     return _run_model(model_id, payload, out_path, poll_timeout=poll_timeout, on_event=on_event)
@@ -125,9 +157,12 @@ def image_to_video(image_path: Path, out_path: Path, *, prompt: str,
                    duration: str = "5", model: str = DEFAULT_I2V,
                    poll_timeout: int = 600, on_event=None) -> Path:
     """Anima una imagen (movimiento, sin audio) para una escena."""
+    key = resolve_key()
+    if not key:
+        raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
     model_id = I2V_MODELS.get(model, I2V_MODELS[DEFAULT_I2V])
     payload = {
-        "image_url": _data_uri(image_path),
+        "image_url": _upload(image_path, key),
         "prompt": prompt or "subtle natural motion, cinematic camera, smooth",
         "duration": duration,
     }
