@@ -455,6 +455,108 @@ def produce_talking_reel(
     return ReelResult(story=story, video_path=final_path, workdir=workdir, duration=total)
 
 
+# ─── Paso 2 (diálogo): cada escena, un personaje habla con su voz (lip-sync) ──
+def produce_dialogue_reel(
+    story: Story,
+    *,
+    music: str | None = None,
+    voice: str | None = None,
+    model: str = "omnihuman",
+    console: Console | None = None,
+    on_event: Callable[[str], None] | None = None,
+) -> ReelResult:
+    """Reel de diálogo: por escena, el `speaker` habla con SU voz y hace lip-sync
+    (OmniHuman); el otro aparece reaccionando. Monta todo + subtítulos + música."""
+    from .providers.fal_video import talking_avatar
+    from .providers.ffmpeg_render import concat_audio
+
+    settings = get_settings()
+    console = console or Console()
+
+    def step(rich_msg: str, plain_msg: str) -> None:
+        console.print(rich_msg)
+        if on_event:
+            on_event(plain_msg)
+
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    workdir = output_path() / f"{stamp}-{_slug(story.niche or story.title)}-dlg"
+    (workdir / "images").mkdir(parents=True, exist_ok=True)
+    (workdir / "clips").mkdir(parents=True, exist_ok=True)
+    (workdir / "audio").mkdir(parents=True, exist_ok=True)
+
+    char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
+    char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
+    vp = get_voice_provider()
+    image_provider = get_image_provider()
+    n = len(story.scenes)
+
+    # 1. Imágenes por escena (con consistencia de personajes).
+    step("[bold cyan]1/4[/] Generando imágenes…", "1/4 · Generando imágenes…")
+    last_image: Path | None = None
+    for scene in story.scenes:
+        img = workdir / "images" / f"scene_{scene.index:02d}.png"
+        prompt = _with_characters(scene.image_prompt, scene.characters, char_desc)
+        try:
+            image_provider.generate(prompt, img)
+            last_image = img
+        except ImageBlockedError:
+            _fallback_image(img, last_image, image_provider, scene.index, n, console, on_event)
+            last_image = img
+        scene.image_path = img
+        if on_event:
+            on_event(f"    ✓ imagen {scene.index + 1}/{n}")
+
+    # 2. Voz por línea (la voz del speaker) + lip-sync de esa escena.
+    step("[bold cyan]2/4[/] Voz por personaje + lip-sync (fal, tarda)…",
+         "2/4 · Voz por personaje + lip-sync (fal, puede tardar)…")
+    audio_parts: list[Path] = []
+    for scene in story.scenes:
+        line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
+        v = char_voice.get(scene.speaker) or voice or None
+        vp.synthesize(scene.narration, line_audio, voice=v)
+        scene.duration = ffprobe_duration(line_audio)
+        audio_parts.append(line_audio)
+        clip = workdir / "clips" / f"scene_{scene.index:02d}.mp4"
+        try:
+            talking_avatar(scene.image_path, line_audio, clip, model=model, on_event=on_event)
+            scene.clip_path = clip
+            if on_event:
+                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) animada")
+        except Exception as exc:  # noqa: BLE001 — si falla, queda imagen fija
+            console.print(f"    [yellow]escena {scene.index + 1} sin animar:[/] {exc}")
+            if on_event:
+                on_event(f"    ⚠ escena {scene.index + 1} sin animar (queda fija)")
+
+    # Audio continuo (todas las líneas) + cola.
+    audio_path = concat_audio(audio_parts, workdir / "narration.mp3")
+    total = ffprobe_duration(audio_path)
+    if story.scenes:
+        story.scenes[-1].duration += _OUTRO_TAIL
+
+    # 3. Subtítulos.
+    step("[bold cyan]3/4[/] Subtítulos…", "3/4 · Transcribiendo para subtítulos…")
+    words = get_subtitle_provider().transcribe(audio_path)
+    subs_path = build_ass(words, workdir / "subs.ass",
+                          width=settings.video_width, height=settings.video_height)
+    _save_story(story, workdir, total)
+
+    # 4. Montaje (reusa el render: concat de clips + voz + subs + música + outro).
+    step("[bold cyan]4/4[/] Montaje final…", "4/4 · Montaje final (subtítulos + música + outro)…")
+    music_path = _resolve_music(music, story.music_mood or story.niche)
+    if music_path and on_event:
+        on_event(f"    ♪ música: {music_path.name}")
+    final_path = workdir / "reel.mp4"
+    job = RenderJob(
+        workdir=workdir, scenes=story.scenes, audio_path=audio_path,
+        subtitles_path=subs_path, output_path=final_path, music_path=music_path,
+        width=settings.video_width, height=settings.video_height,
+        fps=settings.fps, music_volume=settings.music_volume,
+    )
+    get_render_provider().render(job)
+    step("[bold cyan]✓[/] [green]Reel listo[/]", "✓ Reel listo")
+    return ReelResult(story=story, video_path=final_path, workdir=workdir, duration=total)
+
+
 # ─── Conveniencia: guion + producción en un paso (usado por la CLI) ──────────
 def generate_reel(
     niche: str,

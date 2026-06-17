@@ -101,7 +101,11 @@
           <div id="field-script" class="hidden">
             <label class="block text-sm mb-1 text-zinc-400">Tu guion (la IA solo lo corrige, no inventa)</label>
             <textarea id="userScript" rows="6" placeholder="Pega o escribe aquí tu guion…"
-              class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+              class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            <label class="flex items-center gap-2 text-[13px] text-zinc-300 mb-4 cursor-pointer">
+              <input id="dialogueChk" type="checkbox" class="accent-indigo-500" />
+              Es un <b>diálogo entre personajes</b> (ej. "ELLA: … / ÉL: …") — la IA detecta los personajes, su voz y arma las escenas
+            </label>
           </div>
 
           <label class="block text-sm mb-1 text-zinc-400">Duración objetivo</label>
@@ -141,6 +145,7 @@
               <option value="still">Imagen fija (Ken Burns) — económico</option>
               <option value="talking">Video: presentador 3D que habla (fal) — premium</option>
               <option value="animated">Video animado completo: cada escena con movimiento (fal) — premium+</option>
+              <option value="dialogue">Diálogo: cada personaje habla con su voz (fal) — premium+</option>
             </select>
             <p class="text-[11px] text-zinc-600 mb-2">El <b>Formato</b> decide si se mueve; el <b>Estilo visual</b> (abajo) decide cómo se ve. Para muñequita 3D que se mueve: Formato Video + Estilo "3D Pixar".</p>
             <div id="presenterWrap" class="hidden mb-2">
@@ -435,7 +440,7 @@ $('genBtn').addEventListener('click', async () => {
 
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
                     niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value,
-                    duration: $('duration').value };
+                    duration: $('duration').value, dialogue: (MODE === 'mine' && $('dialogueChk').checked) };
   if (MODE === 'invent' && !payload.niche.trim()) { $('niche').focus(); return; }
   if (MODE === 'mine' && !payload.user_script.trim()) { $('userScript').focus(); return; }
   $('genBtn').disabled = true;
@@ -447,6 +452,7 @@ $('genBtn').addEventListener('click', async () => {
     SCRIPTS = j.scripts;
     $('candidates').classList.add('hidden');
     renderScripts();
+    if (payload.dialogue) { $('format').value = 'dialogue'; onFormatChange(); }
     $('genStatus').textContent = '✓ ' + SCRIPTS.length + ' guion(es). Revisa y edita antes de producir.';
   } catch (e) { $('genStatus').textContent = '✗ error generando'; }
   finally { $('genBtn').disabled = false; }
@@ -546,9 +552,10 @@ function renderScripts() {
         return `<button type="button" onclick="toggleSceneChar('${esc(s.id)}',${i},'${esc(c.name).replace(/'/g,"\\'")}',this)" class="text-[10px] px-2 py-0.5 rounded-full border ${on?'border-indigo-500 bg-indigo-500/20 text-indigo-200':'border-zinc-700 text-zinc-500'}">${on?'✓ ':''}${esc(c.name)}</button>`;
       }).join('');
       const chipRow = (s.characters || []).length ? `<div class="flex flex-wrap gap-1.5 mb-2" title="¿Quién aparece en esta escena? La descripción se repite en su imagen.">${chips}</div>` : '';
+      const spk = sc.speaker ? `<span class="text-[11px] text-indigo-300 ml-1">${icon('user','w-3 h-3 inline -mt-0.5')} ${esc(sc.speaker)}</span>` : '';
       return `
       <div class="border border-zinc-800 rounded-lg p-3 bg-zinc-950/40">
-        <div class="text-[11px] text-zinc-500 mb-1">Escena ${i+1} · narración</div>
+        <div class="text-[11px] text-zinc-500 mb-1">Escena ${i+1} · narración${spk}</div>
         <textarea id="nar-${k}-${i}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(sc.narration)}</textarea>
         ${chipRow}
         <div class="text-[11px] text-zinc-500 mb-1">prompt de imagen (inglés)</div>
@@ -563,7 +570,8 @@ function renderScripts() {
     const chars = (s.characters || []).map((c, ci) => `
       <div class="border border-zinc-800 rounded-lg p-2.5 bg-zinc-950/40">
         <div class="text-[11px] text-zinc-400 mb-1">${icon('user','w-3 h-3 inline -mt-0.5')} ${esc(c.name)}</div>
-        <textarea id="char-${k}-${ci}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(c.description)}</textarea>
+        <textarea id="char-${k}-${ci}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs text-zinc-400 mb-1 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(c.description)}</textarea>
+        <select id="charvoice-${k}-${ci}" title="Voz de este personaje (diálogo)" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-[11px] text-zinc-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"><option value="">— voz (ElevenLabs) —</option></select>
       </div>`).join('');
     const charsBlock = (s.characters || []).length ? `
         <details class="mb-3 group" open>
@@ -598,6 +606,29 @@ function renderScripts() {
       </div>
     </div>`;
   }).join('');
+  populateCharVoices();
+}
+
+// Voces de ElevenLabs para asignar a cada personaje (modo diálogo).
+let EL_VOICES = null;
+async function loadElVoices(){
+  if (EL_VOICES) return EL_VOICES;
+  try { const j = await (await fetch('/api/voices/elevenlabs')).json(); EL_VOICES = j.voices || []; }
+  catch(e){ EL_VOICES = []; }
+  return EL_VOICES;
+}
+async function populateCharVoices(){
+  const voices = await loadElVoices();
+  if (!voices.length) return;
+  SCRIPTS.forEach(s => {
+    const k = cssId(s.id);
+    (s.characters || []).forEach((c, ci) => {
+      const sel = $(`charvoice-${k}-${ci}`); if(!sel) return;
+      sel.innerHTML = '<option value="">— voz (ElevenLabs) —</option>' +
+        voices.map(v => `<option value="${esc(v.id)}" ${c.voice===v.id?'selected':''}>${esc(v.name)}</option>`).join('');
+      sel.onchange = () => { c.voice = sel.value; };
+    });
+  });
 }
 
 function toggleSceneChar(sid, sceneIdx, name, btn){
@@ -635,8 +666,8 @@ function collectScript(sid) {
     niche: s.niche, music_mood: s.music_mood,
     source_title: s.source_title || '', source_url: s.source_url || '', source_date: s.source_date || '',
     title: $('title-'+k).value, hook: $('hook-'+k).value, cta: $('cta-'+k).value,
-    characters: (s.characters || []).map((c, ci) => ({ name: c.name, description: ($(`char-${k}-${ci}`)||{}).value ?? c.description })),
-    scenes: s.scenes.map((sc, i) => ({ narration: $(`nar-${k}-${i}`).value, image_prompt: $(`img-${k}-${i}`).value, characters: sc.characters || [], reference: sc.reference || '' })),
+    characters: (s.characters || []).map((c, ci) => ({ name: c.name, description: ($(`char-${k}-${ci}`)||{}).value ?? c.description, voice: ($(`charvoice-${k}-${ci}`)||{}).value || c.voice || '' })),
+    scenes: s.scenes.map((sc, i) => ({ narration: $(`nar-${k}-${i}`).value, image_prompt: $(`img-${k}-${i}`).value, characters: sc.characters || [], speaker: sc.speaker || '', reference: sc.reference || '' })),
   };
 }
 
@@ -644,14 +675,16 @@ function collectScript(sid) {
 function onFormatChange(){
   const f = $('format').value;
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
-  $('animatedNote').classList.toggle('hidden', f !== 'animated');
+  $('animatedNote').classList.toggle('hidden', f !== 'animated' && f !== 'dialogue');
+  if (f === 'dialogue') $('animatedNote').textContent = 'Diálogo: cada escena se anima con el personaje que habla (OmniHuman) usando su voz. Asigna una voz a cada personaje en la tarjeta del guion. Coste por segundo · empieza con un diálogo corto.';
+  else if (f === 'animated') $('animatedNote').textContent = 'Cada escena se anima con movimiento (Kling) y la voz va en off. ~$0.25 por escena. Requiere tu fal API Key. Prueba con guion corto.';
 }
 
 // ─── Producir reel ───
 async function produce(sid) {
   const script = collectScript(sid);
   const fmt = $('format').value;
-  const videoModel = fmt === 'animated' ? 'kling-i2v' : $('videoModel').value;
+  const videoModel = fmt === 'animated' ? 'kling-i2v' : (fmt === 'dialogue' ? 'omnihuman' : $('videoModel').value);
   $('prod').classList.remove('hidden');
   $('prodResult').classList.add('hidden');
   $('prodDot').className = 'h-2 w-2 rounded-full bg-indigo-400 animate-pulse';

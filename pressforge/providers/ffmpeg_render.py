@@ -20,6 +20,17 @@ _MUSIC_FADE = 2.0   # s de fundido del sonido de la música al final
 _TALK_TAIL = 2.0    # s de cola (último fotograma congelado) tras la voz en modo video
 
 
+def concat_audio(parts: list[Path], out_path: Path) -> Path:
+    """Une varios audios (líneas del diálogo) en uno solo continuo."""
+    wd = out_path.parent
+    listing = wd / "_audio_concat.txt"
+    listing.write_text("".join(f"file '{Path(p).resolve().as_posix()}'\n" for p in parts),
+                       encoding="utf-8")
+    run_ffmpeg(["-f", "concat", "-safe", "0", "-i", str(listing.resolve()),
+                "-c:a", "libmp3lame", "-q:a", "2", out_path.name], cwd=wd)
+    return out_path
+
+
 def render_talking(base_video: Path, subtitles_path: Path, out_path: Path, *,
                    music_path: Path | None = None, width: int = 1080,
                    height: int = 1920, fps: int = 30, music_volume: float = 0.12) -> Path:

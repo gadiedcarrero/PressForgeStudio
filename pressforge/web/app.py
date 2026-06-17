@@ -457,6 +457,15 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 model=video_model or "kling-avatar",
                 on_event=on_event,
             )
+        elif fmt == "dialogue":
+            from ..pipeline import produce_dialogue_reel
+            result = produce_dialogue_reel(
+                story_from_dict(story_dict),
+                voice=voice or None,
+                music=music or None,
+                model=video_model or "omnihuman",
+                on_event=on_event,
+            )
         elif fmt == "animated":
             result = produce_reel(
                 story_from_dict(story_dict),
