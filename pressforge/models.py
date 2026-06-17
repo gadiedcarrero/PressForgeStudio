@@ -29,6 +29,13 @@ class CharacterDraft(BaseModel):
         "Ej: 'a woman in her late 20s, Latina, oval face, warm brown eyes, long "
         "dark wavy hair, light olive skin'. Sin texto ni nombres en la imagen."
     )
+    voice_style: str = Field(
+        default="",
+        description="Descripción FIJA y distintiva de la VOZ del personaje, EN "
+        "INGLÉS, para mantenerla IGUAL en todos los clips (edad, género, tono, "
+        "timbre). Ej: 'a warm deep adult male voice, calm and friendly' o 'a "
+        "bright cheerful young female voice'. Cada personaje con una voz distinta."
+    )
 
 
 class SceneDraft(BaseModel):
@@ -140,6 +147,7 @@ class Character:
     name: str
     description: str
     voice: str = ""  # voz (id ElevenLabs / nombre OpenAI) para sus líneas en modo diálogo
+    voice_style: str = ""  # descripción de voz fija (para Veo 3, consistencia entre clips)
 
 
 @dataclass
@@ -192,7 +200,8 @@ def story_to_dict(story: "Story") -> dict:
         "hook": story.hook,
         "cta": story.cta,
         "music_mood": story.music_mood,
-        "characters": [{"name": c.name, "description": c.description, "voice": c.voice} for c in story.characters],
+        "characters": [{"name": c.name, "description": c.description, "voice": c.voice,
+                        "voice_style": c.voice_style} for c in story.characters],
         "source_title": story.source_title,
         "source_url": story.source_url,
         "source_date": story.source_date,
@@ -213,7 +222,8 @@ def story_from_dict(d: dict) -> "Story":
         for i, s in enumerate(d.get("scenes", []))
     ]
     characters = [
-        Character(name=c.get("name", ""), description=c.get("description", ""), voice=c.get("voice", "") or "")
+        Character(name=c.get("name", ""), description=c.get("description", ""),
+                  voice=c.get("voice", "") or "", voice_style=c.get("voice_style", "") or "")
         for c in (d.get("characters") or []) if c.get("name")
     ]
     return Story(

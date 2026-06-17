@@ -500,6 +500,7 @@ def produce_dialogue_reel(
 
     char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
     char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
+    char_vstyle = {c.name: c.voice_style for c in story.characters if c.voice_style.strip()}
     vp = get_voice_provider()
     image_provider = get_image_provider()
     lang = (settings.language or "es").split("-")[0]
@@ -558,9 +559,12 @@ def produce_dialogue_reel(
                 lines = "  ".join(f'{sc.speaker}: "{sc.narration}"' for sc in group)
                 tw = sum(len(sc.narration.split()) for sc in group)
                 dur = "8s" if (tw > 9 or len(group) > 1) else ("6s" if tw > 4 else "4s")
+                # voz fija por personaje (consistencia entre clips)
+                vstyles = " ".join(f"{c} has {char_vstyle[c]}." for c in chars_in if char_vstyle.get(c))
                 veo_prompt = (
                     f"{first.image_prompt}. The characters talk to each other in {lang_name}, "
-                    f"with natural accurate lip-sync, taking turns. {lines}  "
+                    f"with natural accurate lip-sync, taking turns. "
+                    f"{('Voices — ' + vstyles + ' ') if vstyles else ''}{lines}  "
                     f"Pixar/Disney 3D animated movie style, expressive faces, natural motion.")
                 veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, on_event=on_event)
                 extract_audio(clip, line_audio)

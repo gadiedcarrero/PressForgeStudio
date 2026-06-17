@@ -678,7 +678,7 @@ function collectScript(sid) {
     niche: s.niche, music_mood: s.music_mood,
     source_title: s.source_title || '', source_url: s.source_url || '', source_date: s.source_date || '',
     title: $('title-'+k).value, hook: $('hook-'+k).value, cta: $('cta-'+k).value,
-    characters: (s.characters || []).map((c, ci) => ({ name: c.name, description: ($(`char-${k}-${ci}`)||{}).value ?? c.description, voice: ($(`charvoice-${k}-${ci}`)||{}).value || c.voice || '' })),
+    characters: (s.characters || []).map((c, ci) => ({ name: c.name, description: ($(`char-${k}-${ci}`)||{}).value ?? c.description, voice: ($(`charvoice-${k}-${ci}`)||{}).value || c.voice || '', voice_style: c.voice_style || '' })),
     scenes: s.scenes.map((sc, i) => ({ narration: $(`nar-${k}-${i}`).value, image_prompt: $(`img-${k}-${i}`).value, characters: sc.characters || [], speaker: sc.speaker || '', reference: sc.reference || '' })),
   };
 }

@@ -217,7 +217,9 @@ parafrasees, NO uses tercera persona, NO digas "Víctor pregunta…". Si el guio
 crea un beat con speaker y line VACÍOS y descríbela en `image_prompt`.
 4. Personajes: en `characters`, una entrada por cada uno con su IDENTIDAD FIJA EN \
 INGLÉS (cara, etnia/piel, ojos, pelo, edad). MISMA etnia y cara en TODO el video. \
-SIN ropa ni cuerpo en la identidad (esos cambian).
+SIN ropa ni cuerpo en la identidad (esos cambian). Asigna también a cada uno un \
+`voice_style` distintivo EN INGLÉS (edad/género/tono) para que su VOZ sea la MISMA \
+en todos los clips (ej. 'a warm deep adult male voice' / 'a bright young female voice').
 5. VESTUARIO/ESTADO ACUMULATIVO: lee TODO el guion y lleva la cuenta del aspecto de \
 cada personaje. Cuando algo cambia (pantalón negro, camisa blanca, saco…), ese \
 cambio se MANTIENE en el `image_prompt` de esa escena y de TODAS las siguientes. \
@@ -316,7 +318,8 @@ class OpenAIScriptProvider:
     @staticmethod
     def _dialogue_to_story(draft: "DialogueDraft") -> Story:
         characters = [
-            Character(name=c.name.strip(), description=c.description.strip())
+            Character(name=c.name.strip(), description=c.description.strip(),
+                      voice_style=(c.voice_style or "").strip())
             for c in (draft.characters or []) if c.name.strip() and c.description.strip()
         ]
         names = [c.name for c in characters]
