@@ -198,6 +198,8 @@ def veo3_dialogue(image_path: Path, out_path: Path, *, prompt: str,
         "resolution": "720p",
         "generate_audio": True,
         "auto_fix": True,
+        "negative_prompt": ("extra limbs, extra hands, duplicated hands, deformed hands, "
+                            "distorted fingers, mutated anatomy, glitch, morphing, blurry"),
     }
     # Veo a veces devuelve "no_media_generated" de forma intermitente → reintentar.
     last: Exception | None = None
