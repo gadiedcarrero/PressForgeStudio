@@ -19,15 +19,18 @@ tiene el estado completo, las decisiones y los próximos pasos.
 
 Desde un tema, en 2 pasos: **genera el guion → lo revisas/editas → produces el reel**.
 
-**4 modos de creación** (todos muestran el guion editable antes de gastar en el render):
+**5 modos de creación** (todos muestran el guion editable antes de gastar en el render):
 | Modo | Qué hace | Fuente |
 |------|----------|--------|
 | ✍️ Inventar | La IA crea una historia desde un nicho | — (puede alucinar; por eso editas) |
 | 📝 Mi guion | Tú escribes, la IA solo pule y divide en escenas | Tu texto (no inventa) |
 | 🏛️ Histórico | Busca artículos **reales** en Wikipedia y eliges cuáles | ✅ Wikipedia, cita fuente |
 | 📅 Qué pasó hoy | Efemérides reales de un día como hoy, eliges cuáles | ✅ Wikipedia "On this day" |
+| 🔥 Curiosidades virales | Datos sorprendentes de Reddit (TIL/history), eliges cuáles | ✅ Reddit (RSS), cita fuente |
 
-**Producción de cada reel:** guion con **hook fuerte** → imágenes IA (auto-escaladas: ~1 cada 4 s) → voz IA → subtítulos estilo TikTok (sincronizados, sin desbordarse) → render FFmpeg (Ken Burns + música opcional) → `reel.mp4` 1080×1920.
+**Producción de cada reel:** guion con **hook fuerte** y **narración continua** → imágenes IA (auto-escaladas: ~1 cada 4 s) con **estilo visual** elegible (cinematográfico, fotorrealista, colores vivos, óleo, ilustración, vintage, anime, **3D Pixar**) y **consistencia de personajes** (la misma persona en cada escena) → **voz IA (OpenAI o ElevenLabs premium**, con modelo y velocidad) → subtítulos estilo TikTok → render FFmpeg (Ken Burns + música + **outro con cola y fundidos**) → `reel.mp4` 1080×1920.
+
+También: **imagen de referencia por escena** (recrea una foto real en el estilo del vídeo) y **Brand Kit por marca** (logo + banners, versionados, en Drive).
 
 **Organización y publicación:**
 - **Marcas / Canales**: una marca por nicho (terror, dietas, historia…), cada una con su nicho, estilo (voz/música/hashtags) y **sus propias cuentas** de YouTube/Instagram/Facebook/TikTok.
@@ -45,10 +48,14 @@ Desde un tema, en 2 pasos: **genera el guion → lo revisas/editas → produces 
 
 ## Requisitos
 - **Python 3.11+**
-- **FFmpeg** en el PATH (`ffmpeg` y `ffprobe`)
-- **Node** (opcional, no se usa aún)
-- Una **`OPENAI_API_KEY`** (cubre guion, imágenes y voz). Es de pago por uso,
-  aparte de ChatGPT → se saca en https://platform.openai.com/api-keys
+- **FFmpeg** (`ffmpeg` y `ffprobe`). No hace falta tenerlo en el PATH: la app lo
+  localiza solo (winget en Windows, Homebrew en Mac); o fíjalo con `FFMPEG_DIR`.
+- Una **`OPENAI_API_KEY`** (cubre guion, imágenes y voz OpenAI). Pago por uso →
+  https://platform.openai.com/api-keys
+- *(Opcional)* **`ELEVENLABS_API_KEY`** para la voz premium (se pone en Ajustes →
+  API Keys). El proveedor/voz/modelo/velocidad se eligen en **Crear**.
+- *(Opcional)* **`STORAGE_DIR`** apuntando a una carpeta de Google Drive para
+  compartir marcas, reels, música y brand kits entre tus PCs (Mac ↔ Windows).
 
 ---
 
