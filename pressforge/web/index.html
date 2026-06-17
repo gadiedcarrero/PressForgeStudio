@@ -103,19 +103,22 @@
             <textarea id="userScript" rows="6" placeholder="Pega o escribe aquí tu guion…"
               class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
             <label class="flex items-center gap-2 text-[13px] text-zinc-300 mb-4 cursor-pointer">
-              <input id="dialogueChk" type="checkbox" class="accent-indigo-500" />
+              <input id="dialogueChk" type="checkbox" onchange="onDialogueToggle()" class="accent-indigo-500" />
               Es un <b>diálogo entre personajes</b> (ej. "ELLA: … / ÉL: …") — la IA detecta los personajes, su voz y arma las escenas
             </label>
           </div>
 
+          <div id="field-duration">
           <label class="block text-sm mb-1 text-zinc-400">Duración objetivo</label>
           <select id="duration" title="Duración del reel" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="short">Corto (~30s)</option>
             <option value="medium" selected>Medio (~45s)</option>
             <option value="long">Largo (60-90s · para TikTok +1min)</option>
           </select>
+          </div>
+          <p id="dialogueDurNote" class="hidden text-[11px] text-zinc-500 mb-4">La duración la marca tu diálogo — la IA NO inventa escenas, usa solo tus líneas.</p>
 
-          <div class="grid grid-cols-2 gap-3 mb-4">
+          <div id="field-imgcount" class="grid grid-cols-2 gap-3 mb-4">
             <div>
               <label class="block text-sm mb-1 text-zinc-400">Imágenes</label>
               <select id="scenes" title="Número de imágenes/escenas"
@@ -430,6 +433,7 @@ document.querySelectorAll('.mode-pill').forEach(p => p.addEventListener('click',
   $('genBtn').textContent = c.btn;
   $('genBtn').disabled = false;
   $('candidates').classList.add('hidden');  // limpia la lista al cambiar de modo
+  $('dialogueChk').checked = false; onDialogueToggle();  // diálogo solo aplica a Mi guion
 }));
 
 // ─── Generar guion(es) ───
@@ -672,6 +676,14 @@ function collectScript(sid) {
 }
 
 // ─── Formato (imagen fija / presentador / animado completo) ───
+function onDialogueToggle(){
+  // En diálogo, la duración y el nº de imágenes los marca el guion (no se fijan).
+  const d = $('dialogueChk').checked;
+  $('field-duration').classList.toggle('hidden', d);
+  $('field-imgcount').classList.toggle('hidden', d);
+  $('dialogueDurNote').classList.toggle('hidden', !d);
+}
+
 function onFormatChange(){
   const f = $('format').value;
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
