@@ -471,13 +471,16 @@ def produce_dialogue_reel(
     *,
     music: str | None = None,
     voice: str | None = None,
+    engine: str = "veo3",
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
-    """Reel de diálogo con Veo 3.1 (fast): por escena, Veo genera el clip CON
-    audio nativo — solo habla el personaje indicado (lip-sync de fábrica) y el
-    otro reacciona. Luego monta subtítulos + música + outro."""
-    from .providers.fal_video import veo3_dialogue
+    """Reel de diálogo. Dos motores:
+    - 'veo3': Veo 3.1 genera cada escena con audio + lip-sync NATIVO (mejor para
+      2+ personajes; las voces las pone Veo). Más caro.
+    - 'omnihuman': la voz de cada personaje (ElevenLabs) + OmniHuman anima al que
+      habla (ideal cuando habla UNO por escena; más barato)."""
+    from .providers.fal_video import talking_avatar, veo3_dialogue
     from .providers.ffmpeg_render import concat_audio, extract_audio
 
     settings = get_settings()
@@ -496,6 +499,8 @@ def produce_dialogue_reel(
     _save_montage_cfg(workdir, music)
 
     char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
+    char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
+    vp = get_voice_provider()
     image_provider = get_image_provider()
     n = len(story.scenes)
 
@@ -515,31 +520,36 @@ def produce_dialogue_reel(
         if on_event:
             on_event(f"    ✓ imagen {scene.index + 1}/{n}")
 
-    # 2. Por escena: Veo 3 genera el clip con el personaje hablando (audio nativo).
-    step("[bold cyan]2/4[/] Animando + voz con Veo 3 por escena (tarda)…",
-         "2/4 · Animando + voz con Veo 3 por escena (puede tardar)…")
+    # 2. Por escena: generar el clip hablado según el motor elegido.
+    label = "Veo 3 (audio nativo)" if engine == "veo3" else "OmniHuman + voz"
+    step(f"[bold cyan]2/4[/] {label} por escena (fal, tarda)…",
+         f"2/4 · {label} por escena (puede tardar)…")
     audio_parts: list[Path] = []
     lang = (settings.language or "es").split("-")[0]
     lang_name = {"es": "Spanish", "en": "English"}.get(lang, settings.language)
     for scene in story.scenes:
         clip = workdir / "clips" / f"scene_{scene.index:02d}.mp4"
-        words_n = len(scene.narration.split())
-        dur = "4s" if words_n <= 4 else ("6s" if words_n <= 9 else "8s")
-        spk_desc = char_desc.get(scene.speaker, scene.speaker)
-        others = [c for c in scene.characters if c and c != scene.speaker]
-        others_txt = (" The other character(s) listen in silence with mouth closed, "
-                      "reacting with natural gestures and expressions." if others else "")
-        veo_prompt = (
-            f"{scene.image_prompt}. {scene.speaker} ({spk_desc}) speaks directly, "
-            f"clearly lip-synced, saying in {lang_name}: \"{scene.narration}\".{others_txt} "
-            f"Pixar/Disney 3D animated movie style, natural motion, cinematic camera.")
+        line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
         try:
-            veo3_dialogue(scene.image_path, clip, prompt=veo_prompt, duration=dur, on_event=on_event)
+            if engine == "veo3":
+                words_n = len(scene.narration.split())
+                dur = "4s" if words_n <= 4 else ("6s" if words_n <= 9 else "8s")
+                spk_desc = char_desc.get(scene.speaker, scene.speaker)
+                others = [c for c in scene.characters if c and c != scene.speaker]
+                others_txt = (" The other character(s) listen in silence with mouth "
+                              "closed, reacting with natural gestures." if others else "")
+                veo_prompt = (
+                    f"{scene.image_prompt}. {scene.speaker} ({spk_desc}) speaks directly, "
+                    f"clearly lip-synced, saying in {lang_name}: \"{scene.narration}\".{others_txt} "
+                    f"Pixar/Disney 3D animated movie style, natural motion, cinematic camera.")
+                veo3_dialogue(scene.image_path, clip, prompt=veo_prompt, duration=dur, on_event=on_event)
+                extract_audio(clip, line_audio)  # la voz que generó Veo
+            else:  # omnihuman: voz (ElevenLabs) + lip-sync del que habla
+                v = char_voice.get(scene.speaker) or voice or None
+                vp.synthesize(scene.narration, line_audio, voice=v)
+                talking_avatar(scene.image_path, line_audio, clip, model="omnihuman", on_event=on_event)
             scene.clip_path = clip
             scene.duration = ffprobe_duration(clip)
-            # el audio (la voz de Veo) se extrae para subtítulos + pista continua
-            line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
-            extract_audio(clip, line_audio)
             audio_parts.append(line_audio)
             if on_event:
                 on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) lista")
@@ -549,7 +559,7 @@ def produce_dialogue_reel(
                 on_event(f"    ⚠ escena {scene.index + 1} falló (queda fija)")
 
     if not audio_parts:
-        raise RuntimeError("Veo 3 no generó ninguna escena (revisa tu fal API key/saldo).")
+        raise RuntimeError("No se generó ninguna escena (revisa tu fal API key/saldo).")
 
     # Audio continuo (todas las líneas que dijo Veo) + cola.
     audio_path = concat_audio(audio_parts, workdir / "narration.mp3")

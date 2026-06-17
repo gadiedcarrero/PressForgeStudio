@@ -160,7 +160,15 @@
               <p class="text-[11px] text-amber-400/80 mt-1">Un personaje narra todo el reel hablando (lip-sync). Coste por segundo.</p>
             </div>
             <p id="animatedNote" class="hidden text-[11px] text-amber-400/80 mb-3">Cada escena se anima con movimiento (Kling) y la voz va en off. Es lo más caro: ~$0.25 por escena. Requiere tu fal API Key en Ajustes. Prueba con guion corto primero.</p>
+            <div id="dialogueEngineWrap" class="hidden mb-3">
+              <label class="block text-sm mb-1 text-zinc-400">Motor del diálogo</label>
+              <select id="dialogueEngine" onchange="onDialogueEngine()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="veo3">Veo 3 — voces y lip-sync nativos (mejor para 2+, ~$0.9-1.2/escena)</option>
+                <option value="omnihuman">OmniHuman — tú eliges la voz (mejor para 1 que habla, más barato)</option>
+              </select>
+            </div>
 
+            <div id="voiceSection">
             <label class="block text-sm mb-1 text-zinc-400">Voz</label>
             <select id="voiceProvider" title="Proveedor de voz" onchange="onCreateVoiceProvider()" class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="openai">OpenAI — económica</option>
@@ -189,6 +197,7 @@
             </div>
             <button type="button" id="voiceBrowseBtn" onclick="openVoiceBrowser()" class="hidden text-[11px] text-indigo-300 hover:underline mb-1">Explorar más voces (biblioteca) →</button>
             <p id="voiceNote" class="text-[11px] text-zinc-600 mb-3"></p>
+            </div>
 
             <label class="block text-sm mb-1 text-zinc-400">Estilo visual</label>
             <input type="hidden" id="imageStyle" value="cinematic" />
@@ -568,12 +577,13 @@ function renderScripts() {
       <div class="border border-zinc-800 rounded-lg p-2.5 bg-zinc-950/40">
         <div class="text-[11px] text-zinc-400 mb-1">${icon('user','w-3 h-3 inline -mt-0.5')} ${esc(c.name)}</div>
         <textarea id="char-${k}-${ci}" rows="2" class="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1.5 text-xs text-zinc-400 mb-1 focus:outline-none focus:ring-1 focus:ring-indigo-500">${esc(c.description)}</textarea>
+        ${dialogueOmnihuman() ? `
         <label class="block text-[10px] text-indigo-300/90 mb-0.5">🎙 Voz de ${esc(c.name)} (para sus líneas):</label>
         <div class="flex items-center gap-1.5">
           <select id="charvoice-${k}-${ci}" title="Voz de este personaje (diálogo)" class="flex-1 min-w-0 bg-zinc-950 border border-indigo-500/30 rounded px-2 py-1 text-[11px] text-zinc-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"><option value="">— elige una voz de ElevenLabs —</option></select>
           <button type="button" title="Escuchar esta voz" onclick="playCharVoice('charvoice-${k}-${ci}', this)" class="shrink-0 w-7 h-7 grid place-items-center rounded border border-zinc-700 bg-zinc-950 hover:bg-zinc-800 text-zinc-300">${icon('play','w-3 h-3')}</button>
         </div>
-        <button type="button" onclick="openVoiceBrowser('charvoice-${k}-${ci}')" class="text-[10px] text-indigo-300 hover:underline mt-0.5">Explorar más voces (biblioteca) →</button>
+        <button type="button" onclick="openVoiceBrowser('charvoice-${k}-${ci}')" class="text-[10px] text-indigo-300 hover:underline mt-0.5">Explorar más voces (biblioteca) →</button>` : ''}
       </div>`).join('');
     const charsBlock = (s.characters || []).length ? `
         <details class="mb-3 group" open>
@@ -675,25 +685,32 @@ function collectScript(sid) {
 
 // ─── Formato (imagen fija / presentador / animado completo) ───
 function onDialogueToggle(){
-  // En diálogo: la duración/imágenes las marca el guion, y la voz por personaje
-  // se elige en la tarjeta del guion (aquí solo queda el PROVEEDOR de voz).
+  // En diálogo: la duración/imágenes las marca el guion. La sección Voz se oculta
+  // entera (con Veo las pone Veo; con OmniHuman se eligen por personaje en la tarjeta).
   const d = $('dialogueChk').checked;
   $('field-duration').classList.toggle('hidden', d);
   $('field-imgcount').classList.toggle('hidden', d);
   $('dialogueDurNote').classList.toggle('hidden', !d);
-  $('voiceMainWrap').classList.toggle('hidden', d);
-  $('voiceModelWrap').classList.toggle('hidden', d);
-  $('voiceSpeedWrap').classList.toggle('hidden', d);
-  $('voiceBrowseBtn').classList.toggle('hidden', d);
-  $('voiceNote').classList.toggle('hidden', d);
-  $('voiceDialogueNote').classList.toggle('hidden', !d);
-  if (!d) populateVoiceSel();  // restaura la visibilidad correcta según el proveedor
+  $('voiceSection').classList.toggle('hidden', d);
+  // el formato se fuerza a 'dialogue' al generar; mostramos el motor si está en diálogo
+  $('dialogueEngineWrap').classList.toggle('hidden', !(d && $('format').value === 'dialogue'));
+  if (!d) populateVoiceSel();
+  if (SCRIPTS.length) renderScripts();  // refresca las tarjetas (voz por personaje según motor)
+}
+function onDialogueEngine(){
+  if (SCRIPTS.length) renderScripts();  // mostrar/ocultar voz por personaje según motor
+}
+function dialogueOmnihuman(){
+  return $('dialogueChk').checked && $('format').value === 'dialogue' && $('dialogueEngine').value === 'omnihuman';
 }
 
 function onFormatChange(){
   const f = $('format').value;
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
   $('animatedNote').classList.toggle('hidden', f !== 'animated' && f !== 'dialogue');
+  $('dialogueEngineWrap').classList.toggle('hidden', f !== 'dialogue');
+  $('voiceSection').classList.toggle('hidden', f === 'dialogue');
+  if (SCRIPTS.length) renderScripts();
   if (f === 'dialogue') $('animatedNote').textContent = 'Diálogo: cada escena la genera Veo 3 con audio y lip-sync NATIVO — solo habla el del turno, el otro reacciona. OJO: las VOCES las genera Veo 3 (no ElevenLabs); por eso no eliges voz por personaje aquí. Es lo más caro (~$0.9–1.2/escena) · empieza con un diálogo CORTO.';
   else if (f === 'animated') $('animatedNote').textContent = 'Cada escena se anima con movimiento (Kling) y la voz va en off. ~$0.25 por escena. Requiere tu fal API Key. Prueba con guion corto.';
 }
@@ -702,7 +719,7 @@ function onFormatChange(){
 async function produce(sid) {
   const script = collectScript(sid);
   const fmt = $('format').value;
-  const videoModel = fmt === 'animated' ? 'kling-i2v' : (fmt === 'dialogue' ? 'omnihuman' : $('videoModel').value);
+  const videoModel = fmt === 'animated' ? 'kling-i2v' : (fmt === 'dialogue' ? $('dialogueEngine').value : $('videoModel').value);
   $('prod').classList.remove('hidden');
   $('prodResult').classList.add('hidden');
   $('prodDot').className = 'h-2 w-2 rounded-full bg-indigo-400 animate-pulse';
