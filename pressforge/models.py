@@ -30,8 +30,11 @@ class CharacterDraft(BaseModel):
 
 class SceneDraft(BaseModel):
     narration: str = Field(
-        description="Texto narrado de esta escena. Frases cortas, lenguaje "
-        "sencillo, sin relleno. Es lo que la voz IA leerá."
+        description="Fragmento narrado de esta escena. Es un SEGMENTO de una "
+        "narración continua: al unir los fragmentos de todas las escenas EN "
+        "ORDEN debe leerse como un texto fluido y natural (no frases sueltas y "
+        "robóticas). Usa conectores/transiciones; una frase puede continuar de "
+        "una escena a la siguiente. Es lo que la voz IA leerá de corrido."
     )
     image_prompt: str = Field(
         description="Prompt visual en inglés para generar la imagen de la "
@@ -72,10 +75,11 @@ class StoryDraft(BaseModel):
     )
     scenes: list[SceneDraft] = Field(
         description="Escenas en orden. La primera ES el hook; la última ES el "
-        "cierre. Cada escena es UNA idea corta (~10-14 palabras, idealmente una "
-        "frase) para que la imagen cambie cada 3-5 s. Usa tantas escenas como "
-        "pida la narración (más texto → más escenas). La concatenación de las "
-        "narraciones forma el guion completo."
+        "cierre. Cada escena es un CORTE VISUAL (~10-14 palabras) para que la "
+        "imagen cambie cada 3-5 s, PERO sus narraciones, leídas en orden, deben "
+        "formar UNA narración continua y fluida (no una lista de frases cortas "
+        "inconexas). Usa tantas escenas como pida la narración (más texto → más "
+        "escenas)."
     )
 
 

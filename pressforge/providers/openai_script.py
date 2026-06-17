@@ -80,10 +80,33 @@ Luego, en CADA escena, rellena `characters` con los nombres (exactos, de tu
 lista) de quienes aparecen en esa escena. Si la escena no muestra a una persona
 concreta (un lugar, un objeto, un símbolo), déjala vacía.
 
+Incluye a TODAS las personas que reaparecen: el protagonista Y los secundarios
+(p. ej. el acusador, la víctima, el juez, el padre…), no solo al principal. Si
+la MISMA persona aparece en distintas etapas de su vida (de adolescente a
+adulta), es UN SOLO personaje: mantén su identidad (rostro, etnia, rasgos, pelo)
+y, si acaso, solo ajusta la edad. Etiquétala en TODAS las escenas donde aparezca,
+aunque la narración solo la mencione de pasada.
+
 CADA `image_prompt` debe mostrar el SUJETO REAL de su narración, nunca algo
 genérico/simbólico desligado del tema. Si la narración habla de una persona
 concreta, la imagen es ESA persona (usando su descripción), no un desconocido al
 azar. Mantén coherencia de época, vestuario y paleta en todo el reel."""
+
+
+# Inyectada en los prompts de guion. La voz narra UNA historia de corrido.
+_NARRATION_DOCTRINE = """
+
+═══ NARRACIÓN CONTINUA (una sola voz, sin tirones) ═══
+El audio se genera de UNA sola vez y la voz cuenta UNA historia fluida de
+principio a fin. Al concatenar las narraciones de todas las escenas EN ORDEN
+debe leerse como un texto natural y continuo —como un narrador contando la
+historia de corrido—, NO como una lista de frases cortas, secas e inconexas.
+- Usa conectores y transiciones naturales (y, pero, entonces, sin embargo, años
+  después, lo que nadie esperaba…). VARÍA la longitud de las frases.
+- Una escena es un CORTE VISUAL, no obligatoriamente una frase completa: una
+  misma frase puede repartirse entre dos escenas si el sentido continúa.
+- Evita el efecto "robot" de sujeto-verbo-punto repetido. Que respire como prosa
+  real. Las imágenes se ajustan luego a ese audio continuo."""
 
 
 _SYSTEM = """Eres un guionista experto en contenido viral histórico para reels \
@@ -108,7 +131,7 @@ Reglas de los image_prompt (en INGLÉS):
 - Describe la escena concreta, sin texto ni letras en la imagen, sin marcas \
 modernas si la época no corresponde.
 - No gráfico: nada de gore, sangre, desnudez ni violencia explícita. Sugiere el \
-drama con atmósfera, sombras, siluetas y expresión (evita disparar filtros).""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE
+drama con atmósfera, sombras, siluetas y expresión (evita disparar filtros).""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE + _NARRATION_DOCTRINE
 
 _REFINE_SYSTEM = """Eres un editor de guiones para reels históricos verticales \
 (TikTok/Reels/Shorts). Escribes en {language}.
@@ -127,7 +150,7 @@ aporta.
 - Sugiere music_mood acorde al tono del guion del usuario.
 - IMPORTANTE: aunque el usuario empiece lento, REESCRIBE el arranque como un \
 hook potente usando el dato más fuerte que ÉL aporta (no inventes datos \
-nuevos).""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE
+nuevos).""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE + _NARRATION_DOCTRINE
 
 _SOURCE_SYSTEM = """Eres un guionista de reels históricos virales. Escribes en \
 {language}.
@@ -151,7 +174,7 @@ image_prompt en INGLÉS por escena: "cinematic historical realism", 9:16 \
 vertical, sin texto en la imagen, coherente y fiel a la época real del hecho. \
 No gráfico (sin gore, sangre, desnudez ni violencia explícita): sugiere el \
 drama con atmósfera y sombras.
-Sugiere music_mood acorde.""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE
+Sugiere music_mood acorde.""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE + _NARRATION_DOCTRINE
 
 
 class OpenAIScriptProvider:
