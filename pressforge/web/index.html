@@ -1097,13 +1097,19 @@ async function loadKeys(){
   $('keysList').innerHTML = Object.entries(keys).map(([name, info])=>`
     <div>
       <label class="block text-sm mb-1 text-zinc-400">${esc(info.label)} ${info.set?`<span class="text-green-400 text-[11px]">✓ configurada (${esc(info.masked)})</span>`:(info.env_fallback?'<span class="text-amber-400 text-[11px]">✓ usando la del .env</span>':'<span class="text-zinc-600 text-[11px]">sin configurar</span>')}</label>
-      <input type="password" id="key-${name}" placeholder="${info.set?'•••••• (escribe para reemplazar)':'pega tu clave aquí'}"
-        class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" autocomplete="off" />
+      <input type="password" id="key-${name}" name="pf-${name}-${Math.random().toString(36).slice(2)}" placeholder="${info.set?'•••••• (escribe para reemplazar)':'pega tu clave aquí'}"
+        class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore />
     </div>`).join('');
 }
 async function saveKeys(){
-  const body = {};
-  document.querySelectorAll('[id^="key-"]').forEach(i => { if(i.value.trim()) body[i.id.slice(4)] = i.value.trim(); });
+  const body = {}; let skipped = false;
+  document.querySelectorAll('[id^="key-"]').forEach(i => {
+    const v = i.value.trim();
+    if(!v) return;
+    if(v.length < 10){ skipped = true; return; }  // evita guardar basura/autofill (ej. "123")
+    body[i.id.slice(4)] = v;
+  });
+  if(skipped && !Object.keys(body).length){ $('keysStatus').textContent = '✗ Ese valor es demasiado corto para ser una clave (ignorado).'; return; }
   if(!Object.keys(body).length){ $('keysStatus').textContent = 'Escribe al menos una clave para guardar.'; return; }
   const j = await (await fetch('/api/keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   $('keysStatus').textContent = '✓ Guardado en este equipo';
