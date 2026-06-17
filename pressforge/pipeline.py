@@ -553,16 +553,15 @@ def produce_dialogue_reel(
                      characters=chars_in, image_path=img)
         try:
             if engine == "veo3":
-                who = "; ".join(f"{c} ({char_desc.get(c, c)})" for c in chars_in) or "the character"
+                # Formato simple que Veo entiende (su ejemplo: 'Name: "línea"').
+                # Sin instrucciones extra de lip-sync (confunden al modelo).
                 lines = "  ".join(f'{sc.speaker}: "{sc.narration}"' for sc in group)
                 tw = sum(len(sc.narration.split()) for sc in group)
                 dur = "8s" if (tw > 9 or len(group) > 1) else ("6s" if tw > 4 else "4s")
                 veo_prompt = (
-                    f"{first.image_prompt}. The characters ({who}) have a natural back-and-forth "
-                    f"conversation, taking turns; EACH one is clearly lip-synced ONLY to their OWN "
-                    f"line and stays silent (mouth closed) while the other speaks. Spoken in "
-                    f"{lang_name}, exactly these lines in order: {lines}. Pixar/Disney 3D animated "
-                    f"movie style, natural motion, cinematic camera.")
+                    f"{first.image_prompt}. The characters talk to each other in {lang_name}, "
+                    f"with natural accurate lip-sync, taking turns. {lines}  "
+                    f"Pixar/Disney 3D animated movie style, expressive faces, natural motion.")
                 veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, on_event=on_event)
                 extract_audio(clip, line_audio)
             else:  # omnihuman: una línea, voz de ElevenLabs del que habla
