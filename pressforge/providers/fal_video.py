@@ -82,14 +82,15 @@ def talking_avatar(image_path: Path, audio_path: Path, out_path: Path, *,
 
     submit = _req(f"{_QUEUE}/{model_id}", key=key,
                   data=json.dumps(payload).encode("utf-8"), method="POST")
-    req_id = submit.get("request_id")
-    if not req_id:
-        raise RuntimeError(f"fal no devolvió request_id: {submit}")
+    # Usar las URLs que fal devuelve (la ruta de requests difiere en modelos anidados).
+    status_url = submit.get("status_url")
+    response_url = submit.get("response_url")
+    if not status_url or not response_url:
+        raise RuntimeError(f"fal no devolvió status_url/response_url: {submit}")
 
-    base = f"{_QUEUE}/{model_id}/requests/{req_id}"
     waited = 0
     while waited < poll_timeout:
-        st = _req(f"{base}/status", key=key).get("status")
+        st = _req(status_url, key=key).get("status")
         if st == "COMPLETED":
             break
         if st in (None, "FAILED", "ERROR"):
@@ -101,7 +102,7 @@ def talking_avatar(image_path: Path, audio_path: Path, out_path: Path, *,
     else:
         raise RuntimeError("fal: tiempo de espera agotado generando el video.")
 
-    result = _req(base, key=key)
+    result = _req(response_url, key=key)
     video_url = (result.get("video") or {}).get("url")
     if not video_url:
         raise RuntimeError(f"fal no devolvió video: {result}")
