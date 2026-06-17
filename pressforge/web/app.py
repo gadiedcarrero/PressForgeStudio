@@ -439,13 +439,13 @@ def update_script(sid: str, payload: dict = Body(...)):
 
 # ─── Paso 2: producir el reel desde un guion (ya editado) ─────────────────────
 def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: str,
-             video_mode: bool = False, presenter: str = "", video_model: str = "kling-avatar") -> None:
+             fmt: str = "still", presenter: str = "", video_model: str = "") -> None:
     def on_event(msg: str) -> None:
         with _lock:
             _jobs[job_id]["events"].append(msg)
 
     try:
-        if video_mode:
+        if fmt == "talking":
             from ..pipeline import produce_talking_reel
             result = produce_talking_reel(
                 story_from_dict(story_dict),
@@ -453,6 +453,15 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 voice=voice or None,
                 music=music or None,
                 model=video_model or "kling-avatar",
+                on_event=on_event,
+            )
+        elif fmt == "animated":
+            result = produce_reel(
+                story_from_dict(story_dict),
+                voice=voice or None,
+                music=music or None,
+                animate=True,
+                video_model=video_model or "kling-i2v",
                 on_event=on_event,
             )
         else:
@@ -493,15 +502,15 @@ def produce(payload: dict = Body(...)):
     voice = (payload.get("voice") or "").strip()
     music = (payload.get("music") or "").strip()
     brand_id = (payload.get("brand_id") or "").strip()
-    video_mode = bool(payload.get("video_mode"))
+    fmt = (payload.get("format") or "still").strip()
     presenter = (payload.get("presenter") or "").strip()
-    video_model = (payload.get("video_model") or "kling-avatar").strip()
+    video_model = (payload.get("video_model") or "").strip()
     job_id = uuid.uuid4().hex[:12]
     with _lock:
         _jobs[job_id] = {"status": "running", "events": [], "title": story_dict.get("title", "")}
     threading.Thread(
         target=_run_job,
-        args=(job_id, dict(story_dict), voice, music, brand_id, video_mode, presenter, video_model),
+        args=(job_id, dict(story_dict), voice, music, brand_id, fmt, presenter, video_model),
         daemon=True,
     ).start()
     return {"job_id": job_id}

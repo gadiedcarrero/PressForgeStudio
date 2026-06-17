@@ -96,12 +96,32 @@ class FFmpegRenderProvider:
         wd = job.workdir
         clips: list[str] = []
 
-        # 1. Un clip Ken Burns por escena.
+        # 1. Un clip por escena: video animado (fal) si lo hay, si no Ken Burns.
         for scene in job.scenes:
+            clip_name = f"clip_{scene.index:02d}.mp4"
+            if scene.clip_path is not None and Path(scene.clip_path).is_file():
+                # Ajustar el clip animado a 9:16 y a la duración de la escena
+                # (recorta si sobra; congela el último frame si falta).
+                run_ffmpeg(
+                    [
+                        "-i", str(Path(scene.clip_path).resolve()),
+                        "-vf",
+                        (f"scale={job.width}:{job.height}:force_original_aspect_ratio=increase,"
+                         f"crop={job.width}:{job.height},"
+                         f"tpad=stop_mode=clone:stop_duration={scene.duration:.3f},"
+                         f"setsar=1,format=yuv420p,fps={job.fps}"),
+                        "-t", f"{scene.duration:.3f}",
+                        "-c:v", "libx264", "-preset", "medium", "-crf", "20",
+                        "-pix_fmt", "yuv420p", "-r", str(job.fps), "-an",
+                        clip_name,
+                    ],
+                    cwd=wd,
+                )
+                clips.append(clip_name)
+                continue
             if scene.image_path is None:
                 continue
             tf = max(2, int(round(scene.duration * job.fps)))
-            clip_name = f"clip_{scene.index:02d}.mp4"
             run_ffmpeg(
                 [
                     "-i", str(scene.image_path.resolve()),

@@ -246,6 +246,8 @@ def produce_reel(
     *,
     music: str | None = None,
     voice: str | None = None,
+    animate: bool = False,
+    video_model: str = "kling-i2v",
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
@@ -302,6 +304,29 @@ def produce_reel(
     console.print(f"    [green]✓[/] {total:.1f}s de audio")
     if on_event:
         on_event(f"    ✓ {total:.1f}s de audio")
+
+    # --- 2.5 Animación (modo Video animado completo): cada escena → clip con movimiento ---
+    if animate:
+        from .providers.fal_video import image_to_video
+        step("[bold cyan]·[/] Animando escenas (fal, puede tardar varios minutos)…",
+             "· Animando escenas (fal, puede tardar varios minutos)…")
+        for scene in story.scenes:
+            if scene.image_path is None:
+                continue
+            dur_opt = "10" if scene.duration > 6 else "5"
+            motion = (scene.image_prompt +
+                      ", subtle natural motion, gentle cinematic camera movement, smooth, high quality")
+            clip = workdir / "clips" / f"scene_{scene.index:02d}.mp4"
+            try:
+                image_to_video(scene.image_path, clip, prompt=motion,
+                               duration=dur_opt, model=video_model, on_event=on_event)
+                scene.clip_path = clip
+                if on_event:
+                    on_event(f"    ✓ escena {scene.index + 1}/{n} animada")
+            except Exception as exc:  # noqa: BLE001 — si una falla, esa escena queda como imagen fija
+                console.print(f"    [yellow]escena {scene.index + 1} sin animar:[/] {exc}")
+                if on_event:
+                    on_event(f"    ⚠ escena {scene.index + 1} sin animar (queda fija)")
 
     # --- 3. Subtítulos ---
     step("[bold cyan]3/5[/] Transcribiendo para subtítulos…", "3/5 · Transcribiendo para subtítulos…")

@@ -100,6 +100,7 @@ class Scene:
     characters: list[str] = field(default_factory=list)  # nombres que aparecen aquí
     reference: str = ""  # archivo de imagen de referencia (opcional) para recrear la escena
     image_path: Path | None = None
+    clip_path: Path | None = None  # video animado de la escena (modo Video animado completo)
     duration: float = 0.0  # segundos, asignado tras conocer la duración del audio
 
 
