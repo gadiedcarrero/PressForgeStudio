@@ -509,12 +509,13 @@ def produce_dialogue_reel(
     # Unidades de render. Veo 3 hace el intercambio entero, así que AGRUPAMOS varias
     # líneas (turnos) por clip (~lo que cabe en 8s). OmniHuman: una línea por clip.
     if engine == "veo3":
+        # Veo (8s) cuenta bien ~2 turnos cortos por clip; más, los atropella.
         units: list[list[Scene]] = []
         cur: list[Scene] = []
         cur_w = 0
         for sc in story.scenes:
             w = len(sc.narration.split())
-            if cur and cur_w + w > 22:
+            if cur and (len(cur) >= 2 or cur_w + w > 18):
                 units.append(cur); cur, cur_w = [], 0
             cur.append(sc); cur_w += w
         if cur:
