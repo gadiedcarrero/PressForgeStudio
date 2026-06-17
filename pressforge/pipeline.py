@@ -479,7 +479,7 @@ def produce_dialogue_reel(
     """Reel de diálogo en 2 pasos por escena: (1) Kling anima TODA la escena
     (ambos se mueven), (2) lip-sync sincroniza la boca SOLO del que habla con su
     voz (el otro se mueve pero no habla). Monta todo + subtítulos + música."""
-    from .providers.fal_video import image_to_video, lipsync
+    from .providers.fal_video import image_to_video
     from .providers.ffmpeg_render import concat_audio
 
     settings = get_settings()
@@ -519,10 +519,12 @@ def produce_dialogue_reel(
         if on_event:
             on_event(f"    ✓ imagen {scene.index + 1}/{n}")
 
-    # 2. Por escena: voz del speaker → animar la escena (Kling) → lip-sync solo
-    #    al que habla (latentsync). El otro se mueve pero no habla.
-    step("[bold cyan]2/4[/] Voz + animación + lip-sync por escena (fal, tarda)…",
-         "2/4 · Voz + animación + lip-sync por escena (fal, puede tardar)…")
+    # 2. Por escena: voz del speaker → animar la escena con Kling, indicándole que
+    #    SOLO el que habla mueve la boca (el otro asiente, boca cerrada). El clip de
+    #    Kling YA logra eso; el audio se mezcla luego en el montaje. (No usamos un
+    #    paso de lip-sync porque re-anima ambas bocas y arruina el resultado.)
+    step("[bold cyan]2/4[/] Voz + animación por escena (fal, tarda)…",
+         "2/4 · Voz + animación por escena (fal, puede tardar)…")
     audio_parts: list[Path] = []
     for scene in story.scenes:
         line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
@@ -530,30 +532,26 @@ def produce_dialogue_reel(
         vp.synthesize(scene.narration, line_audio, voice=v)
         scene.duration = ffprobe_duration(line_audio)
         audio_parts.append(line_audio)
-        motion = workdir / "clips" / f"scene_{scene.index:02d}_motion.mp4"
         clip = workdir / "clips" / f"scene_{scene.index:02d}.mp4"
         dur_opt = "10" if scene.duration > 5 else "5"
-        motion_prompt = (scene.image_prompt +
-                         ", the characters move and gesture naturally, gentle cinematic "
-                         "camera, the speaker is talking, smooth, high quality")
+        others = [c for c in scene.characters if c and c != scene.speaker]
+        silent = (f"{', '.join(others)} keep their mouth firmly CLOSED and do NOT talk; "
+                  f"they only react with body gestures, head nods and expressions. "
+                  if others else "")
+        motion_prompt = (
+            f"{scene.image_prompt}. ONLY {scene.speaker or 'the main character'} is "
+            f"talking, with the mouth clearly moving as they speak. {silent}"
+            f"Natural full-scene motion, gentle cinematic camera, smooth, high quality.")
         try:
-            # (1) animar toda la escena
-            image_to_video(scene.image_path, motion, prompt=motion_prompt,
+            image_to_video(scene.image_path, clip, prompt=motion_prompt,
                            duration=dur_opt, model=i2v_model, on_event=on_event)
-            if on_event:
-                on_event(f"    ✓ escena {scene.index + 1}/{n} animada")
-            # (2) lip-sync solo al que habla
-            lipsync(motion, line_audio, clip, model=lipsync_model, on_event=on_event)
             scene.clip_path = clip
             if on_event:
-                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) con lip-sync")
-        except Exception as exc:  # noqa: BLE001
-            # si el lip-sync falla pero hay animación, usa la animación; si no, imagen fija
-            if motion.is_file():
-                scene.clip_path = motion
-            console.print(f"    [yellow]escena {scene.index + 1}:[/] {exc}")
+                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) animada")
+        except Exception as exc:  # noqa: BLE001 — si falla, queda imagen fija
+            console.print(f"    [yellow]escena {scene.index + 1} sin animar:[/] {exc}")
             if on_event:
-                on_event(f"    ⚠ escena {scene.index + 1} sin lip-sync")
+                on_event(f"    ⚠ escena {scene.index + 1} sin animar (queda fija)")
 
     # Audio continuo (todas las líneas) + cola.
     audio_path = concat_audio(audio_parts, workdir / "narration.mp3")
