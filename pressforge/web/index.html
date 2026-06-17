@@ -191,16 +191,8 @@
             <p id="voiceNote" class="text-[11px] text-zinc-600 mb-3"></p>
 
             <label class="block text-sm mb-1 text-zinc-400">Estilo visual</label>
-            <select id="imageStyle" title="Estilo visual de las imágenes" onchange="saveImageStyle()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="cinematic">Cinematográfico histórico (por defecto)</option>
-              <option value="photo">Fotorrealista</option>
-              <option value="vivid">Colores vivos / vibrante</option>
-              <option value="painting">Pintura clásica (óleo)</option>
-              <option value="illustration">Ilustración digital</option>
-              <option value="vintage">Vintage / sepia antiguo</option>
-              <option value="anime">Anime / manga</option>
-              <option value="3d">3D estilo Pixar/Disney (look de muñequito)</option>
-            </select>
+            <input type="hidden" id="imageStyle" value="cinematic" />
+            <div id="styleGrid" class="grid grid-cols-4 gap-2 mb-3"></div>
 
             <label class="block text-sm mb-1 text-zinc-400">Música</label>
             <select id="music" title="Música" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -1248,12 +1240,29 @@ async function saveVoiceSel(){
   try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
 }
 
-// ─── Estilo visual de las imágenes ───
+// ─── Estilo visual de las imágenes (grilla de miniaturas) ───
+const STYLE_OPTIONS = [
+  ['cinematic','Cinematográfico'],['photo','Fotorrealista'],['vivid','Colores vivos'],
+  ['painting','Óleo'],['illustration','Ilustración'],['vintage','Vintage'],
+  ['anime','Anime'],['3d','3D Pixar'],
+];
+function renderStyleGrid(){
+  const cur = $('imageStyle').value || 'cinematic';
+  $('styleGrid').innerHTML = STYLE_OPTIONS.map(([v,l])=>`
+    <button type="button" onclick="pickStyle('${v}')" title="${esc(l)}"
+      class="group relative rounded-lg overflow-hidden border-2 ${v===cur?'border-indigo-500':'border-transparent hover:border-zinc-600'}">
+      <img src="/assets/style_samples/${v}.png" loading="lazy" class="w-full aspect-square object-cover"/>
+      <span class="absolute bottom-0 inset-x-0 text-[9px] leading-tight text-center text-white bg-black/55 py-0.5">${esc(l)}</span>
+      ${v===cur?'<span class="absolute top-1 right-1 text-indigo-300 text-xs">✓</span>':''}
+    </button>`).join('');
+}
+function pickStyle(v){ $('imageStyle').value = v; renderStyleGrid(); saveImageStyle(); }
 async function loadImageStyle(){
   try {
     const j = await (await fetch('/api/image-config')).json();
     if (j.style) $('imageStyle').value = j.style;
   } catch(e){}
+  renderStyleGrid();
 }
 async function saveImageStyle(){
   try { await fetch('/api/image-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({style:$('imageStyle').value})}); } catch(e){}
