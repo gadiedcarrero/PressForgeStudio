@@ -49,6 +49,12 @@ class SceneDraft(BaseModel):
         "APARECEN en esta escena. Vacío si la escena no muestra a ningún "
         "personaje concreto. Los nombres deben coincidir exactamente.",
     )
+    speaker: str = Field(
+        default="",
+        description="En modo DIÁLOGO: nombre EXACTO (de `characters`) del "
+        "personaje que dice la línea de esta escena (el que hablará con su voz y "
+        "hará lip-sync). Vacío si no hay diálogo (narración normal).",
+    )
 
 
 class StoryDraft(BaseModel):
@@ -90,6 +96,7 @@ class Character:
 
     name: str
     description: str
+    voice: str = ""  # voz (id ElevenLabs / nombre OpenAI) para sus líneas en modo diálogo
 
 
 @dataclass
@@ -98,6 +105,7 @@ class Scene:
     narration: str
     image_prompt: str
     characters: list[str] = field(default_factory=list)  # nombres que aparecen aquí
+    speaker: str = ""  # en modo diálogo: quién dice la línea (lip-sync + su voz)
     reference: str = ""  # archivo de imagen de referencia (opcional) para recrear la escena
     image_path: Path | None = None
     clip_path: Path | None = None  # video animado de la escena (modo Video animado completo)
@@ -141,13 +149,13 @@ def story_to_dict(story: "Story") -> dict:
         "hook": story.hook,
         "cta": story.cta,
         "music_mood": story.music_mood,
-        "characters": [{"name": c.name, "description": c.description} for c in story.characters],
+        "characters": [{"name": c.name, "description": c.description, "voice": c.voice} for c in story.characters],
         "source_title": story.source_title,
         "source_url": story.source_url,
         "source_date": story.source_date,
         "scenes": [
             {"index": s.index, "narration": s.narration, "image_prompt": s.image_prompt,
-             "characters": list(s.characters), "reference": s.reference}
+             "characters": list(s.characters), "speaker": s.speaker, "reference": s.reference}
             for s in story.scenes
         ],
     }
@@ -157,11 +165,12 @@ def story_from_dict(d: dict) -> "Story":
     """Reconstruye un Story desde el dict (posiblemente editado) de la UI."""
     scenes = [
         Scene(index=i, narration=s.get("narration", ""), image_prompt=s.get("image_prompt", ""),
-              characters=list(s.get("characters") or []), reference=s.get("reference", "") or "")
+              characters=list(s.get("characters") or []), speaker=s.get("speaker", "") or "",
+              reference=s.get("reference", "") or "")
         for i, s in enumerate(d.get("scenes", []))
     ]
     characters = [
-        Character(name=c.get("name", ""), description=c.get("description", ""))
+        Character(name=c.get("name", ""), description=c.get("description", ""), voice=c.get("voice", "") or "")
         for c in (d.get("characters") or []) if c.get("name")
     ]
     return Story(

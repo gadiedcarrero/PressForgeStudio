@@ -196,6 +196,7 @@ def generate_stories(
     month: int | None = None,
     day: int | None = None,
     duration: str | None = None,
+    dialogue: bool = False,
 ) -> list[Story]:
     """Devuelve una o varias propuestas de guion según el modo, para que el
     usuario elija/edite antes de producir.
@@ -208,6 +209,10 @@ def generate_stories(
         mode=mode, user_script=user_script, expected_words=tw)
 
     if mode == "mine":
+        if not user_script or not user_script.strip():
+            raise ValueError("El modo 'Mi guion' necesita un texto.")
+        if dialogue:
+            return [get_script_provider().dialogue(user_script, extra=extra)]
         return [generate_story(mode="mine", user_script=user_script, scenes=eff, extra=extra)]
 
     if mode == "historic":

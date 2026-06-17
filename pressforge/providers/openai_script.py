@@ -195,6 +195,33 @@ drama con atmósfera y sombras.
 Sugiere music_mood acorde.""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE + _NARRATION_DOCTRINE
 
 
+_DIALOGUE_SYSTEM = """Eres un director de animación para reels verticales. Escribes \
+en {language}.
+
+Recibes un DIÁLOGO entre personajes (las líneas suelen venir atribuidas: 'ELLA:', \
+'ÉL:', un nombre, etc.). Tu trabajo es convertirlo en un storyboard de diálogo.
+
+REGLAS DE ORO:
+- NO inventes diálogo nuevo ni cambies lo que dicen. Usa SUS líneas tal cual \
+(solo corrige ortografía/puntuación mínima). No añadas líneas que no existan.
+- Identifica a los personajes que hablan. En `characters`, crea una entrada por \
+cada uno con su descripción VISUAL fija EN INGLÉS (edad, género, etnia/piel, pelo, \
+complexión, ropa, rasgos) para que salgan IGUALES en todas las escenas. Usa como \
+nombre el que aparece en el guion (p. ej. 'Ella', 'Él', o el nombre propio).
+- Divide el diálogo en escenas: normalmente UNA escena por línea/turno de habla. \
+En CADA escena rellena:
+  · `speaker`: el personaje (de tu lista) que DICE esa línea.
+  · `narration`: esa línea, lo que dice (tal cual).
+  · `image_prompt` EN INGLÉS: la escena concreta de lo que ocurre — el que habla \
+hablando con la emoción adecuada Y el OTRO personaje reaccionando de forma \
+coherente con el contexto (asiente, usa el móvil, escribe, protesta, se sorprende…). \
+Incluye a ambos en cuadro si están presentes. Coherencia de lugar/vestuario/paleta.
+  · `characters`: quiénes aparecen en esa escena.
+- `hook` = la primera línea; `cta` = la última línea (NO las reescribas como \
+pattern-interrupt: es un diálogo, mantén su naturalidad).
+- Sugiere `music_mood` acorde al tono de la conversación.""" + _CHARACTER_DOCTRINE
+
+
 class OpenAIScriptProvider:
     def __init__(self, client_obj=None, model: str | None = None) -> None:
         self.settings = get_settings()
@@ -253,6 +280,31 @@ class OpenAIScriptProvider:
         if draft is None:
             raise RuntimeError("El modelo no devolvió un guion válido.")
         return self._to_story(draft, niche="Mi guion")
+
+    def dialogue(self, user_script: str, *, extra: str | None = None) -> Story:
+        """Modo Diálogo (solo 'Mi guion'): convierte un diálogo atribuido en un
+        storyboard con speaker por escena, sin inventar lo que dicen."""
+        user = (
+            f"DIÁLOGO del usuario (respeta lo que dice cada quien):\n"
+            f"\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
+            f"Conviértelo en escenas (una por turno de habla), con speaker, su "
+            f"línea y la descripción visual de la escena.\n"
+        )
+        if extra:
+            user += f"Indicaciones extra: {extra}\n"
+        completion = self._client.beta.chat.completions.parse(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": _DIALOGUE_SYSTEM.format(language=self.settings.language)},
+                {"role": "user", "content": user},
+            ],
+            response_format=StoryDraft,
+            temperature=0.3,  # fiel al diálogo del usuario
+        )
+        draft = completion.choices[0].message.parsed
+        if draft is None:
+            raise RuntimeError("El modelo no devolvió un diálogo válido.")
+        return self._to_story(draft, niche="Diálogo")
 
     def from_source(self, fact: SourceFact, *, scenes: int, extra: str | None = None,
                     target_words: int | None = None) -> Story:
@@ -359,6 +411,7 @@ class OpenAIScriptProvider:
                 Scene(
                     index=i, narration=s.narration, image_prompt=s.image_prompt,
                     characters=[n for n in (s.characters or []) if n in valid],
+                    speaker=(s.speaker if s.speaker in valid else ""),
                 )
                 for i, s in enumerate(draft.scenes)
             ],

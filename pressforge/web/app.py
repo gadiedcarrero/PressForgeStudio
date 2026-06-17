@@ -353,6 +353,7 @@ def create_scripts(payload: dict = Body(...)):
     candidate_ids = payload.get("candidate_ids") or []
     duration = (payload.get("duration") or "medium").strip()
     combine = bool(payload.get("combine"))
+    dialogue = bool(payload.get("dialogue"))
     tw = duration_target_words(duration)
 
     # Camino con fuente (Histórico/Efemérides/Reddit): generar SOLO lo elegido.
@@ -408,6 +409,7 @@ def create_scripts(payload: dict = Body(...)):
             user_script=user_script,
             count=count,
             duration=duration,
+            dialogue=dialogue,
         )
     except Exception as exc:  # noqa: BLE001
         return JSONResponse({"error": str(exc)}, status_code=400)
