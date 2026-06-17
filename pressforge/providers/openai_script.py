@@ -9,7 +9,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from ..config import get_settings
-from ..models import Character, Scene, SourceFact, Story, StoryDraft
+from ..models import Character, DialogueDraft, Scene, SourceFact, Story, StoryDraft
 from ._openai_client import client
 
 
@@ -203,28 +203,31 @@ Sugiere music_mood acorde.""" + _HOOK_DOCTRINE + _CHARACTER_DOCTRINE + _NARRATIO
 _DIALOGUE_SYSTEM = """Eres un director de animación para reels verticales. Escribes \
 en {language}.
 
-Recibes un DIÁLOGO entre personajes (las líneas suelen venir atribuidas: 'ELLA:', \
-'ÉL:', un nombre, etc.). Tu trabajo es convertirlo en un storyboard de diálogo.
+Recibes un GUION/DIÁLOGO (puede traer acotaciones de escena y líneas de diálogo \
+atribuidas, estilo guion de cine). Lo conviertes en una secuencia de `beats`.
 
-REGLAS DE ORO:
-- NO inventes diálogo nuevo ni cambies lo que dicen. Usa SUS líneas tal cual \
-(solo corrige ortografía/puntuación mínima). No añadas líneas que no existan.
-- Identifica a los personajes que hablan. En `characters`, crea una entrada por \
-cada uno con su descripción VISUAL fija EN INGLÉS (edad, género, etnia/piel, pelo, \
-complexión, ropa, rasgos) para que salgan IGUALES en todas las escenas. Usa como \
-nombre el que aparece en el guion (p. ej. 'Ella', 'Él', o el nombre propio).
-- Divide el diálogo en escenas: normalmente UNA escena por línea/turno de habla. \
-En CADA escena rellena:
-  · `speaker`: el personaje (de tu lista) que DICE esa línea.
-  · `narration`: esa línea, lo que dice (tal cual).
-  · `image_prompt` EN INGLÉS: la escena concreta de lo que ocurre — el que habla \
-hablando con la emoción adecuada Y el OTRO personaje reaccionando de forma \
-coherente con el contexto (asiente, usa el móvil, escribe, protesta, se sorprende…). \
-Incluye a ambos en cuadro si están presentes. Coherencia de lugar/vestuario/paleta.
-  · `characters`: quiénes aparecen en esa escena.
-- `hook` = la primera línea; `cta` = la última línea (NO las reescribas como \
-pattern-interrupt: es un diálogo, mantén su naturalidad).
-- Sugiere `music_mood` acorde al tono de la conversación.""" + _CHARACTER_DOCTRINE
+REGLAS DE ORO (críticas):
+1. SOLO se HABLA el diálogo. Las acotaciones/acciones ("Un auto se detiene", \
+"Víctor se mira confundido", "EXT. CASA - NOCHE") NUNCA se narran ni se dicen: se \
+convierten en lo que se VE (van en `image_prompt`), NO en `line`.
+2. `line` = las palabras EXACTAS que dice el personaje, VERBATIM del guion. NO \
+parafrasees, NO uses tercera persona, NO digas "Víctor pregunta…". Si el guion dice \
+'VÍCTOR: ¿Qué pasó?', entonces speaker='Víctor', line='¿Qué pasó?'.
+3. Un beat por cada línea de diálogo. Si hay una acción importante sin diálogo, \
+crea un beat con speaker y line VACÍOS y descríbela en `image_prompt`.
+4. Personajes: en `characters`, una entrada por cada uno con su IDENTIDAD FIJA EN \
+INGLÉS (cara, etnia/piel, ojos, pelo, edad). MISMA etnia y cara en TODO el video. \
+SIN ropa ni cuerpo en la identidad (esos cambian).
+5. VESTUARIO/ESTADO ACUMULATIVO: lee TODO el guion y lleva la cuenta del aspecto de \
+cada personaje. Cuando algo cambia (pantalón negro, camisa blanca, saco…), ese \
+cambio se MANTIENE en el `image_prompt` de esa escena y de TODAS las siguientes. \
+Describe en cada `image_prompt` el atuendo COMPLETO ACTUAL de cada personaje visible.
+6. ENCUADRE: plano AMPLIO / cuerpo entero que muestre la escena completa y el \
+escenario, no solo de pecho para arriba (salvo que el momento pida primer plano).
+7. El que HABLA mira a cámara / de frente, con la boca en gesto de hablar. El que \
+ESCUCHA aparece de perfil o de tres cuartos, con la BOCA CERRADA, reaccionando con \
+gestos del cuerpo (asiente, se cruza de brazos, usa el móvil…) — NUNCA con la boca \
+abierta como si hablara (así solo se anima al que habla). `music_mood` acorde.""" + _CHARACTER_DOCTRINE
 
 
 class OpenAIScriptProvider:
@@ -287,29 +290,62 @@ class OpenAIScriptProvider:
         return self._to_story(draft, niche="Mi guion")
 
     def dialogue(self, user_script: str, *, extra: str | None = None) -> Story:
-        """Modo Diálogo (solo 'Mi guion'): convierte un diálogo atribuido en un
-        storyboard con speaker por escena, sin inventar lo que dicen."""
+        """Modo Diálogo (solo 'Mi guion'): convierte un guion con acotaciones +
+        líneas en beats (speaker + línea VERBATIM + escena), sin narrar acciones."""
         user = (
-            f"DIÁLOGO del usuario (respeta lo que dice cada quien):\n"
-            f"\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
-            f"Conviértelo en escenas (una por turno de habla), con speaker, su "
-            f"línea y la descripción visual de la escena.\n"
+            f"GUION del usuario (respeta LITERALMENTE lo que dice cada quien; las "
+            f"acotaciones van a la imagen, no se dicen):\n"
+            f"\"\"\"\n{user_script.strip()}\n\"\"\"\n"
         )
         if extra:
-            user += f"Indicaciones extra: {extra}\n"
+            user += f"\nIndicaciones extra: {extra}\n"
         completion = self._client.beta.chat.completions.parse(
             model=self._model,
             messages=[
                 {"role": "system", "content": _DIALOGUE_SYSTEM.format(language=self.settings.language)},
                 {"role": "user", "content": user},
             ],
-            response_format=StoryDraft,
-            temperature=0.3,  # fiel al diálogo del usuario
+            response_format=DialogueDraft,
+            temperature=0.2,  # muy fiel al guion del usuario
         )
         draft = completion.choices[0].message.parsed
         if draft is None:
             raise RuntimeError("El modelo no devolvió un diálogo válido.")
-        return self._to_story(draft, niche="Diálogo")
+        return self._dialogue_to_story(draft)
+
+    @staticmethod
+    def _dialogue_to_story(draft: "DialogueDraft") -> Story:
+        characters = [
+            Character(name=c.name.strip(), description=c.description.strip())
+            for c in (draft.characters or []) if c.name.strip() and c.description.strip()
+        ]
+        names = [c.name for c in characters]
+        valid = set(names)
+        scenes: list[Scene] = []
+        pending = ""  # acción sin diálogo → se antepone a la siguiente línea hablada
+        for b in draft.beats:
+            spk = (b.speaker or "").strip()
+            line = (b.line or "").strip()
+            img = (b.image_prompt or "").strip()
+            if not spk or not line:  # beat de acción → acumular su visual
+                pending = (pending + " " + img).strip()
+                continue
+            full_img = (pending + " " + img).strip() if pending else img
+            pending = ""
+            scenes.append(Scene(
+                index=len(scenes), narration=line, image_prompt=full_img,
+                characters=names[:], speaker=(spk if spk in valid else (names[0] if names else "")),
+            ))
+        # acción final sobrante → se añade al último plano
+        if pending and scenes:
+            scenes[-1].image_prompt = (scenes[-1].image_prompt + " " + pending).strip()
+        if not scenes:
+            raise RuntimeError("No detecté líneas de diálogo en el guion.")
+        return Story(
+            niche="Diálogo", title=draft.title or "Diálogo",
+            hook=scenes[0].narration, cta=scenes[-1].narration,
+            music_mood=draft.music_mood or "", characters=characters, scenes=scenes,
+        )
 
     def from_source(self, fact: SourceFact, *, scenes: int, extra: str | None = None,
                     target_words: int | None = None) -> Story:

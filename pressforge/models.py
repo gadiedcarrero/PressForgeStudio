@@ -60,6 +60,46 @@ class SceneDraft(BaseModel):
     )
 
 
+class DialogueBeat(BaseModel):
+    speaker: str = Field(
+        description="Nombre EXACTO (de `characters`) del personaje que dice esta "
+        "línea. Déjalo VACÍO solo si es una acción sin diálogo (un plano sin que "
+        "nadie hable)."
+    )
+    line: str = Field(
+        description="Las palabras EXACTAS que dice el personaje, VERBATIM del "
+        "guion. NO las parafrasees, NO las describas en tercera persona, NO "
+        "narres la acción. Solo lo que sale por su boca. VACÍO si es acción sin "
+        "diálogo."
+    )
+    image_prompt: str = Field(
+        description="EN INGLÉS. La escena COMPLETA que se VE en este momento: "
+        "plano amplio / cuerpo entero mostrando el escenario, el personaje que "
+        "habla hablando con su emoción, y el otro reaccionando de forma coherente. "
+        "Incluye SIEMPRE el VESTUARIO ACTUAL COMPLETO de cada personaje visible, "
+        "arrastrando cualquier cambio ya ocurrido (si Víctor YA se cambió a "
+        "pantalón negro, en esta y TODAS las siguientes lleva pantalón negro). "
+        "Mantén la misma etnia/cara. Sin texto en la imagen."
+    )
+
+
+class DialogueDraft(BaseModel):
+    title: str = Field(description="Título interno corto de la escena/diálogo.")
+    music_mood: str = Field(
+        description="2-5 etiquetas en inglés del tono musical (ver vocabulario "
+        "habitual). Ej: 'romantic uplifting' o 'fun light'."
+    )
+    characters: list[CharacterDraft] = Field(
+        description="Los personajes que hablan o aparecen, con su IDENTIDAD FIJA "
+        "(cara, etnia, ojos, pelo, edad; SIN ropa ni cuerpo, que cambian)."
+    )
+    beats: list[DialogueBeat] = Field(
+        description="La secuencia EN ORDEN del guion. Una entrada por cada línea "
+        "de diálogo (y, si hace falta, beats de acción sin diálogo). NO inventes "
+        "líneas; usa las del guion."
+    )
+
+
 class StoryDraft(BaseModel):
     title: str = Field(description="Título interno de la historia.")
     hook: str = Field(
