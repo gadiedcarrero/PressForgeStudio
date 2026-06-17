@@ -694,7 +694,7 @@ function onFormatChange(){
   const f = $('format').value;
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
   $('animatedNote').classList.toggle('hidden', f !== 'animated' && f !== 'dialogue');
-  if (f === 'dialogue') $('animatedNote').textContent = 'Diálogo: cada escena se anima con el personaje que habla (OmniHuman) usando su voz. Asigna una voz a cada personaje en la tarjeta del guion. Coste por segundo · empieza con un diálogo corto.';
+  if (f === 'dialogue') $('animatedNote').textContent = 'Diálogo: cada escena se ANIMA (Kling) y luego se le hace lip-sync SOLO al que habla (el otro se mueve sin hablar), con la voz de cada personaje. 2 pasos por escena → más caro/lento. Asigna voz a cada personaje en la tarjeta. Empieza con un diálogo CORTO.';
   else if (f === 'animated') $('animatedNote').textContent = 'Cada escena se anima con movimiento (Kling) y la voz va en off. ~$0.25 por escena. Requiere tu fal API Key. Prueba con guion corto.';
 }
 

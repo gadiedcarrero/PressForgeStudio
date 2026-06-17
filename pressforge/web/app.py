@@ -463,7 +463,6 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 story_from_dict(story_dict),
                 voice=voice or None,
                 music=music or None,
-                model=video_model or "omnihuman",
                 on_event=on_event,
             )
         elif fmt == "animated":

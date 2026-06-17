@@ -471,13 +471,15 @@ def produce_dialogue_reel(
     *,
     music: str | None = None,
     voice: str | None = None,
-    model: str = "omnihuman",
+    i2v_model: str = "kling-i2v",
+    lipsync_model: str = "latentsync",
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
-    """Reel de diálogo: por escena, el `speaker` habla con SU voz y hace lip-sync
-    (OmniHuman); el otro aparece reaccionando. Monta todo + subtítulos + música."""
-    from .providers.fal_video import talking_avatar
+    """Reel de diálogo en 2 pasos por escena: (1) Kling anima TODA la escena
+    (ambos se mueven), (2) lip-sync sincroniza la boca SOLO del que habla con su
+    voz (el otro se mueve pero no habla). Monta todo + subtítulos + música."""
+    from .providers.fal_video import image_to_video, lipsync
     from .providers.ffmpeg_render import concat_audio
 
     settings = get_settings()
@@ -517,9 +519,10 @@ def produce_dialogue_reel(
         if on_event:
             on_event(f"    ✓ imagen {scene.index + 1}/{n}")
 
-    # 2. Voz por línea (la voz del speaker) + lip-sync de esa escena.
-    step("[bold cyan]2/4[/] Voz por personaje + lip-sync (fal, tarda)…",
-         "2/4 · Voz por personaje + lip-sync (fal, puede tardar)…")
+    # 2. Por escena: voz del speaker → animar la escena (Kling) → lip-sync solo
+    #    al que habla (latentsync). El otro se mueve pero no habla.
+    step("[bold cyan]2/4[/] Voz + animación + lip-sync por escena (fal, tarda)…",
+         "2/4 · Voz + animación + lip-sync por escena (fal, puede tardar)…")
     audio_parts: list[Path] = []
     for scene in story.scenes:
         line_audio = workdir / "audio" / f"line_{scene.index:02d}.mp3"
@@ -527,16 +530,30 @@ def produce_dialogue_reel(
         vp.synthesize(scene.narration, line_audio, voice=v)
         scene.duration = ffprobe_duration(line_audio)
         audio_parts.append(line_audio)
+        motion = workdir / "clips" / f"scene_{scene.index:02d}_motion.mp4"
         clip = workdir / "clips" / f"scene_{scene.index:02d}.mp4"
+        dur_opt = "10" if scene.duration > 5 else "5"
+        motion_prompt = (scene.image_prompt +
+                         ", the characters move and gesture naturally, gentle cinematic "
+                         "camera, the speaker is talking, smooth, high quality")
         try:
-            talking_avatar(scene.image_path, line_audio, clip, model=model, on_event=on_event)
+            # (1) animar toda la escena
+            image_to_video(scene.image_path, motion, prompt=motion_prompt,
+                           duration=dur_opt, model=i2v_model, on_event=on_event)
+            if on_event:
+                on_event(f"    ✓ escena {scene.index + 1}/{n} animada")
+            # (2) lip-sync solo al que habla
+            lipsync(motion, line_audio, clip, model=lipsync_model, on_event=on_event)
             scene.clip_path = clip
             if on_event:
-                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) animada")
-        except Exception as exc:  # noqa: BLE001 — si falla, queda imagen fija
-            console.print(f"    [yellow]escena {scene.index + 1} sin animar:[/] {exc}")
+                on_event(f"    ✓ escena {scene.index + 1}/{n} ({scene.speaker}) con lip-sync")
+        except Exception as exc:  # noqa: BLE001
+            # si el lip-sync falla pero hay animación, usa la animación; si no, imagen fija
+            if motion.is_file():
+                scene.clip_path = motion
+            console.print(f"    [yellow]escena {scene.index + 1}:[/] {exc}")
             if on_event:
-                on_event(f"    ⚠ escena {scene.index + 1} sin animar (queda fija)")
+                on_event(f"    ⚠ escena {scene.index + 1} sin lip-sync")
 
     # Audio continuo (todas las líneas) + cola.
     audio_path = concat_audio(audio_parts, workdir / "narration.mp3")

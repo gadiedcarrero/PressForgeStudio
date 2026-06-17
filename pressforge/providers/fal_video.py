@@ -39,6 +39,15 @@ I2V_MODELS = {
 }
 DEFAULT_I2V = "kling-i2v"
 
+# Modelos de LIP-SYNC: toman un VIDEO ya animado + audio y sincronizan la boca
+# del rostro principal, dejando el resto del movimiento intacto (el otro personaje
+# se sigue moviendo pero NO habla).
+LIPSYNC_MODELS = {
+    "latentsync": "fal-ai/latentsync",          # barato (~$0.2/40s)
+    "sync2": "fal-ai/sync-lipsync/v2",          # premium (~$3/min)
+}
+DEFAULT_LIPSYNC = "latentsync"
+
 
 def resolve_key() -> str:
     return get_secret("fal_api_key")
@@ -165,5 +174,21 @@ def image_to_video(image_path: Path, out_path: Path, *, prompt: str,
         "image_url": _upload(image_path, key),
         "prompt": prompt or "subtle natural motion, cinematic camera, smooth",
         "duration": duration,
+    }
+    return _run_model(model_id, payload, out_path, poll_timeout=poll_timeout, on_event=on_event)
+
+
+def lipsync(video_path: Path, audio_path: Path, out_path: Path, *,
+            model: str = DEFAULT_LIPSYNC, poll_timeout: int = 600, on_event=None) -> Path:
+    """Sincroniza la boca del rostro principal de un VIDEO ya animado con el audio
+    dado (el resto del movimiento se conserva; los demás no 'hablan')."""
+    key = resolve_key()
+    if not key:
+        raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
+    model_id = LIPSYNC_MODELS.get(model, LIPSYNC_MODELS[DEFAULT_LIPSYNC])
+    payload = {
+        "video_url": _upload(video_path, key),
+        "audio_url": _upload(audio_path, key),
+        "loop_mode": "pingpong",
     }
     return _run_model(model_id, payload, out_path, poll_timeout=poll_timeout, on_event=on_event)
