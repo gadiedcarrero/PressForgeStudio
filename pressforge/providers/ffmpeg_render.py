@@ -70,7 +70,7 @@ def render_talking(base_video: Path, subtitles_path: Path, out_path: Path, *,
             "-filter_complex", filter_complex,
             "-map", "[v]", "-map", "[a]",
             "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-            "-pix_fmt", "yuv420p",
+            "-pix_fmt", "yuv420p", "-threads", "2",
             "-c:a", "aac", "-b:a", "192k",
             "-r", str(fps), "-t", f"{total:.3f}",
             out_path.name,
@@ -149,13 +149,18 @@ class FFmpegRenderProvider:
         if not clips:
             raise RuntimeError("No hay clips para renderizar (faltan imágenes).")
 
-        # 2. Concatenar.
+        # 2. Concatenar. Re-codificamos (no `-c copy`) para un stream limpio:
+        # los clips de video IA (fal) tienen GOP/timebase variados que rompen el
+        # copy y corrompen el montaje. Con re-encode el resultado es uniforme.
         concat_list = wd / "concat.txt"
         concat_list.write_text(
             "".join(f"file '{c}'\n" for c in clips), encoding="utf-8"
         )
         run_ffmpeg(
-            ["-f", "concat", "-safe", "0", "-i", "concat.txt", "-c", "copy", "montage.mp4"],
+            ["-f", "concat", "-safe", "0", "-i", "concat.txt",
+             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+             "-pix_fmt", "yuv420p", "-r", str(job.fps), "-threads", "2", "-an",
+             "montage.mp4"],
             cwd=wd,
         )
 
@@ -191,7 +196,7 @@ class FFmpegRenderProvider:
                 "-filter_complex", filter_complex,
                 *maps,
                 "-c:v", "libx264", "-preset", "medium", "-crf", "20",
-                "-pix_fmt", "yuv420p",
+                "-pix_fmt", "yuv420p", "-threads", "2",
                 "-c:a", "aac", "-b:a", "192k",
                 "-r", str(job.fps), "-t", f"{total:.3f}",
                 job.output_path.name,

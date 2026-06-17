@@ -20,7 +20,7 @@ from rich.console import Console
 from .config import data_path, get_settings, output_path
 from .ffmpeg_utils import ffprobe_duration, run_ffmpeg
 from .providers.base import ImageBlockedError
-from .models import RenderJob, ReelResult, Story
+from .models import RenderJob, ReelResult, Scene, Story
 from .registry import (
     get_image_provider,
     get_music_provider,
@@ -556,6 +556,43 @@ def produce_dialogue_reel(
     get_render_provider().render(job)
     step("[bold cyan]✓[/] [green]Reel listo[/]", "✓ Reel listo")
     return ReelResult(story=story, video_path=final_path, workdir=workdir, duration=total)
+
+
+# ─── Reanudar el montaje final desde una carpeta ya generada ─────────────────
+def resume_render(workdir: Path, *, music: str | None = None) -> Path:
+    """Re-hace SOLO el montaje final (concat + voz + subtítulos + música + outro)
+    desde una carpeta con clips/imágenes/narración/subs ya generados (p. ej. si
+    el render falló por memoria). No vuelve a llamar a fal ni a la IA."""
+    import json
+
+    settings = get_settings()
+    data = json.loads((workdir / "story.json").read_text(encoding="utf-8"))
+
+    def _p(v):
+        return Path(v) if v and v != "None" else None
+
+    scenes = []
+    for i, s in enumerate(data.get("scenes", [])):
+        scenes.append(Scene(
+            index=s.get("index", i), narration=s.get("narration", ""),
+            image_prompt=s.get("image_prompt", ""), characters=list(s.get("characters") or []),
+            speaker=s.get("speaker", "") or "", image_path=_p(s.get("image_path")),
+            clip_path=_p(s.get("clip_path")), duration=float(s.get("duration") or 0),
+        ))
+    story = Story(niche=data.get("niche", ""), title=data.get("title", ""),
+                  hook=data.get("hook", ""), cta=data.get("cta", ""), scenes=scenes)
+
+    audio_path = workdir / "narration.mp3"
+    subs_path = workdir / "subs.ass"
+    music_path = _resolve_music(music, story.niche) if music else None
+    final_path = workdir / "reel.mp4"
+    job = RenderJob(
+        workdir=workdir, scenes=scenes, audio_path=audio_path, subtitles_path=subs_path,
+        output_path=final_path, music_path=music_path, width=settings.video_width,
+        height=settings.video_height, fps=settings.fps, music_volume=settings.music_volume,
+    )
+    get_render_provider().render(job)
+    return final_path
 
 
 # ─── Conveniencia: guion + producción en un paso (usado por la CLI) ──────────
