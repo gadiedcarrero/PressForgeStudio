@@ -503,6 +503,28 @@ def produce_dialogue_reel(
     char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
     vp = ElevenLabsVoiceProvider()  # voz fija por personaje (consistencia en todo el reel)
     image_provider = get_image_provider()
+
+    # Imágenes MAESTRAS de referencia por personaje: cara fija que se reusa en cada
+    # escena (consistencia de rostro en todo el reel). La ropa de cada momento la
+    # pone el prompt de cada escena (el guion arrastra los cambios de vestuario).
+    refs_dir = workdir / "refs"
+    refs_dir.mkdir(parents=True, exist_ok=True)
+    char_ref: dict[str, Path] = {}
+    if story.characters:
+        step("[bold cyan]0/4[/] Imágenes maestras de personajes…",
+             "0/4 · Imágenes maestras de personajes…")
+        for c in story.characters:
+            rp = refs_dir / f"{_slug(c.name)}.png"
+            try:
+                image_provider.generate(
+                    f"Full-body character reference sheet of {c.description}. Standing, "
+                    f"front view, full body visible, neutral plain light-gray studio "
+                    f"background.", rp)
+                char_ref[c.name] = rp
+                if on_event:
+                    on_event(f"    ✓ referencia: {c.name}")
+            except Exception:  # noqa: BLE001
+                pass
     lang = (settings.language or "es").split("-")[0]
     lang_name = {"es": "Spanish", "en": "English"}.get(lang, settings.language)
 
@@ -524,9 +546,12 @@ def produce_dialogue_reel(
         clip = workdir / "clips" / f"scene_{ui:02d}.mp4"
         line_audio = workdir / "audio" / f"line_{ui:02d}.mp3"
 
-        # imagen de la escena (con consistencia de personajes)
+        # imagen de la escena usando las referencias maestras (misma cara) + la
+        # ropa/acción actual del prompt (el guion arrastra los cambios de vestuario)
         try:
-            image_provider.generate(_with_characters(sc.image_prompt, chars_in, char_desc), img)
+            refs = [char_ref[c] for c in chars_in if c in char_ref]
+            scene_prompt = _with_characters(sc.image_prompt, chars_in, char_desc)
+            image_provider.generate_with_refs(scene_prompt, refs, img)
             last_image = img
         except ImageBlockedError:
             _fallback_image(img, last_image, image_provider, ui, n, console, on_event)

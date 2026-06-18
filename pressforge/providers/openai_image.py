@@ -90,6 +90,33 @@ class OpenAIImageProvider:
         out_path.write_bytes(base64.b64decode(result.data[0].b64_json))
         return out_path
 
+    def generate_with_refs(self, prompt: str, refs: list[Path], out_path: Path) -> Path:
+        """Genera una imagen usando una o varias imágenes de referencia de
+        personajes (para que salgan con la MISMA cara). Si no hay refs válidas,
+        cae a generación normal."""
+        files = []
+        for r in refs:
+            if r and Path(r).is_file():
+                files.append(open(r, "rb"))
+        if not files:
+            return self.generate(prompt, out_path)
+        suffix = _style_suffix()
+        full = ("Use the provided reference image(s) as the EXACT same character(s) — "
+                "same face, hair, ethnicity and age. " + prompt + suffix)
+        try:
+            result = client().images.edit(
+                model=self.settings.image_model, image=files, prompt=full,
+                size="1024x1536", quality=self.settings.image_quality, n=1,
+            )
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_bytes(base64.b64decode(result.data[0].b64_json))
+            return out_path
+        except Exception:  # noqa: BLE001 — si la edición falla, generación normal
+            return self.generate(prompt, out_path)
+        finally:
+            for f in files:
+                f.close()
+
     def generate(self, prompt: str, out_path: Path, reference: Path | None = None) -> Path:
         suffix = _style_suffix()
         if reference and Path(reference).is_file():
