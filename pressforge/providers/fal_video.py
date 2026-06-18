@@ -182,10 +182,11 @@ _VEO3_DIALOGUE = "fal-ai/veo3.1/fast/image-to-video"  # i2v con audio/diálogo n
 
 
 def veo3_dialogue(image_path: Path, out_path: Path, *, prompt: str,
-                  duration: str = "8s", poll_timeout: int = 900, on_event=None) -> Path:
-    """Veo 3.1 (fast) imagen→video CON audio: genera la escena con el personaje
-    indicado hablando (lip-sync nativo) y el otro reaccionando. El diálogo va
-    dentro del prompt: 'Nombre: \"línea\"'."""
+                  duration: str = "8s", audio: bool = True,
+                  poll_timeout: int = 900, on_event=None) -> Path:
+    """Veo 3.1 (fast) imagen→video. Con `audio=True` genera audio/voz nativos;
+    con `audio=False` solo el VIDEO (mueve los labios con la línea del prompt, sin
+    voz) para montar después una voz de ElevenLabs consistente encima."""
     key = resolve_key()
     if not key:
         raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
@@ -196,7 +197,7 @@ def veo3_dialogue(image_path: Path, out_path: Path, *, prompt: str,
         "duration": duration,
         "aspect_ratio": "9:16",
         "resolution": "720p",
-        "generate_audio": True,
+        "generate_audio": audio,
         "auto_fix": True,
         "negative_prompt": ("extra limbs, extra hands, duplicated hands, deformed hands, "
                             "distorted fingers, mutated anatomy, glitch, morphing, blurry"),
