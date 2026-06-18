@@ -574,7 +574,17 @@ def produce_dialogue_reel(
                     f"{sc.image_prompt}. {sc.speaker} says in {lang_name}: \"{sc.narration}\"."
                     f"{others_txt} Pixar/Disney 3D animated movie style, expressive faces, "
                     f"accurate lip-sync, natural motion, cinematic camera.")
-                veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                # Veo a veces rechaza un prompt (no_media_generated). Si pasa,
+                # reintenta con un prompt más simple (menos probable que lo bloquee).
+                simple_prompt = (
+                    f"{sc.speaker} speaks a line in {lang_name}, talking to another person. "
+                    f"3D animated movie style, expressive face, natural lip movement.")
+                try:
+                    veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                except Exception:  # noqa: BLE001
+                    if on_event:
+                        on_event(f"    · Veo reintenta con prompt simple…")
+                    veo3_dialogue(img, clip, prompt=simple_prompt, duration=dur, audio=True, on_event=on_event)
                 clip_dur = ffprobe_duration(clip)
                 # tiempos del habla de Veo
                 veo_audio = workdir / "audio" / f"veo_{ui:02d}.mp3"
