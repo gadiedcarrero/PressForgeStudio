@@ -481,7 +481,7 @@ def produce_dialogue_reel(
     - 'omnihuman': la voz de cada personaje (ElevenLabs) + OmniHuman anima al que
       habla (ideal cuando habla UNO por escena; más barato)."""
     from .providers.fal_video import talking_avatar, veo3_dialogue
-    from .providers.ffmpeg_render import concat_audio
+    from .providers.ffmpeg_render import aligned_voice, concat_audio, extract_audio
     from .providers.elevenlabs_voice import ElevenLabsVoiceProvider
 
     settings = get_settings()
@@ -560,24 +560,44 @@ def produce_dialogue_reel(
         unit = Scene(index=ui, narration=sc.narration, image_prompt=sc.image_prompt,
                      characters=chars_in, speaker=sc.speaker, image_path=img)
         try:
-            # 1) voz del que habla con SU voz fija (ElevenLabs)
             v = char_voice.get(sc.speaker) or voice or None
-            vp.synthesize(sc.narration, line_audio, voice=v)
-            d = ffprobe_duration(line_audio)
-            unit.duration = d
             if engine == "veo3":
-                # 2) Veo SOLO video (sin audio): mueve los labios con la línea
+                # Veo genera el video CON su audio (sabe hablar). Luego: transcribimos
+                # los TIEMPOS del habla de Veo y generamos la voz de ElevenLabs ajustada
+                # a esos tiempos → voz consistente sincronizada con los labios de Veo.
                 others = [c for c in chars_in if c != sc.speaker]
                 others_txt = (f" {', '.join(others)} listens silently with mouth closed, "
                               f"reacting with gestures." if others else "")
-                dur = "8s" if d > 6 else ("6s" if d > 4 else "4s")
+                wn = len(sc.narration.split())
+                dur = "8s" if wn > 9 else ("6s" if wn > 4 else "4s")
                 veo_prompt = (
-                    f"{sc.image_prompt}. {sc.speaker} is talking, mouth moving naturally as if "
-                    f"saying in {lang_name}: \"{sc.narration}\".{others_txt} Pixar/Disney 3D "
-                    f"animated movie style, expressive faces, natural motion, cinematic camera.")
-                veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=False, on_event=on_event)
-            else:  # omnihuman: el audio (ElevenLabs) guía el lip-sync
+                    f"{sc.image_prompt}. {sc.speaker} says in {lang_name}: \"{sc.narration}\"."
+                    f"{others_txt} Pixar/Disney 3D animated movie style, expressive faces, "
+                    f"accurate lip-sync, natural motion, cinematic camera.")
+                veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                clip_dur = ffprobe_duration(clip)
+                # tiempos del habla de Veo
+                veo_audio = workdir / "audio" / f"veo_{ui:02d}.mp3"
+                extract_audio(clip, veo_audio)
+                try:
+                    words = get_subtitle_provider().transcribe(veo_audio)
+                except Exception:  # noqa: BLE001
+                    words = []
+                if words:
+                    offset = max(0.0, words[0].start)
+                    speech_dur = max(0.3, words[-1].end - words[0].start)
+                else:
+                    offset, speech_dur = 0.0, clip_dur
+                # voz consistente (ElevenLabs) ajustada a esos tiempos
+                raw = workdir / "audio" / f"raw_{ui:02d}.mp3"
+                vp.synthesize(sc.narration, raw, voice=v)
+                aligned_voice(raw, line_audio, offset_s=offset,
+                              speech_dur=speech_dur, total_dur=clip_dur)
+                unit.duration = clip_dur
+            else:  # omnihuman: el audio (ElevenLabs) guía el lip-sync directamente
+                vp.synthesize(sc.narration, line_audio, voice=v)
                 talking_avatar(img, line_audio, clip, model="omnihuman", on_event=on_event)
+                unit.duration = ffprobe_duration(clip)
             unit.clip_path = clip
             audio_parts.append(line_audio)
             if on_event:

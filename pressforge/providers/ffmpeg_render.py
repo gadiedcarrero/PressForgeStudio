@@ -60,6 +60,37 @@ def extract_audio(video: Path, out_path: Path) -> Path:
     return out_path
 
 
+def _atempo_chain(ratio: float) -> str:
+    """Cadena de filtros atempo para cambiar la duración por `ratio`
+    (out_dur = in_dur/ratio); atempo solo admite 0.5–2.0, así que se encadena."""
+    ratio = max(0.25, min(4.0, ratio or 1.0))
+    parts = []
+    r = ratio
+    while r > 2.0:
+        parts.append("atempo=2.0"); r /= 2.0
+    while r < 0.5:
+        parts.append("atempo=0.5"); r /= 0.5
+    parts.append(f"atempo={r:.4f}")
+    return ",".join(parts)
+
+
+def aligned_voice(voice_audio: Path, out_path: Path, *, offset_s: float,
+                  speech_dur: float, total_dur: float) -> Path:
+    """Ajusta una voz (ElevenLabs) para que encaje con los tiempos del habla de
+    Veo: la estira/comprime a `speech_dur`, la coloca en `offset_s` y rellena con
+    silencio hasta `total_dur` (la longitud del clip). Así la voz consistente
+    queda sincronizada con los labios que generó Veo."""
+    src = ffprobe_duration(voice_audio)
+    speech_dur = max(0.3, speech_dur)
+    chain = _atempo_chain(src / speech_dur)
+    delay_ms = max(0, int(offset_s * 1000))
+    af = f"{chain},adelay={delay_ms}:all=1,apad"
+    run_ffmpeg(["-i", str(Path(voice_audio).resolve()), "-af", af,
+                "-t", f"{max(total_dur, 0.5):.3f}", "-c:a", "libmp3lame", "-q:a", "3",
+                out_path.name], cwd=out_path.parent)
+    return out_path
+
+
 def render_talking(base_video: Path, subtitles_path: Path, out_path: Path, *,
                    music_path: Path | None = None, width: int = 1080,
                    height: int = 1920, fps: int = 30, music_volume: float = 0.12) -> Path:
