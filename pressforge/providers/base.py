@@ -19,16 +19,17 @@ class ImageBlockedError(RuntimeError):
 @runtime_checkable
 class ScriptProvider(Protocol):
     def generate(self, niche: str, *, scenes: int, extra: str | None = None,
-                 target_words: int | None = None) -> Story:
+                 target_words: int | None = None, language: str | None = None) -> Story:
         """Idea + guion + storyboard a partir de un nicho (modo Inventar)."""
         ...
 
-    def refine(self, user_script: str, *, scenes: int, extra: str | None = None) -> Story:
+    def refine(self, user_script: str, *, scenes: int, extra: str | None = None,
+               language: str | None = None) -> Story:
         """Pule el guion del usuario sin inventar (modo Mi guion)."""
         ...
 
     def from_source(self, fact: SourceFact, *, scenes: int, extra: str | None = None,
-                    target_words: int | None = None) -> Story:
+                    target_words: int | None = None, language: str | None = None) -> Story:
         """Guion fiel a hechos reales (modos Histórico / Qué pasó hoy / Reddit)."""
         ...
 

@@ -182,6 +182,7 @@ class Story:
     scenes: list[Scene]
     music_mood: str = ""
     characters: list[Character] = field(default_factory=list)
+    language: str = "Spanish"  # idioma de salida del guion/voz (ej. "Spanish", "English")
     source_title: str = ""
     source_url: str = ""
     source_date: str = ""  # fecha legible del hecho (ej. "14 de junio de 1945")
@@ -200,6 +201,7 @@ def story_to_dict(story: "Story") -> dict:
         "hook": story.hook,
         "cta": story.cta,
         "music_mood": story.music_mood,
+        "language": story.language,
         "characters": [{"name": c.name, "description": c.description, "voice": c.voice,
                         "voice_style": c.voice_style} for c in story.characters],
         "source_title": story.source_title,
@@ -232,6 +234,7 @@ def story_from_dict(d: dict) -> "Story":
         hook=d.get("hook", ""),
         cta=d.get("cta", ""),
         music_mood=d.get("music_mood", ""),
+        language=d.get("language", "Spanish") or "Spanish",
         characters=characters,
         source_title=d.get("source_title", ""),
         source_url=d.get("source_url", ""),

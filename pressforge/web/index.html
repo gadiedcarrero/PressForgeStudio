@@ -108,6 +108,13 @@
             </label>
           </div>
 
+          <label class="block text-sm mb-1 text-zinc-400">Idioma</label>
+          <select id="language" title="Idioma del guion y la voz" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="es">Español</option>
+            <option value="en">Inglés (CPM alto · EE.UU./UK)</option>
+            <option value="both">Ambos (genera 2 versiones)</option>
+          </select>
+
           <div id="field-duration">
           <label class="block text-sm mb-1 text-zinc-400">Duración objetivo</label>
           <select id="duration" title="Duración del reel" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -446,7 +453,8 @@ $('genBtn').addEventListener('click', async () => {
 
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
                     niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value,
-                    duration: $('duration').value, dialogue: (MODE === 'mine' && $('dialogueChk').checked) };
+                    duration: $('duration').value, dialogue: (MODE === 'mine' && $('dialogueChk').checked),
+                    language: $('language').value };
   if (MODE === 'invent' && !payload.niche.trim()) { $('niche').focus(); return; }
   if (MODE === 'mine' && !payload.user_script.trim()) { $('userScript').focus(); return; }
   $('genBtn').disabled = true;
@@ -524,7 +532,8 @@ async function generateSelected() {
   try {
     const r = await fetch('/api/scripts', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ candidate_ids: [...SELECTED], scenes: +$('scenes').value, extra: $('extra').value,
-        duration: $('duration').value, combine: ($('combineReels')||{}).checked || false }) });
+        duration: $('duration').value, combine: ($('combineReels')||{}).checked || false,
+        language: $('language').value }) });
     const j = await r.json();
     if (j.error) { $('genStatus').textContent = '✗ ' + j.error; updateSelCount(); return; }
     SCRIPTS = j.scripts;
@@ -592,13 +601,14 @@ function renderScripts() {
         </details>` : '';
     const dateBadge = s.source_date ? `<span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/20">${icon('calendar','w-3 h-3')} ${esc(s.source_date)}</span>` : '';
     const moodBadge = s.music_mood ? `<span class="inline-flex items-center gap-1 text-[11px] text-zinc-500">${icon('music','w-3 h-3')} ${esc(s.music_mood)}</span>` : '';
+    const langBadge = s.language ? `<span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/20">🌐 ${esc(s.language)}</span>` : '';
     return `
     <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl overflow-hidden" data-sid="${esc(s.id)}">
       <button type="button" onclick="toggleCard(${idx})" class="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-zinc-800/30 transition">
         <div class="min-w-0">
           <div class="text-[11px] uppercase tracking-wider text-indigo-400 mb-0.5">Guion ${SCRIPTS.length>1?(idx+1):''}</div>
           <div id="hdr-${k}" class="font-medium truncate">${esc(s.title)}</div>
-          <div class="flex flex-wrap items-center gap-2 mt-1">${dateBadge}${moodBadge}</div>
+          <div class="flex flex-wrap items-center gap-2 mt-1">${langBadge}${dateBadge}${moodBadge}</div>
         </div>
         <span id="chev-${k}" class="shrink-0 text-zinc-500 transition-transform ${open?'rotate-180':''}">▾</span>
       </button>

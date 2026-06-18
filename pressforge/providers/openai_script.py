@@ -240,7 +240,8 @@ class OpenAIScriptProvider:
         self._model = model or self.settings.script_model
 
     def generate(self, niche: str, *, scenes: int, extra: str | None = None,
-                 target_words: int | None = None) -> Story:
+                 target_words: int | None = None, language: str | None = None) -> Story:
+        lang = language or self.settings.language
         user = (
             f"Nicho: {niche}\n"
             f"Apunta a ~{scenes} escenas (la 1ª es el hook, la última el cierre). "
@@ -254,7 +255,7 @@ class OpenAIScriptProvider:
         completion = self._client.beta.chat.completions.parse(
             model=self._model,
             messages=[
-                {"role": "system", "content": _SYSTEM.format(language=self.settings.language)},
+                {"role": "system", "content": _SYSTEM.format(language=lang)},
                 {"role": "user", "content": user},
             ],
             response_format=StoryDraft,
@@ -264,15 +265,19 @@ class OpenAIScriptProvider:
         if draft is None:
             raise RuntimeError("El modelo no devolvió un guion válido.")
 
-        return self._to_story(draft, niche=niche)
+        story = self._to_story(draft, niche=niche)
+        story.language = lang
+        return story
 
-    def refine(self, user_script: str, *, scenes: int, extra: str | None = None) -> Story:
+    def refine(self, user_script: str, *, scenes: int, extra: str | None = None,
+               language: str | None = None) -> Story:
         """Modo 'Mi guion': pule el texto del usuario sin inventar hechos."""
+        lang = language or self.settings.language
         user = (
             f"Guion del usuario:\n\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
             f"Optimízalo y divídelo en ~{scenes} escenas cortas "
             f"(~10-14 palabras cada una, para que la imagen cambie cada 3-5 s; "
-            f"la 1ª es el hook, la última el cierre).\n"
+            f"la 1ª es el hook, la última el cierre). Escribe la narración en {lang}.\n"
         )
         if extra:
             user += f"Indicaciones extra: {extra}\n"
@@ -280,7 +285,7 @@ class OpenAIScriptProvider:
         completion = self._client.beta.chat.completions.parse(
             model=self._model,
             messages=[
-                {"role": "system", "content": _REFINE_SYSTEM.format(language=self.settings.language)},
+                {"role": "system", "content": _REFINE_SYSTEM.format(language=lang)},
                 {"role": "user", "content": user},
             ],
             response_format=StoryDraft,
@@ -289,22 +294,27 @@ class OpenAIScriptProvider:
         draft = completion.choices[0].message.parsed
         if draft is None:
             raise RuntimeError("El modelo no devolvió un guion válido.")
-        return self._to_story(draft, niche="Mi guion")
+        story = self._to_story(draft, niche="Mi guion")
+        story.language = lang
+        return story
 
-    def dialogue(self, user_script: str, *, extra: str | None = None) -> Story:
+    def dialogue(self, user_script: str, *, extra: str | None = None,
+                 language: str | None = None) -> Story:
         """Modo Diálogo (solo 'Mi guion'): convierte un guion con acotaciones +
         líneas en beats (speaker + línea VERBATIM + escena), sin narrar acciones."""
+        lang = language or self.settings.language
         user = (
             f"GUION del usuario (respeta LITERALMENTE lo que dice cada quien; las "
-            f"acotaciones van a la imagen, no se dicen):\n"
-            f"\"\"\"\n{user_script.strip()}\n\"\"\"\n"
+            f"acotaciones van a la imagen, no se dicen). Las líneas de diálogo deben "
+            f"quedar en {lang} (tradúcelas si vienen en otro idioma, manteniendo el "
+            f"sentido):\n\"\"\"\n{user_script.strip()}\n\"\"\"\n"
         )
         if extra:
             user += f"\nIndicaciones extra: {extra}\n"
         completion = self._client.beta.chat.completions.parse(
             model=self._model,
             messages=[
-                {"role": "system", "content": _DIALOGUE_SYSTEM.format(language=self.settings.language)},
+                {"role": "system", "content": _DIALOGUE_SYSTEM.format(language=lang)},
                 {"role": "user", "content": user},
             ],
             response_format=DialogueDraft,
@@ -313,7 +323,9 @@ class OpenAIScriptProvider:
         draft = completion.choices[0].message.parsed
         if draft is None:
             raise RuntimeError("El modelo no devolvió un diálogo válido.")
-        return self._dialogue_to_story(draft)
+        story = self._dialogue_to_story(draft)
+        story.language = lang
+        return story
 
     @staticmethod
     def _dialogue_to_story(draft: "DialogueDraft") -> Story:
@@ -351,14 +363,15 @@ class OpenAIScriptProvider:
         )
 
     def from_source(self, fact: SourceFact, *, scenes: int, extra: str | None = None,
-                    target_words: int | None = None) -> Story:
+                    target_words: int | None = None, language: str | None = None) -> Story:
         """Modos Histórico / Qué pasó hoy / Reddit: guion fiel a hechos reales."""
+        lang = language or self.settings.language
         year = f" (año {fact.year})" if fact.year else ""
         user = (
             f"Tema/título: {fact.title}{year}\n\n"
             f"HECHOS REALES (fuente):\n\"\"\"\n{fact.extract.strip()}\n\"\"\"\n\n"
             f"Escribe el guion en ~{scenes} escenas cortas (~10-14 palabras "
-            f"cada una, imagen cada 3-5 s), fiel a estos hechos.\n"
+            f"cada una, imagen cada 3-5 s), fiel a estos hechos. Narración en {lang}.\n"
         )
         user += _length_hint(target_words)
         if extra:
@@ -367,7 +380,7 @@ class OpenAIScriptProvider:
         completion = self._client.beta.chat.completions.parse(
             model=self._model,
             messages=[
-                {"role": "system", "content": _SOURCE_SYSTEM.format(language=self.settings.language)},
+                {"role": "system", "content": _SOURCE_SYSTEM.format(language=lang)},
                 {"role": "user", "content": user},
             ],
             response_format=StoryDraft,
@@ -377,6 +390,7 @@ class OpenAIScriptProvider:
         if draft is None:
             raise RuntimeError("El modelo no devolvió un guion válido.")
         story = self._to_story(draft, niche=fact.title)
+        story.language = lang
         story.source_title = fact.title
         story.source_url = fact.url
         return story

@@ -169,6 +169,7 @@ def generate_story(
     extra: str | None = None,
     user_script: str | None = None,
     target_words: int | None = None,
+    language: str | None = None,
 ) -> Story:
     """Devuelve solo el guion + storyboard (sin imágenes/voz/render).
 
@@ -180,17 +181,19 @@ def generate_story(
     if mode == "mine":
         if not user_script or not user_script.strip():
             raise ValueError("El modo 'Mi guion' necesita un texto de guion.")
-        return provider.refine(user_script, scenes=scenes, extra=extra)
+        return provider.refine(user_script, scenes=scenes, extra=extra, language=language)
     # mode == "invent"
     if not niche or not niche.strip():
         raise ValueError("El modo 'Inventar' necesita un nicho/tema.")
-    return provider.generate(niche, scenes=scenes, extra=extra, target_words=target_words)
+    return provider.generate(niche, scenes=scenes, extra=extra,
+                             target_words=target_words, language=language)
 
 
 def generate_story_from_fact(fact, *, scenes: int = 6, extra: str | None = None,
-                             target_words: int | None = None) -> Story:
+                             target_words: int | None = None, language: str | None = None) -> Story:
     """Guion fiel a un hecho real (Wikipedia/Reddit)."""
-    return get_script_provider().from_source(fact, scenes=scenes, extra=extra, target_words=target_words)
+    return get_script_provider().from_source(fact, scenes=scenes, extra=extra,
+                                             target_words=target_words, language=language)
 
 
 def generate_stories(
@@ -205,12 +208,14 @@ def generate_stories(
     day: int | None = None,
     duration: str | None = None,
     dialogue: bool = False,
+    language: str | None = None,
 ) -> list[Story]:
     """Devuelve una o varias propuestas de guion según el modo, para que el
     usuario elija/edite antes de producir.
 
     `scenes`: nº de imágenes; si es None/0 se calcula automáticamente según la
-    longitud. `duration`: short/medium/long → palabras objetivo de narración."""
+    longitud. `duration`: short/medium/long → palabras objetivo de narración.
+    `language`: idioma de salida del guion/voz (ej. 'Spanish', 'English')."""
     count = max(1, min(3, count))
     tw = duration_target_words(duration)
     eff = scenes if (scenes and scenes > 0) else auto_scene_count(
@@ -220,8 +225,9 @@ def generate_stories(
         if not user_script or not user_script.strip():
             raise ValueError("El modo 'Mi guion' necesita un texto.")
         if dialogue:
-            return [get_script_provider().dialogue(user_script, extra=extra)]
-        return [generate_story(mode="mine", user_script=user_script, scenes=eff, extra=extra)]
+            return [get_script_provider().dialogue(user_script, extra=extra, language=language)]
+        return [generate_story(mode="mine", user_script=user_script, scenes=eff,
+                               extra=extra, language=language)]
 
     if mode == "historic":
         if not niche or not niche.strip():
@@ -229,7 +235,8 @@ def generate_stories(
         facts = get_research_provider().search(niche, limit=count)
         if not facts:
             raise ValueError(f"No encontré artículos en Wikipedia para «{niche}».")
-        return [generate_story_from_fact(f, scenes=eff, extra=extra, target_words=tw) for f in facts]
+        return [generate_story_from_fact(f, scenes=eff, extra=extra, target_words=tw,
+                                         language=language) for f in facts]
 
     if mode == "onthisday":
         today = datetime.now()
@@ -241,14 +248,16 @@ def generate_stories(
         idxs = get_script_provider().select_events(events, theme=niche or "", count=count)
         stories = []
         for i in idxs:
-            story = generate_story_from_fact(events[i], scenes=eff, extra=extra, target_words=tw)
+            story = generate_story_from_fact(events[i], scenes=eff, extra=extra,
+                                             target_words=tw, language=language)
             story.source_date = human_date(d, m, events[i].year)
             stories.append(story)
         return stories
 
     # mode == "invent"
     return [
-        generate_story(mode="invent", niche=niche, scenes=eff, extra=extra, target_words=tw)
+        generate_story(mode="invent", niche=niche, scenes=eff, extra=extra,
+                       target_words=tw, language=language)
         for _ in range(count)
     ]
 
@@ -525,8 +534,7 @@ def produce_dialogue_reel(
                     on_event(f"    ✓ referencia: {c.name}")
             except Exception:  # noqa: BLE001
                 pass
-    lang = (settings.language or "es").split("-")[0]
-    lang_name = {"es": "Spanish", "en": "English"}.get(lang, settings.language)
+    lang_name = story.language or settings.language
 
     # AUDIO PRIMERO: una línea por escena; la voz la pone ElevenLabs (voz FIJA por
     # personaje → misma voz en todo el reel). Veo genera SOLO el video (sin audio),

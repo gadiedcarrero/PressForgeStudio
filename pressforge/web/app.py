@@ -355,6 +355,10 @@ def create_scripts(payload: dict = Body(...)):
     combine = bool(payload.get("combine"))
     dialogue = bool(payload.get("dialogue"))
     tw = duration_target_words(duration)
+    # Idioma de salida: es / en / both → nombres para los prompts.
+    _LMAP = {"es": "Spanish", "en": "English"}
+    lang_in = (payload.get("language") or "es").strip()
+    langs = ["Spanish", "English"] if lang_in == "both" else [_LMAP.get(lang_in, "Spanish")]
 
     # Camino con fuente (Histórico/Efemérides/Reddit): generar SOLO lo elegido.
     if candidate_ids:
@@ -364,63 +368,63 @@ def create_scripts(payload: dict = Body(...)):
         if not cands:
             return JSONResponse({"error": "No encuentro lo seleccionado; vuelve a buscar."}, status_code=400)
 
-        # Combinar varias curiosidades en UN solo reel largo.
+        drafts = []
+        # Combinar varias curiosidades en UN solo reel largo (por idioma).
         if combine and len(cands) > 1:
             merged = "\n\n".join(f"- {c['title']}: {c['extract']}" for c in cands)
             fact = SourceFact(title="Varias curiosidades", extract=merged,
                               url=cands[0].get("url", ""), year=None)
-            try:
-                story = generate_story_from_fact(fact, scenes=eff, extra=extra, target_words=tw)
-            except Exception as exc:  # noqa: BLE001
-                return JSONResponse({"error": str(exc)}, status_code=400)
-            sid = uuid.uuid4().hex[:12]
-            data = story_to_dict(story)
-            with _lock:
-                _scripts[sid] = data
-            return {"scripts": [{"id": sid, **data}]}
+            for lang in langs:
+                try:
+                    story = generate_story_from_fact(fact, scenes=eff, extra=extra,
+                                                     target_words=tw, language=lang)
+                except Exception as exc:  # noqa: BLE001
+                    return JSONResponse({"error": str(exc)}, status_code=400)
+                sid = uuid.uuid4().hex[:12]
+                data = story_to_dict(story)
+                with _lock:
+                    _scripts[sid] = data
+                drafts.append({"id": sid, **data})
+            return {"scripts": drafts}
 
-        drafts = []
         for cand in cands:
             fact = SourceFact(
                 title=cand["title"], extract=cand["extract"],
                 url=cand["url"], year=cand.get("year"),
             )
-            try:
-                story = generate_story_from_fact(fact, scenes=eff, extra=extra, target_words=tw)
-            except Exception as exc:  # noqa: BLE001
-                return JSONResponse({"error": str(exc)}, status_code=400)
-            story.source_date = cand.get("date", "")
+            for lang in langs:
+                try:
+                    story = generate_story_from_fact(fact, scenes=eff, extra=extra,
+                                                     target_words=tw, language=lang)
+                except Exception as exc:  # noqa: BLE001
+                    return JSONResponse({"error": str(exc)}, status_code=400)
+                story.source_date = cand.get("date", "")
+                sid = uuid.uuid4().hex[:12]
+                data = story_to_dict(story)
+                with _lock:
+                    _scripts[sid] = data
+                drafts.append({"id": sid, **data})
+        if not drafts:
+            return JSONResponse({"error": "No pude generar guiones de lo seleccionado."}, status_code=400)
+        return {"scripts": drafts}
+
+    # Camino Inventar / Mi guion (una pasada por idioma).
+    drafts = []
+    for lang in langs:
+        try:
+            stories = generate_stories(
+                mode=mode, niche=niche, scenes=scenes, extra=extra,
+                user_script=user_script, count=count, duration=duration,
+                dialogue=dialogue, language=lang,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        for story in stories:
             sid = uuid.uuid4().hex[:12]
             data = story_to_dict(story)
             with _lock:
                 _scripts[sid] = data
             drafts.append({"id": sid, **data})
-        if not drafts:
-            return JSONResponse({"error": "No pude generar guiones de lo seleccionado."}, status_code=400)
-        return {"scripts": drafts}
-
-    # Camino Inventar / Mi guion.
-    try:
-        stories = generate_stories(
-            mode=mode,
-            niche=niche,
-            scenes=scenes,
-            extra=extra,
-            user_script=user_script,
-            count=count,
-            duration=duration,
-            dialogue=dialogue,
-        )
-    except Exception as exc:  # noqa: BLE001
-        return JSONResponse({"error": str(exc)}, status_code=400)
-
-    drafts = []
-    for story in stories:
-        sid = uuid.uuid4().hex[:12]
-        data = story_to_dict(story)
-        with _lock:
-            _scripts[sid] = data
-        drafts.append({"id": sid, **data})
     return {"scripts": drafts}
 
 
