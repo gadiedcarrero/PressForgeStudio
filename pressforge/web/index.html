@@ -1092,6 +1092,9 @@ function onBrandChange(){
   const b = brandById($('brandSel').value);
   if (b && b.niche && (MODE==='invent'||MODE==='historic')) { $('niche').value = b.niche; }
   if (b && b.music) $('music').value = b.music;
+  // aplica el idioma por defecto de la marca (Plan A: inglés para AdSense, español para afiliados)
+  const langSel = $('language');
+  if (b && b.language && langSel) { langSel.value = b.language === 'English' ? 'en' : 'es'; }
 }
 
 async function loadBrands(){
@@ -1103,13 +1106,16 @@ async function loadBrands(){
     return `
     <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
       <div class="flex items-center justify-between gap-2 mb-1">
-        <div class="font-semibold truncate">${esc(b.name)}</div>
+        <div class="flex items-center gap-2 min-w-0">
+          ${b.plan ? `<span class="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">PLAN ${esc(b.plan)}</span>` : ''}
+          <div class="font-semibold truncate">${esc(b.name)}</div>
+        </div>
         <div class="flex items-center gap-2 shrink-0 text-zinc-400">
           <button type="button" title="Editar" onclick='openBrandEditor(${JSON.stringify(b.id)})' class="hover:text-zinc-100">${icon('pencil','w-4 h-4')}</button>
           <button type="button" title="Eliminar" onclick='deleteBrand(${JSON.stringify(b.id)})' class="hover:text-red-400">${icon('trash','w-4 h-4')}</button>
         </div>
       </div>
-      <div class="text-xs text-zinc-500 mb-2">${esc(b.niche||'sin nicho')}</div>
+      <div class="text-xs text-zinc-500 mb-2">${esc(b.niche||'sin nicho')}${b.language?` · ${esc(b.language)}`:''}</div>
       <div class="flex flex-wrap gap-1 mb-2">${(b.hashtags||[]).slice(0,5).map(h=>`<span class="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">#${esc(h)}</span>`).join('')}</div>
       <div class="text-[11px] text-zinc-500">Canales: ${conn.length?esc(conn.join(', ')):'sin conectar'}</div>
     </div>`;
@@ -1129,6 +1135,20 @@ function openBrandEditor(id){
       <input id="br-niche" value="${esc(b.niche||'')}" placeholder="terror histórico" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"/></div>
       <div><label class="block text-[11px] text-zinc-500 mb-1">Voz por defecto</label>
       <input id="br-voice" value="${esc(b.voice||'')}" placeholder="onyx" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"/></div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div><label class="block text-[11px] text-zinc-500 mb-1">Plan / estrategia</label>
+      <select id="br-plan" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+        <option value="" ${!b.plan?'selected':''}>— sin plan —</option>
+        <option value="A" ${b.plan==='A'?'selected':''}>Plan A (CPM alto)</option>
+        <option value="B" ${b.plan==='B'?'selected':''}>Plan B</option>
+      </select></div>
+      <div><label class="block text-[11px] text-zinc-500 mb-1">Idioma por defecto</label>
+      <select id="br-language" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500">
+        <option value="" ${!b.language?'selected':''}>— sin definir —</option>
+        <option value="English" ${b.language==='English'?'selected':''}>Inglés (CPM alto · EE.UU./UK)</option>
+        <option value="Spanish" ${b.language==='Spanish'?'selected':''}>Español (afiliados/Hotmart)</option>
+      </select></div>
     </div>
     <label class="block text-[11px] text-zinc-500 mb-1">Hashtags por defecto (sin #)</label>
     <input id="br-tags" value="${esc((b.hashtags||[]).join(' '))}" placeholder="terror historia misterio" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-1 focus:ring-indigo-500"/>
@@ -1188,7 +1208,8 @@ async function saveBrand(){
   const channels = {};
   document.querySelectorAll('[data-ch]').forEach(i=>{ if(i.value.trim()){ (channels[i.dataset.ch]=channels[i.dataset.ch]||{})[i.dataset.field]=i.value.trim(); } });
   const body = { id: $('br-id').value, name: $('br-name').value, niche: $('br-niche').value,
-                 voice: $('br-voice').value, hashtags: $('br-tags').value, channels };
+                 voice: $('br-voice').value, hashtags: $('br-tags').value,
+                 plan: ($('br-plan')||{}).value || '', language: ($('br-language')||{}).value || '', channels };
   const j = await (await fetch('/api/brands',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   if(j.error){ $('br-status').textContent='✗ '+j.error; return; }
   closeModal(); loadBrands();

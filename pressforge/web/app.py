@@ -965,6 +965,9 @@ def save_brand(payload: dict = Body(...)):
         "hashtags": [str(t).lstrip("#").strip() for t in raw_tags if str(t).strip()],
         "voice": (payload.get("voice") or "").strip(),
         "music": (payload.get("music") or "").strip(),
+        # plan: etiqueta de estrategia (ej. "A" para el plan de CPM alto); language: idioma por defecto del guion/voz
+        "plan": (payload.get("plan") or "").strip(),
+        "language": (payload.get("language") or "").strip(),
         "channels": clean_ch,
     })
     return {"brand": brand, "brands": pubstore.list_brands()}
