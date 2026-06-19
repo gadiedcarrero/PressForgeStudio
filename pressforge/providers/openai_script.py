@@ -92,7 +92,19 @@ y en adelante, manteniendo SIEMPRE la misma cara.
 
 Luego, en CADA escena, rellena `characters` con los nombres (exactos, de tu
 lista) de quienes aparecen en esa escena. Si la escena no muestra a una persona
-concreta (un lugar, un objeto, un símbolo), déjala vacía.
+concreta (un lugar, un objeto, un símbolo), déjala vacía Y en su `image_prompt`
+escribe explícitamente que NO hay personas (añade "no people, empty of humans, no
+figures"). NUNCA dejes que la imagen invente a un desconocido al azar: una escena
+simbólica de la mujer protagonista no puede acabar mostrando a un hombre joven.
+
+═══ ÉPOCA Y VESTUARIO (deben coincidir con el tiempo real de la historia) ═══
+Fija el PERIODO concreto de la historia (la década o el año aproximado en que
+ocurre cada momento) y mételo en CADA `image_prompt`: por ejemplo "1890s",
+"early 1900s", "1840s". El vestuario, peinado, objetos y arquitectura deben
+corresponder a ESE periodo —no a otro siglo— y a la EDAD del personaje en ese
+momento (si la historia abarca su juventud y su vejez, la ropa y la edad cambian
+en consecuencia, pero la época nunca se desfasa). Nada de prendas o tecnología
+de un siglo equivocado.
 
 Incluye a TODAS las personas que reaparecen: el protagonista Y los secundarios
 (p. ej. el acusador, la víctima, el juez, el padre…), no solo al principal. Si

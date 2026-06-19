@@ -97,6 +97,11 @@ def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]
     que salgan iguales en todas las imágenes donde aparecen."""
     parts = [descriptions[n] for n in names if descriptions.get(n)]
     if not parts:
+        # Sin personaje etiquetado = escena simbólica/de lugar u objeto: evita que
+        # la imagen invente a un desconocido al azar (p. ej. un hombre que no es la
+        # protagonista). Solo si el prompt no pide ya explícitamente a alguien.
+        if not names and "no people" not in prompt.lower():
+            return f"{prompt}. No people, no human figures in frame."
         return prompt
     who = "; ".join(parts)
     return (f"{prompt}. The recurring character(s) must keep the SAME face and "
@@ -353,7 +358,7 @@ def produce_reel(
 
     # --- 3. Subtítulos ---
     step("[bold cyan]3/5[/] Transcribiendo para subtítulos…", "3/5 · Transcribiendo para subtítulos…")
-    words = get_subtitle_provider().transcribe(audio_path)
+    words = get_subtitle_provider().transcribe(audio_path, language=story.language)
     subs_path = build_ass(words, workdir / "subs.ass", width=settings.video_width, height=settings.video_height)
     console.print(f"    [green]✓[/] {len(words)} palabras sincronizadas")
     if on_event:
@@ -454,7 +459,7 @@ def produce_talking_reel(
 
     # 4. Subtítulos (sobre la misma narración).
     step("[bold cyan]4/5[/] Transcribiendo para subtítulos…", "4/5 · Transcribiendo para subtítulos…")
-    words = get_subtitle_provider().transcribe(audio_path)
+    words = get_subtitle_provider().transcribe(audio_path, language=story.language)
     subs_path = build_ass(words, workdir / "subs.ass",
                           width=settings.video_width, height=settings.video_height)
 
@@ -598,7 +603,7 @@ def produce_dialogue_reel(
                 veo_audio = workdir / "audio" / f"veo_{ui:02d}.mp3"
                 extract_audio(clip, veo_audio)
                 try:
-                    words = get_subtitle_provider().transcribe(veo_audio)
+                    words = get_subtitle_provider().transcribe(veo_audio, language=story.language)
                 except Exception:  # noqa: BLE001
                     words = []
                 if words:
@@ -644,7 +649,7 @@ def produce_dialogue_reel(
 
     # 3. Subtítulos (transcribiendo el audio real del reel).
     step("[bold cyan]3/4[/] Subtítulos…", "3/4 · Transcribiendo para subtítulos…")
-    words = get_subtitle_provider().transcribe(audio_path)
+    words = get_subtitle_provider().transcribe(audio_path, language=story.language)
     subs_path = build_ass(words, workdir / "subs.ass",
                           width=settings.video_width, height=settings.video_height)
     _save_story(story, workdir, total)

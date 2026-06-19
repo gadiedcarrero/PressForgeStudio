@@ -67,8 +67,11 @@ class VoiceProvider(Protocol):
 
 @runtime_checkable
 class SubtitleProvider(Protocol):
-    def transcribe(self, audio_path: Path) -> list[Word]:
-        """Alinea el audio narrado a palabras con timestamps."""
+    def transcribe(self, audio_path: Path, language: str | None = None) -> list[Word]:
+        """Alinea el audio narrado a palabras con timestamps.
+
+        `language`: idioma del audio (ej. 'English'/'Spanish') para no transcribir
+        un idioma como otro fonéticamente."""
         ...
 
 
