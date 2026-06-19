@@ -92,34 +92,14 @@ def _fallback_image(path, last_image, image_provider, idx, total, console, on_ev
         on_event(note)
 
 
-# Palabras (en inglés, idioma de los image_prompt) que delatan a una persona en la
-# escena. Si aparece alguna, NO marcamos la escena como "sin gente". Se comparan
-# por palabra completa (con \b) para que "man" no haga match dentro de "mansion".
-_PERSON_WORDS = (
-    "man", "woman", "men", "women", "boy", "girl", "child", "children", "kid",
-    "person", "people", "figure", "figures", "crowd", "son", "daughter", "father",
-    "mother", "wife", "husband", "doctor", "nurse", "soldier", "king", "queen",
-    "priest", "judge", "worker", "young", "elderly", "portrait", "face", "hands",
-    "he", "she", "his", "her", "their", "human", "humans", "silhouette",
-)
-_PERSON_RE = re.compile(r"\b(?:" + "|".join(_PERSON_WORDS) + r")\b", re.IGNORECASE)
-
-
-def _mentions_person(prompt: str) -> bool:
-    return bool(_PERSON_RE.search(prompt))
-
-
 def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]) -> str:
     """Añade al prompt la descripción fija de los personajes de la escena, para
-    que salgan iguales en todas las imágenes donde aparecen."""
+    que salgan iguales en todas las imágenes donde aparecen.
+
+    Las escenas simbólicas/de objeto ya traen "no people" escrito por el guionista
+    (lo pide la doctrina), así que aquí no hace falta adivinar nada."""
     parts = [descriptions[n] for n in names if descriptions.get(n)]
     if not parts:
-        # Sin personaje etiquetado: si el prompt TAMPOCO menciona a ninguna persona,
-        # es una escena de lugar/objeto/símbolo → evita que la imagen invente a un
-        # desconocido al azar (p. ej. un hombre en una historia sobre una mujer).
-        # Si el prompt sí describe a alguien (el hijo, el médico…), se respeta.
-        if not names and not _mentions_person(prompt):
-            return f"{prompt}. No people, no human figures in frame."
         return prompt
     who = "; ".join(parts)
     return (f"{prompt}. The recurring character(s) must keep the SAME face and "
