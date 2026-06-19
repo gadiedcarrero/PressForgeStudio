@@ -91,11 +91,23 @@ implica un cambio (de ropa o físico), refléjalo en el image_prompt de esa esce
 y en adelante, manteniendo SIEMPRE la misma cara.
 
 Luego, en CADA escena, rellena `characters` con los nombres (exactos, de tu
-lista) de quienes aparecen en esa escena. Si la escena no muestra a una persona
-concreta (un lugar, un objeto, un símbolo), déjala vacía Y en su `image_prompt`
-escribe explícitamente que NO hay personas (añade "no people, empty of humans, no
-figures"). NUNCA dejes que la imagen invente a un desconocido al azar: una escena
-simbólica de la mujer protagonista no puede acabar mostrando a un hombre joven.
+lista) de quienes aparecen en esa escena.
+
+REGLA DE ORO: si la narración de la escena habla de lo que el PROTAGONISTA hace,
+siente, vive o le pasa ("ahorró cada moneda", "se negó a comer", "caminó solo"),
+la imagen DEBE mostrar al protagonista HACIÉNDOLO, y por tanto lo etiquetas en
+`characters`. NO conviertas una acción del protagonista en un plano de objetos
+vacío (p. ej. "él ahorraba" → NO pongas solo un montón de monedas; pon AL
+PROTAGONISTA contando/guardando esas monedas). La mayoría de las escenas de una
+historia sobre una persona muestran a esa persona: el protagonista debería
+aparecer etiquetado en casi todas.
+
+Deja `characters` vacía SOLO cuando la escena es de verdad un lugar, un objeto o
+un símbolo SIN ninguna persona (un paisaje, una lápida, una bóveda, un documento).
+En ese caso, y solo en ese caso, añade en el `image_prompt` que NO hay personas
+("no people, empty of humans, no figures"). NUNCA dejes que la imagen invente a un
+desconocido al azar: una escena de un señor mayor no puede acabar mostrando a un
+niño, ni una de una mujer mostrando a un hombre.
 
 ═══ ÉPOCA Y VESTUARIO (deben coincidir con el tiempo real de la historia) ═══
 Fija el PERIODO concreto de la historia (la década o el año aproximado en que
