@@ -167,6 +167,12 @@
               <option value="dialogue">Diálogo: cada personaje habla con su voz (Veo) — premium+</option>
             </select>
             <p class="text-[11px] text-zinc-600 mb-2"><b>Local</b> = imágenes GRATIS en tu Mac (abre antes ComfyUI con run_comfyui.command). <b>Nube</b> = OpenAI, de pago, sin abrir nada. El <b>Estilo visual</b> (abajo) decide cómo se ven.</p>
+
+            <label class="block text-sm mb-1 text-zinc-400">Subtítulos</label>
+            <select id="subtitleProvider" title="Quién transcribe para los subtítulos" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="whisper-local">🖥️ Local — GRATIS (Whisper en tu Mac)</option>
+              <option value="whisper">☁️ IA OpenAI (Whisper-1) — pago (barato)</option>
+            </select>
             <div id="presenterWrap" class="hidden mb-2">
               <input id="presenter" placeholder="Presentador (opcional): ej. mujer joven 3D estilo Pixar, elegante" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               <select id="videoModel" title="Modelo de video" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -765,7 +771,7 @@ async function produce(sid) {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ id: sid, script, music: $('music').value, brand_id: $('brandSel').value,
       format: fmt, presenter: $('presenter').value, video_model: videoModel,
-      image_provider: img })
+      image_provider: img, subtitle_provider: ($('subtitleProvider')||{}).value || '' })
   });
   const j = await r.json();
   if (j.error) { $('prodEvents').textContent = 'ERROR: ' + j.error; return; }
@@ -1390,6 +1396,10 @@ async function loadImageStyle(){
     // arranca el selector de Guion en el provider por defecto del .env
     if (j.script_provider && $('scriptProvider')) {
       $('scriptProvider').value = (j.script_provider === 'openai' ? 'openai' : 'ollama');
+    }
+    // arranca el selector de Subtítulos en el provider por defecto del .env
+    if (j.subtitle_provider && $('subtitleProvider')) {
+      $('subtitleProvider').value = (j.subtitle_provider === 'whisper' ? 'whisper' : 'whisper-local');
     }
   } catch(e){}
   renderStyleGrid();

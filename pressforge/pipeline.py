@@ -302,6 +302,7 @@ def produce_reel(
     animate: bool = False,
     video_model: str = "kling-i2v",
     image_provider: str | None = None,
+    subtitle_provider: str | None = None,
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
@@ -421,7 +422,7 @@ def produce_reel(
 
     # --- 3. Subtítulos ---
     step("[bold cyan]3/5[/] Transcribiendo para subtítulos…", "3/5 · Transcribiendo para subtítulos…")
-    words = get_subtitle_provider().transcribe(audio_path, language=story.language)
+    words = get_subtitle_provider(subtitle_provider).transcribe(audio_path, language=story.language)
     subs_path = build_ass(words, workdir / "subs.ass", width=settings.video_width, height=settings.video_height)
     console.print(f"    [green]✓[/] {len(words)} palabras sincronizadas")
     if on_event:
@@ -474,6 +475,7 @@ def produce_talking_reel(
     voice: str | None = None,
     model: str = "kling-avatar",
     image_provider: str | None = None,
+    subtitle_provider: str | None = None,
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
@@ -523,7 +525,7 @@ def produce_talking_reel(
 
     # 4. Subtítulos (sobre la misma narración).
     step("[bold cyan]4/5[/] Transcribiendo para subtítulos…", "4/5 · Transcribiendo para subtítulos…")
-    words = get_subtitle_provider().transcribe(audio_path, language=story.language)
+    words = get_subtitle_provider(subtitle_provider).transcribe(audio_path, language=story.language)
     subs_path = build_ass(words, workdir / "subs.ass",
                           width=settings.video_width, height=settings.video_height)
 
@@ -551,6 +553,7 @@ def produce_dialogue_reel(
     voice: str | None = None,
     engine: str = "veo3",
     image_provider: str | None = None,
+    subtitle_provider: str | None = None,
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
@@ -669,7 +672,7 @@ def produce_dialogue_reel(
                 veo_audio = workdir / "audio" / f"veo_{ui:02d}.mp3"
                 extract_audio(clip, veo_audio)
                 try:
-                    words = get_subtitle_provider().transcribe(veo_audio, language=story.language)
+                    words = get_subtitle_provider(subtitle_provider).transcribe(veo_audio, language=story.language)
                 except Exception:  # noqa: BLE001
                     words = []
                 if words:

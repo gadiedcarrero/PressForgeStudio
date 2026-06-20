@@ -20,6 +20,7 @@ from .providers.comfyui_image import ComfyUIImageProvider
 from .providers.elevenlabs_voice import ElevenLabsVoiceProvider
 from .providers.ffmpeg_render import FFmpegRenderProvider
 from .providers.local_music import LocalLibraryMusicProvider
+from .providers.local_whisper_subtitle import LocalWhisperSubtitleProvider
 from .providers.openai_image import OpenAIImageProvider
 from .providers.ollama_script import OllamaScriptProvider
 from .providers.openai_script import OpenAIScriptProvider
@@ -30,7 +31,8 @@ from .providers.wikipedia_research import WikipediaResearch
 _SCRIPT = {"openai": OpenAIScriptProvider, "ollama": OllamaScriptProvider}
 _IMAGE = {"openai": OpenAIImageProvider, "local": ComfyUIImageProvider, "comfyui": ComfyUIImageProvider}
 _VOICE = {"openai": OpenAIVoiceProvider, "elevenlabs": ElevenLabsVoiceProvider}
-_SUBTITLE = {"whisper": WhisperSubtitleProvider}
+_SUBTITLE = {"whisper": WhisperSubtitleProvider,
+             "whisper-local": LocalWhisperSubtitleProvider, "local": LocalWhisperSubtitleProvider}
 _RENDER = {"ffmpeg": FFmpegRenderProvider}
 _MUSIC = {"local": LocalLibraryMusicProvider}
 _RESEARCH = {"wikipedia": WikipediaResearch}
@@ -64,8 +66,9 @@ def get_voice_provider() -> VoiceProvider:
     return _pick(_VOICE, name, "Voice")
 
 
-def get_subtitle_provider() -> SubtitleProvider:
-    return _pick(_SUBTITLE, get_settings().subtitle_provider, "Subtitle")
+def get_subtitle_provider(override: str | None = None) -> SubtitleProvider:
+    # override: elige el provider de subtítulos por reel (UI) sin tocar el .env.
+    return _pick(_SUBTITLE, (override or "").strip() or get_settings().subtitle_provider, "Subtitle")
 
 
 def get_render_provider() -> RenderProvider:

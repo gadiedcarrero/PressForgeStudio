@@ -88,6 +88,9 @@ class Settings(BaseSettings):
     comfyui_video_steps: int = 8     # distilled: 8 pasos (rápido)
     comfyui_video_cfg: float = 1.0   # distilled: sin CFG
 
+    # --- Subtítulos locales (faster-whisper, GRATIS; SUBTITLE_PROVIDER=whisper-local) ---
+    local_whisper_model: str = "base"  # base/small/medium · base = rápido y suficiente
+
     # --- Render ---
     fps: int = 30
     video_width: int = 1080
