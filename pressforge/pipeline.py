@@ -191,6 +191,7 @@ def generate_story(
     target_words: int | None = None,
     language: str | None = None,
     free: bool = False,
+    script_provider: str | None = None,
 ) -> Story:
     """Devuelve solo el guion + storyboard (sin imágenes/voz/render).
 
@@ -198,8 +199,9 @@ def generate_story(
       - "invent": la IA inventa una historia a partir de `niche`.
       - "mine":   la IA pule/corrige el `user_script` sin inventar hechos.
     `free`: en 'Mi guion', conserva TODO el texto sin recortar (modo Libre).
+    `script_provider`: 'openai' (pago) u 'ollama' (local gratis); vacío = .env.
     """
-    provider = get_script_provider()
+    provider = get_script_provider(script_provider)
     if mode == "mine":
         if not user_script or not user_script.strip():
             raise ValueError("El modo 'Mi guion' necesita un texto de guion.")
@@ -213,9 +215,10 @@ def generate_story(
 
 
 def generate_story_from_fact(fact, *, scenes: int = 6, extra: str | None = None,
-                             target_words: int | None = None, language: str | None = None) -> Story:
+                             target_words: int | None = None, language: str | None = None,
+                             script_provider: str | None = None) -> Story:
     """Guion fiel a un hecho real (Wikipedia/Reddit)."""
-    return get_script_provider().from_source(fact, scenes=scenes, extra=extra,
+    return get_script_provider(script_provider).from_source(fact, scenes=scenes, extra=extra,
                                              target_words=target_words, language=language)
 
 
@@ -232,13 +235,15 @@ def generate_stories(
     duration: str | None = None,
     dialogue: bool = False,
     language: str | None = None,
+    script_provider: str | None = None,
 ) -> list[Story]:
     """Devuelve una o varias propuestas de guion según el modo, para que el
     usuario elija/edite antes de producir.
 
     `scenes`: nº de imágenes; si es None/0 se calcula automáticamente según la
     longitud. `duration`: short/medium/long → palabras objetivo de narración.
-    `language`: idioma de salida del guion/voz (ej. 'Spanish', 'English')."""
+    `language`: idioma de salida del guion/voz (ej. 'Spanish', 'English').
+    `script_provider`: 'openai' (pago) u 'ollama' (local gratis); vacío = .env."""
     count = max(1, min(3, count))
     free = (duration or "").lower() == "free"
     tw = duration_target_words(duration)
@@ -249,9 +254,10 @@ def generate_stories(
         if not user_script or not user_script.strip():
             raise ValueError("El modo 'Mi guion' necesita un texto.")
         if dialogue:
-            return [get_script_provider().dialogue(user_script, extra=extra, language=language)]
+            return [get_script_provider(script_provider).dialogue(user_script, extra=extra, language=language)]
         return [generate_story(mode="mine", user_script=user_script, scenes=eff,
-                               extra=extra, language=language, free=free)]
+                               extra=extra, language=language, free=free,
+                               script_provider=script_provider)]
 
     if mode == "historic":
         if not niche or not niche.strip():
@@ -260,7 +266,7 @@ def generate_stories(
         if not facts:
             raise ValueError(f"No encontré artículos en Wikipedia para «{niche}».")
         return [generate_story_from_fact(f, scenes=eff, extra=extra, target_words=tw,
-                                         language=language) for f in facts]
+                                         language=language, script_provider=script_provider) for f in facts]
 
     if mode == "onthisday":
         today = datetime.now()
@@ -269,11 +275,12 @@ def generate_stories(
         events = get_research_provider().on_this_day(m, d)
         if not events:
             raise ValueError("No encontré efemérides para esa fecha.")
-        idxs = get_script_provider().select_events(events, theme=niche or "", count=count)
+        idxs = get_script_provider(script_provider).select_events(events, theme=niche or "", count=count)
         stories = []
         for i in idxs:
             story = generate_story_from_fact(events[i], scenes=eff, extra=extra,
-                                             target_words=tw, language=language)
+                                             target_words=tw, language=language,
+                                             script_provider=script_provider)
             story.source_date = human_date(d, m, events[i].year)
             stories.append(story)
         return stories
@@ -281,7 +288,7 @@ def generate_stories(
     # mode == "invent"
     return [
         generate_story(mode="invent", niche=niche, scenes=eff, extra=extra,
-                       target_words=tw, language=language)
+                       target_words=tw, language=language, script_provider=script_provider)
         for _ in range(count)
     ]
 

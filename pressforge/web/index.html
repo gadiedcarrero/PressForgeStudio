@@ -115,6 +115,12 @@
             <option value="both">Ambos (genera 2 versiones)</option>
           </select>
 
+          <label class="block text-sm mb-1 text-zinc-400">Guion (quién lo escribe)</label>
+          <select id="scriptProvider" title="Quién genera el texto del guion" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="ollama">🖥️ Local — GRATIS (Ollama en tu Mac)</option>
+            <option value="openai">☁️ IA OpenAI (gpt-4o) — pago, máxima calidad</option>
+          </select>
+
           <div id="field-duration">
           <label class="block text-sm mb-1 text-zinc-400">Duración objetivo</label>
           <select id="duration" title="Duración del reel" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -461,7 +467,8 @@ $('genBtn').addEventListener('click', async () => {
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
                     niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value,
                     duration: $('duration').value, dialogue: (MODE === 'mine' && $('dialogueChk').checked),
-                    language: $('language').value };
+                    language: $('language').value,
+                    script_provider: ($('scriptProvider')||{}).value || '' };
   if (MODE === 'invent' && !payload.niche.trim()) { $('niche').focus(); return; }
   if (MODE === 'mine' && !payload.user_script.trim()) { $('userScript').focus(); return; }
   $('genBtn').disabled = true;
@@ -540,7 +547,7 @@ async function generateSelected() {
     const r = await fetch('/api/scripts', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ candidate_ids: [...SELECTED], scenes: +$('scenes').value, extra: $('extra').value,
         duration: $('duration').value, combine: ($('combineReels')||{}).checked || false,
-        language: $('language').value }) });
+        language: $('language').value, script_provider: ($('scriptProvider')||{}).value || '' }) });
     const j = await r.json();
     if (j.error) { $('genStatus').textContent = '✗ ' + j.error; updateSelCount(); return; }
     SCRIPTS = j.scripts;
@@ -1379,6 +1386,10 @@ async function loadImageStyle(){
     // arranca el Formato en la variante de imagen por defecto del .env (local/nube)
     if (j.provider === 'openai' && $('format').value === 'still|local') {
       $('format').value = 'still|openai'; onFormatChange();
+    }
+    // arranca el selector de Guion en el provider por defecto del .env
+    if (j.script_provider && $('scriptProvider')) {
+      $('scriptProvider').value = (j.script_provider === 'openai' ? 'openai' : 'ollama');
     }
   } catch(e){}
   renderStyleGrid();

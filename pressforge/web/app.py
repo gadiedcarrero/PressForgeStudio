@@ -182,8 +182,9 @@ def get_image_config():
     return {
         "style": get_secret("image_style") or DEFAULT_STYLE,
         "styles": list(STYLES.keys()),
-        # provider por defecto del .env: arranca el selector de la UI en lo correcto.
+        # providers por defecto del .env: arrancan los selectores de la UI bien.
         "provider": get_settings().image_provider,
+        "script_provider": get_settings().script_provider,
     }
 
 
@@ -357,6 +358,7 @@ def create_scripts(payload: dict = Body(...)):
     duration = (payload.get("duration") or "medium").strip()
     combine = bool(payload.get("combine"))
     dialogue = bool(payload.get("dialogue"))
+    script_provider = (payload.get("script_provider") or "").strip()  # 'ollama'/'openai'/'' (.env)
     # Libre: el guion del usuario manda el nº de escenas (auto), sin tope de 18.
     if duration == "free":
         scenes = None
@@ -383,7 +385,8 @@ def create_scripts(payload: dict = Body(...)):
             for lang in langs:
                 try:
                     story = generate_story_from_fact(fact, scenes=eff, extra=extra,
-                                                     target_words=tw, language=lang)
+                                                     target_words=tw, language=lang,
+                                                     script_provider=script_provider)
                 except Exception as exc:  # noqa: BLE001
                     return JSONResponse({"error": str(exc)}, status_code=400)
                 sid = uuid.uuid4().hex[:12]
@@ -401,7 +404,8 @@ def create_scripts(payload: dict = Body(...)):
             for lang in langs:
                 try:
                     story = generate_story_from_fact(fact, scenes=eff, extra=extra,
-                                                     target_words=tw, language=lang)
+                                                     target_words=tw, language=lang,
+                                                     script_provider=script_provider)
                 except Exception as exc:  # noqa: BLE001
                     return JSONResponse({"error": str(exc)}, status_code=400)
                 story.source_date = cand.get("date", "")
@@ -421,7 +425,7 @@ def create_scripts(payload: dict = Body(...)):
             stories = generate_stories(
                 mode=mode, niche=niche, scenes=scenes, extra=extra,
                 user_script=user_script, count=count, duration=duration,
-                dialogue=dialogue, language=lang,
+                dialogue=dialogue, language=lang, script_provider=script_provider,
             )
         except Exception as exc:  # noqa: BLE001
             return JSONResponse({"error": str(exc)}, status_code=400)

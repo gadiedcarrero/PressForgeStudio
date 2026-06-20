@@ -46,8 +46,9 @@ def _pick(table: dict, key: str, kind: str):
         )
 
 
-def get_script_provider() -> ScriptProvider:
-    return _pick(_SCRIPT, get_settings().script_provider, "Script")
+def get_script_provider(override: str | None = None) -> ScriptProvider:
+    # override: elige el provider de guion por reel (UI) sin tocar el .env.
+    return _pick(_SCRIPT, (override or "").strip() or get_settings().script_provider, "Script")
 
 
 def get_image_provider(override: str | None = None) -> ImageProvider:
