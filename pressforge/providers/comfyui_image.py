@@ -23,14 +23,21 @@ from .base import ImageBlockedError
 _QUALITY = "masterpiece, best quality, highly detailed, sharp focus, 8k"
 
 
+# Estilos que NO salen bien en el modelo fotográfico → usan el modelo anime.
+_ANIME_STYLES = {"anime"}
+
+
+def _style_key() -> str:
+    from ..secrets_store import get_secret
+    from .openai_image import DEFAULT_STYLE
+    return (get_secret("image_style") or DEFAULT_STYLE).strip()
+
+
 def _style_suffix() -> str:
     """Aplica el mismo 'Estilo visual' elegido en la UI que usa OpenAI, para que
     el provider local respete cinematic/anime/3D/pintura/vintage/etc."""
-    from ..secrets_store import get_secret
     from .openai_image import STYLES, DEFAULT_STYLE
-
-    key = (get_secret("image_style") or DEFAULT_STYLE).strip()
-    return STYLES.get(key, STYLES[DEFAULT_STYLE])
+    return STYLES.get(_style_key(), STYLES[DEFAULT_STYLE])
 _NEGATIVE = ("lowres, bad anatomy, bad hands, extra fingers, missing fingers, "
              "deformed, mutated, blurry, watermark, text, signature, logo, "
              "cartoon, 3d render, cgi, disfigured, extra limbs, cloned face, "
@@ -52,6 +59,7 @@ class ComfyUIImageProvider:
         s = get_settings()
         self.base = s.comfyui_base_url.rstrip("/")
         self.ckpt = s.comfyui_checkpoint
+        self.anime_ckpt = (s.comfyui_anime_checkpoint or "").strip()
         self.lightning = (s.comfyui_lightning_lora or "").strip()
         self.steps = s.comfyui_steps
         self.cfg = s.comfyui_cfg
@@ -64,10 +72,16 @@ class ComfyUIImageProvider:
             self.sampler, self.scheduler = "dpmpp_2m", "karras"
         self._client = httpx.Client(timeout=900.0)  # generar en Mac puede tardar
 
+    def _checkpoint(self) -> str:
+        """Modelo según el estilo: anime → Animagine; el resto → RealVisXL."""
+        if _style_key() in _ANIME_STYLES and self.anime_ckpt:
+            return self.anime_ckpt
+        return self.ckpt
+
     def _base_nodes(self) -> tuple[dict, list, list, list]:
         """Nodos comunes (checkpoint + LoRA Lightning opcional). Devuelve el dict
         de nodos y las referencias [model, clip, vae] a encadenar."""
-        nodes = {"4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.ckpt}}}
+        nodes = {"4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self._checkpoint()}}}
         model, clip, vae = ["4", 0], ["4", 1], ["4", 2]
         if self.lightning:
             nodes["10"] = {"class_type": "LoraLoader", "inputs": {

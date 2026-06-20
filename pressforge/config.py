@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     # misma cara del personaje entre escenas cuando hay imagen de referencia.
     comfyui_base_url: str = "http://127.0.0.1:8188"
     comfyui_checkpoint: str = "RealVisXL_V5.0_fp16.safetensors"
+    # Modelo para estilos NO realistas (anime): RealVisXL es fotográfico y no hace
+    # buen anime, así que el estilo 'anime' usa este modelo especializado.
+    comfyui_anime_checkpoint: str = "animagine-xl-4.0.safetensors"
     # Lightning LoRA: acelera ~3-4× (8 pasos en vez de 30). Déjalo vacío para
     # calidad máxima a 30 pasos (más lento). Con LoRA, steps/cfg bajan solos.
     comfyui_lightning_lora: str = "sdxl_lightning_8step_lora.safetensors"
