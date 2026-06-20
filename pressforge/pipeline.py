@@ -383,9 +383,17 @@ def produce_reel(
 
     # --- 2.5 Animación (modo Video animado completo): cada escena → clip con movimiento ---
     if animate:
-        from .providers.fal_video import image_to_video
-        step("[bold cyan]·[/] Animando escenas (fal, puede tardar varios minutos)…",
-             "· Animando escenas (fal, puede tardar varios minutos)…")
+        # Motor de video: 'ltx-local' → LTX-Video en tu Mac (GRATIS, lento);
+        # cualquier otro → fal (Kling, de pago).
+        local_video = (video_model or "").startswith(("ltx", "local"))
+        if local_video:
+            from .providers.comfyui_video import image_to_video
+            step("[bold cyan]·[/] Animando escenas (LOCAL · LTX, ~1 min/escena en tu Mac)…",
+                 "· Animando escenas (LOCAL · gratis, ~1 min/escena)…")
+        else:
+            from .providers.fal_video import image_to_video
+            step("[bold cyan]·[/] Animando escenas (fal, puede tardar varios minutos)…",
+                 "· Animando escenas (fal, puede tardar varios minutos)…")
         for scene in story.scenes:
             if scene.image_path is None:
                 continue

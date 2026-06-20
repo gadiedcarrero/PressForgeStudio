@@ -155,8 +155,8 @@
             <select id="format" title="Formato del reel" onchange="onFormatChange()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="still|local">Imagen fija (Ken Burns) · 🖥️ Local — GRATIS</option>
               <option value="still|openai">Imagen fija (Ken Burns) · ☁️ Nube OpenAI — pago</option>
-              <option value="animated|local">Video animado (fal) · imágenes 🖥️ Local</option>
-              <option value="animated|openai">Video animado (fal) · imágenes ☁️ Nube OpenAI</option>
+              <option value="animated|local|ltx">Video animado · 🖥️ TODO Local (LTX) — GRATIS (lento)</option>
+              <option value="animated|local|fal">Video animado · fal Kling (imágenes local) — premium pago</option>
               <option value="talking">Video: presentador 3D que habla (fal) — premium</option>
               <option value="dialogue">Diálogo: cada personaje habla con su voz (Veo) — premium+</option>
             </select>
@@ -725,7 +725,7 @@ function dialogueMode(){
 // "animated|local"… (talking/dialogue no llevan sufijo). Esto lo separa.
 function fmtParts(){
   const parts = ($('format').value || 'still').split('|');
-  return { fmt: parts[0], img: parts[1] || '' };
+  return { fmt: parts[0], img: parts[1] || '', vid: parts[2] || '' };
 }
 
 function onFormatChange(){
@@ -744,8 +744,9 @@ let CURRENT_JOB = null;  // job en curso (para poder cancelarlo)
 
 async function produce(sid) {
   const script = collectScript(sid);
-  const { fmt, img } = fmtParts();   // formato + origen de imágenes (local/openai)
-  const videoModel = fmt === 'animated' ? 'kling-i2v' : (fmt === 'dialogue' ? $('dialogueEngine').value : $('videoModel').value);
+  const { fmt, img, vid } = fmtParts();   // formato + origen de imágenes + motor de video
+  const videoModel = fmt === 'animated' ? (vid === 'ltx' ? 'ltx-local' : 'kling-i2v')
+    : (fmt === 'dialogue' ? $('dialogueEngine').value : $('videoModel').value);
   $('prod').classList.remove('hidden');
   $('prodResult').classList.add('hidden');
   $('prodCancel').classList.add('hidden');

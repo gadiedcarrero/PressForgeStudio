@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     instantid_weight: float = 0.65
     instantid_end_at: float = 0.7
 
+    # --- Video LOCAL (animación gratis con LTX-Video en ComfyUI) ---
+    comfyui_video_model: str = "ltxv-2b-0.9.8-distilled.safetensors"
+    comfyui_video_t5: str = "t5xxl_fp16.safetensors"
+    comfyui_video_steps: int = 8     # distilled: 8 pasos (rápido)
+    comfyui_video_cfg: float = 1.0   # distilled: sin CFG
+
     # --- Render ---
     fps: int = 30
     video_width: int = 1080
