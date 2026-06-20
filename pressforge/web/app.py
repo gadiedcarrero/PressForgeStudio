@@ -354,6 +354,9 @@ def create_scripts(payload: dict = Body(...)):
     duration = (payload.get("duration") or "medium").strip()
     combine = bool(payload.get("combine"))
     dialogue = bool(payload.get("dialogue"))
+    # Libre: el guion del usuario manda el nº de escenas (auto), sin tope de 18.
+    if duration == "free":
+        scenes = None
     tw = duration_target_words(duration)
     # Idioma de salida: es / en / both → nombres para los prompts.
     _LMAP = {"es": "Spanish", "en": "English"}
@@ -444,10 +447,19 @@ def update_script(sid: str, payload: dict = Body(...)):
 
 
 # ─── Paso 2: producir el reel desde un guion (ya editado) ─────────────────────
+class _JobCancelled(BaseException):
+    """Aborta un job en curso. Hereda de BaseException (no de Exception) para que
+    los `except Exception` del pipeline NO la atrapen y la cancelación se propague."""
+
+
 def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: str,
              fmt: str = "still", presenter: str = "", video_model: str = "") -> None:
     def on_event(msg: str) -> None:
+        # Cada paso/iteración del pipeline pasa por aquí → es el punto de
+        # cancelación: si el usuario pidió cancelar, abortamos en el acto.
         with _lock:
+            if _jobs[job_id].get("cancel"):
+                raise _JobCancelled()
             _jobs[job_id]["events"].append(msg)
 
     try:
@@ -497,6 +509,10 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 hook=result.story.hook,
                 duration=round(result.duration, 1),
             )
+    except _JobCancelled:
+        with _lock:
+            _jobs[job_id]["events"].append("✗ Cancelado por el usuario")
+            _jobs[job_id].update(status="cancelled")
     except Exception as exc:  # noqa: BLE001
         with _lock:
             _jobs[job_id].update(status="error", error=str(exc))
@@ -629,6 +645,20 @@ def job_status(job_id: str):
         if not job:
             return JSONResponse({"error": "job no encontrado"}, status_code=404)
         return dict(job)
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str):
+    """Marca un job para cancelar. El proceso aborta al terminar el paso actual
+    (la cancelación se hace efectiva en el siguiente checkpoint del pipeline)."""
+    with _lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return JSONResponse({"error": "job no encontrado"}, status_code=404)
+        if job.get("status") == "running":
+            job["cancel"] = True
+            job["events"].append("⏹ Cancelando… (terminando el paso en curso)")
+        return {"status": job.get("status"), "cancelling": bool(job.get("cancel"))}
 
 
 @app.get("/api/voice-sample/{voice}")

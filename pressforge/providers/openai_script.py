@@ -294,15 +294,31 @@ class OpenAIScriptProvider:
         return story
 
     def refine(self, user_script: str, *, scenes: int, extra: str | None = None,
-               language: str | None = None) -> Story:
-        """Modo 'Mi guion': pule el texto del usuario sin inventar hechos."""
+               language: str | None = None, preserve: bool = False) -> Story:
+        """Modo 'Mi guion': pule el texto del usuario sin inventar hechos.
+
+        `preserve` (modo Libre): conserva TODO el guion, sin resumir ni recortar;
+        solo lo pule y lo divide en cuantas escenas hagan falta."""
         lang = language or self.settings.language
-        user = (
-            f"Guion del usuario:\n\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
-            f"Optimízalo y divídelo en ~{scenes} escenas cortas "
-            f"(~10-14 palabras cada una, para que la imagen cambie cada 3-5 s; "
-            f"la 1ª es el hook, la última el cierre). Escribe la narración en {lang}.\n"
-        )
+        if preserve:
+            user = (
+                f"Guion del usuario:\n\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
+                f"MODO LIBRE — CONSERVA TODO: NO resumas, NO recortes ni elimines "
+                f"NADA del guion. Mantén TODAS sus frases, ideas, datos y detalles "
+                f"(su esencia íntegra); no pierdas ni una parte. Solo pule la "
+                f"redacción, la claridad y el ritmo sin cambiar el contenido. "
+                f"Divídelo en cuantas escenas hagan falta (~10-14 palabras cada "
+                f"una para que la imagen cambie cada 3-5 s; añade tantas como "
+                f"necesites, ~{scenes} o más, para no dejar nada fuera; la 1ª es "
+                f"el hook, la última el cierre). Escribe la narración en {lang}.\n"
+            )
+        else:
+            user = (
+                f"Guion del usuario:\n\"\"\"\n{user_script.strip()}\n\"\"\"\n\n"
+                f"Optimízalo y divídelo en ~{scenes} escenas cortas "
+                f"(~10-14 palabras cada una, para que la imagen cambie cada 3-5 s; "
+                f"la 1ª es el hook, la última el cierre). Escribe la narración en {lang}.\n"
+            )
         if extra:
             user += f"Indicaciones extra: {extra}\n"
 

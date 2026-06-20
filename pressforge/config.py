@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     output_dir: str = ""
     music_dir: str = ""
 
+    # --- ComfyUI (imágenes LOCALES gratis; IMAGE_PROVIDER=local) ---
+    # Requiere un servidor ComfyUI corriendo (ver docs). InstantID mantiene la
+    # misma cara del personaje entre escenas cuando hay imagen de referencia.
+    comfyui_base_url: str = "http://127.0.0.1:8188"
+    comfyui_checkpoint: str = "RealVisXL_V5.0_fp16.safetensors"
+    comfyui_steps: int = 30
+    comfyui_cfg: float = 5.0
+    instantid_weight: float = 0.8  # 0-1: ↑ fija más la cara, ↓ respeta más la escena/época
+
     # --- Render ---
     fps: int = 30
     video_width: int = 1080

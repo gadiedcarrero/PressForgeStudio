@@ -108,6 +108,15 @@ def _with_characters(prompt: str, names: list[str], descriptions: dict[str, str]
             f"between scenes). Do NOT add any other people who are not described here.")
 
 
+def _portrait_prompt(desc: str) -> str:
+    """Prompt del 'retrato maestro' de un personaje: una cara limpia y frontal
+    que el provider (InstantID) usará como referencia para repetirla en cada
+    escena. Sin escenario ni acción, solo el rostro bien definido."""
+    return (f"head and shoulders portrait photo of {desc}, looking straight at the "
+            f"camera, neutral plain background, soft even lighting, photorealistic, "
+            f"sharp focus on the face")
+
+
 def _save_montage_cfg(workdir: Path, music: str | None) -> None:
     """Guarda la música elegida para poder REANUDAR el montaje si falla."""
     import json
@@ -136,6 +145,8 @@ def _assign_durations(story: Story, total: float) -> None:
 # Una imagen cada ~4 s de narración (≈ 11 palabras a ritmo de español).
 _WORDS_PER_SCENE = 11
 _MIN_SCENES, _MAX_SCENES = 4, 18
+# Modo 'Libre' (Mi guion): tope mucho más alto para no recortar guiones largos.
+_FREE_MAX_SCENES = 60
 
 # Segundos de "cola" que el vídeo continúa tras acabar la voz (outro con fundido).
 _OUTRO_TAIL = 2.5
@@ -146,21 +157,27 @@ _DURATION_WORDS = {"short": 75, "medium": 115, "long": 200}
 
 
 def duration_target_words(duration: str | None) -> int:
+    # 'free' (Libre) = sin objetivo de palabras → no se recorta el guion.
+    if (duration or "").lower() == "free":
+        return 0
     return _DURATION_WORDS.get((duration or "medium").lower(), 150)
 
 
-def auto_scene_count(*, mode: str, user_script: str | None = None, expected_words: int = 140) -> int:
+def auto_scene_count(*, mode: str, user_script: str | None = None,
+                     expected_words: int = 140, free: bool = False) -> int:
     """Nº de escenas/imágenes en función de la longitud, no fijo.
 
     Más guion → más escenas (la imagen cambia cada ~4 s). En 'Mi guion' se
     estima por las palabras del texto del usuario; en el resto, por la longitud
-    objetivo del guion generado.
+    objetivo del guion generado. En modo `free` el tope sube a _FREE_MAX_SCENES
+    para conservar guiones largos completos.
     """
     if mode == "mine" and user_script and user_script.strip():
         words = len(user_script.split())
     else:
         words = expected_words
-    return max(_MIN_SCENES, min(_MAX_SCENES, round(words / _WORDS_PER_SCENE)))
+    upper = _FREE_MAX_SCENES if free else _MAX_SCENES
+    return max(_MIN_SCENES, min(upper, round(words / _WORDS_PER_SCENE)))
 
 
 # ─── Paso 1 (rápido): generar el guion para revisar/editar ───────────────────
@@ -173,18 +190,21 @@ def generate_story(
     user_script: str | None = None,
     target_words: int | None = None,
     language: str | None = None,
+    free: bool = False,
 ) -> Story:
     """Devuelve solo el guion + storyboard (sin imágenes/voz/render).
 
     mode:
       - "invent": la IA inventa una historia a partir de `niche`.
       - "mine":   la IA pule/corrige el `user_script` sin inventar hechos.
+    `free`: en 'Mi guion', conserva TODO el texto sin recortar (modo Libre).
     """
     provider = get_script_provider()
     if mode == "mine":
         if not user_script or not user_script.strip():
             raise ValueError("El modo 'Mi guion' necesita un texto de guion.")
-        return provider.refine(user_script, scenes=scenes, extra=extra, language=language)
+        return provider.refine(user_script, scenes=scenes, extra=extra,
+                               language=language, preserve=free)
     # mode == "invent"
     if not niche or not niche.strip():
         raise ValueError("El modo 'Inventar' necesita un nicho/tema.")
@@ -220,9 +240,10 @@ def generate_stories(
     longitud. `duration`: short/medium/long → palabras objetivo de narración.
     `language`: idioma de salida del guion/voz (ej. 'Spanish', 'English')."""
     count = max(1, min(3, count))
+    free = (duration or "").lower() == "free"
     tw = duration_target_words(duration)
     eff = scenes if (scenes and scenes > 0) else auto_scene_count(
-        mode=mode, user_script=user_script, expected_words=tw)
+        mode=mode, user_script=user_script, expected_words=tw, free=free)
 
     if mode == "mine":
         if not user_script or not user_script.strip():
@@ -230,7 +251,7 @@ def generate_stories(
         if dialogue:
             return [get_script_provider().dialogue(user_script, extra=extra, language=language)]
         return [generate_story(mode="mine", user_script=user_script, scenes=eff,
-                               extra=extra, language=language)]
+                               extra=extra, language=language, free=free)]
 
     if mode == "historic":
         if not niche or not niche.strip():
@@ -295,16 +316,44 @@ def produce_reel(
     # --- 1. Imágenes ---
     step("[bold cyan]1/5[/] Generando imágenes…", "1/5 · Generando imágenes…")
     image_provider = get_image_provider()
+    # Providers como ComfyUI/InstantID fijan la cara del personaje a partir de un
+    # "retrato maestro" → misma cara en todas las escenas. Se activa solo si el
+    # provider lo soporta; con OpenAI seguimos inyectando descripciones al prompt.
+    identity = getattr(image_provider, "identity_reference", False)
     char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
     refs_dir = data_path() / "refs"
+    chars_dir = workdir / "chars"
+    masters: dict[str, Path | None] = {}  # personaje → retrato maestro (cara de ref.)
     last_image: Path | None = None
     n = len(story.scenes)
+
+    def _ensure_master(name: str) -> Path | None:
+        """Genera (una sola vez) el retrato maestro de un personaje."""
+        if name in masters:
+            return masters[name]
+        mp = chars_dir / f"{_slug(name)}.png"
+        try:
+            image_provider.generate(_portrait_prompt(char_desc[name]), mp)
+            masters[name] = mp
+            if on_event:
+                on_event(f"    · cara fijada para {name}")
+        except Exception:  # noqa: BLE001 — si falla, esa escena va sin referencia
+            masters[name] = None
+        return masters[name]
+
     for scene in story.scenes:
         path = workdir / "images" / f"scene_{scene.index:02d}.png"
-        ref = refs_dir / scene.reference if scene.reference else None
-        ref = ref if (ref and ref.is_file()) else None
-        # Con referencia, la foto define la composición/personas; sin ella, se
-        # inyecta la descripción fija de los personajes etiquetados.
+        user_ref = refs_dir / scene.reference if scene.reference else None
+        ref = user_ref if (user_ref and user_ref.is_file()) else None
+        # Consistencia automática: si el provider lo soporta y la escena tiene un
+        # personaje conocido, usa su retrato maestro como referencia de cara.
+        # Las escenas de paisaje/objeto (sin personajes) van sin referencia.
+        if identity and ref is None and scene.characters:
+            main = next((c for c in scene.characters if c in char_desc), None)
+            if main:
+                ref = _ensure_master(main)
+        # Con referencia, el prompt es la escena tal cual (la cara la pone la ref);
+        # sin ella, se inyecta la descripción fija de los personajes etiquetados.
         prompt = scene.image_prompt if ref else _with_characters(scene.image_prompt, scene.characters, char_desc)
         try:
             image_provider.generate(prompt, path, reference=ref)
