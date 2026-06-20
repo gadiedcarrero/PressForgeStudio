@@ -161,7 +161,8 @@ class ComfyUIImageProvider:
     # ─── Interfaz ImageProvider ───
     def generate(self, prompt: str, out_path: Path, reference: Path | None = None) -> Path:
         seed = uuid.uuid4().int % (2 ** 32)
-        full = prompt.strip() + ", " + _style_suffix() + ", " + _QUALITY
+        # El ESTILO va al PRINCIPIO (SDXL pondera más los primeros tokens).
+        full = f"{_style_suffix()}, {prompt.strip()}, {_QUALITY}"
         try:
             if reference and Path(reference).is_file():
                 ref_name = self._upload(Path(reference))
