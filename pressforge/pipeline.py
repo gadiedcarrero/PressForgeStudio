@@ -294,6 +294,7 @@ def produce_reel(
     voice: str | None = None,
     animate: bool = False,
     video_model: str = "kling-i2v",
+    image_provider: str | None = None,
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
@@ -315,7 +316,7 @@ def produce_reel(
 
     # --- 1. Imágenes ---
     step("[bold cyan]1/5[/] Generando imágenes…", "1/5 · Generando imágenes…")
-    image_provider = get_image_provider()
+    image_provider = get_image_provider(image_provider)
     # Providers como ComfyUI/InstantID fijan la cara del personaje a partir de un
     # "retrato maestro" → misma cara en todas las escenas. Se activa solo si el
     # provider lo soporta; con OpenAI seguimos inyectando descripciones al prompt.
@@ -457,6 +458,7 @@ def produce_talking_reel(
     music: str | None = None,
     voice: str | None = None,
     model: str = "kling-avatar",
+    image_provider: str | None = None,
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
@@ -487,7 +489,7 @@ def produce_talking_reel(
     presenter_prompt = (base_prompt + ", upper body, looking straight at the camera, "
                         "warm confident expression, centered portrait, simple clean background")
     pres_img = workdir / "presenter.png"
-    get_image_provider().generate(presenter_prompt, pres_img)
+    get_image_provider(image_provider).generate(presenter_prompt, pres_img)
 
     # 2. Voz (una sola narración continua).
     step("[bold cyan]2/5[/] Generando narración…", "2/5 · Generando narración…")
@@ -533,6 +535,7 @@ def produce_dialogue_reel(
     music: str | None = None,
     voice: str | None = None,
     engine: str = "veo3",
+    image_provider: str | None = None,
     console: Console | None = None,
     on_event: Callable[[str], None] | None = None,
 ) -> ReelResult:
@@ -562,8 +565,9 @@ def produce_dialogue_reel(
 
     char_desc = {c.name: c.description for c in story.characters if c.description.strip()}
     char_voice = {c.name: c.voice for c in story.characters if c.voice.strip()}
+    _img_override = image_provider  # nombre elegido en la UI (local/openai)
     vp = ElevenLabsVoiceProvider()  # voz fija por personaje (consistencia en todo el reel)
-    image_provider = get_image_provider()
+    image_provider = get_image_provider(_img_override)
 
     # Imágenes MAESTRAS de referencia por personaje: cara fija que se reusa en cada
     # escena (consistencia de rostro en todo el reel). La ropa de cada momento la

@@ -50,8 +50,9 @@ def get_script_provider() -> ScriptProvider:
     return _pick(_SCRIPT, get_settings().script_provider, "Script")
 
 
-def get_image_provider() -> ImageProvider:
-    return _pick(_IMAGE, get_settings().image_provider, "Image")
+def get_image_provider(override: str | None = None) -> ImageProvider:
+    # override: elige el provider por reel (UI) sin tocar el .env ni reiniciar.
+    return _pick(_IMAGE, (override or "").strip() or get_settings().image_provider, "Image")
 
 
 def get_voice_provider() -> VoiceProvider:

@@ -159,6 +159,13 @@
               <option value="dialogue">Diálogo: cada personaje habla con su voz (fal) — premium+</option>
             </select>
             <p class="text-[11px] text-zinc-600 mb-2">El <b>Formato</b> decide si se mueve; el <b>Estilo visual</b> (abajo) decide cómo se ve. Para muñequita 3D que se mueve: Formato Video + Estilo "3D Pixar".</p>
+
+            <label class="block text-sm mb-1 text-zinc-400">Imágenes</label>
+            <select id="imageProvider" title="Dónde se generan las imágenes de cada escena" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="local">🖥️ Local — GRATIS (ComfyUI en tu Mac · ábrelo antes)</option>
+              <option value="openai">☁️ Nube — OpenAI (de pago · sin abrir nada)</option>
+            </select>
+            <p class="text-[11px] text-zinc-600 mb-2">Local cuesta <b>$0</b> pero necesita ComfyUI abierto (run_comfyui.command). Nube cuesta dinero pero no requiere ComfyUI.</p>
             <div id="presenterWrap" class="hidden mb-2">
               <input id="presenter" placeholder="Presentador (opcional): ej. mujer joven 3D estilo Pixar, elegante" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               <select id="videoModel" title="Modelo de video" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -747,7 +754,8 @@ async function produce(sid) {
   const r = await fetch('/api/produce', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ id: sid, script, music: $('music').value, brand_id: $('brandSel').value,
-      format: fmt, presenter: $('presenter').value, video_model: videoModel })
+      format: fmt, presenter: $('presenter').value, video_model: videoModel,
+      image_provider: ($('imageProvider')||{}).value || '' })
   });
   const j = await r.json();
   if (j.error) { $('prodEvents').textContent = 'ERROR: ' + j.error; return; }
@@ -1365,6 +1373,8 @@ async function loadImageStyle(){
   try {
     const j = await (await fetch('/api/image-config')).json();
     if (j.style) $('imageStyle').value = j.style;
+    // arranca el selector de imágenes en el provider por defecto del .env
+    if (j.provider && $('imageProvider')) $('imageProvider').value = (j.provider === 'openai' ? 'openai' : 'local');
   } catch(e){}
   renderStyleGrid();
 }

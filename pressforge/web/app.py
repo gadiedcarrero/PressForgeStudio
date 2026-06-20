@@ -175,12 +175,15 @@ _VOICE_PROVIDERS = ("openai", "elevenlabs")
 
 @app.get("/api/image-config")
 def get_image_config():
+    from ..config import get_settings
     from ..providers.openai_image import STYLES, DEFAULT_STYLE
     from ..secrets_store import get_secret
 
     return {
         "style": get_secret("image_style") or DEFAULT_STYLE,
         "styles": list(STYLES.keys()),
+        # provider por defecto del .env: arranca el selector de la UI en lo correcto.
+        "provider": get_settings().image_provider,
     }
 
 
@@ -453,7 +456,8 @@ class _JobCancelled(BaseException):
 
 
 def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: str,
-             fmt: str = "still", presenter: str = "", video_model: str = "") -> None:
+             fmt: str = "still", presenter: str = "", video_model: str = "",
+             image_provider: str = "") -> None:
     def on_event(msg: str) -> None:
         # Cada paso/iteración del pipeline pasa por aquí → es el punto de
         # cancelación: si el usuario pidió cancelar, abortamos en el acto.
@@ -471,6 +475,7 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 voice=voice or None,
                 music=music or None,
                 model=video_model or "kling-avatar",
+                image_provider=image_provider or None,
                 on_event=on_event,
             )
         elif fmt == "dialogue":
@@ -480,6 +485,7 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 voice=voice or None,
                 music=music or None,
                 engine=video_model or "veo3",
+                image_provider=image_provider or None,
                 on_event=on_event,
             )
         elif fmt == "animated":
@@ -489,6 +495,7 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 music=music or None,
                 animate=True,
                 video_model=video_model or "kling-i2v",
+                image_provider=image_provider or None,
                 on_event=on_event,
             )
         else:
@@ -496,6 +503,7 @@ def _run_job(job_id: str, story_dict: dict, voice: str, music: str, brand_id: st
                 story_from_dict(story_dict),
                 voice=voice or None,
                 music=music or None,
+                image_provider=image_provider or None,
                 on_event=on_event,
             )
         if brand_id:
@@ -536,12 +544,13 @@ def produce(payload: dict = Body(...)):
     fmt = (payload.get("format") or "still").strip()
     presenter = (payload.get("presenter") or "").strip()
     video_model = (payload.get("video_model") or "").strip()
+    image_provider = (payload.get("image_provider") or "").strip()  # 'local' / 'openai' / '' (default .env)
     job_id = uuid.uuid4().hex[:12]
     with _lock:
         _jobs[job_id] = {"status": "running", "events": [], "title": story_dict.get("title", "")}
     threading.Thread(
         target=_run_job,
-        args=(job_id, dict(story_dict), voice, music, brand_id, fmt, presenter, video_model),
+        args=(job_id, dict(story_dict), voice, music, brand_id, fmt, presenter, video_model, image_provider),
         daemon=True,
     ).start()
     return {"job_id": job_id}
