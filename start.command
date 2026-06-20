@@ -28,6 +28,29 @@ cleanup() {
 }
 trap cleanup INT TERM HUP EXIT
 
+# Comprueba un puerto: si está en uso, cierra lo que lo ocupe (amable y luego a la
+# fuerza) y ESPERA hasta confirmar que quedó libre antes de seguir.
+free_port() {
+  local port=$1
+  if ! lsof -ti tcp:"$port" >/dev/null 2>&1; then
+    echo "  ✓ puerto $port disponible"
+    return 0
+  fi
+  echo "→ puerto $port EN USO — cerrando lo anterior antes de abrir…"
+  kill $(lsof -ti tcp:"$port" 2>/dev/null) 2>/dev/null      # 1) intento amable
+  sleep 1
+  if lsof -ti tcp:"$port" >/dev/null 2>&1; then
+    kill -9 $(lsof -ti tcp:"$port" 2>/dev/null) 2>/dev/null  # 2) a la fuerza
+  fi
+  # 3) esperar a que el puerto quede realmente libre (hasta ~6s)
+  for _ in $(seq 1 12); do
+    lsof -ti tcp:"$port" >/dev/null 2>&1 || { echo "  ✓ puerto $port liberado"; return 0; }
+    sleep 0.5
+  done
+  echo "  ⚠ el puerto $port sigue ocupado; ciérralo a mano si la app no abre."
+  return 1
+}
+
 echo "════════════════════════════════════════"
 echo "   PressForge Studio · arrancando todo"
 echo "════════════════════════════════════════"
@@ -37,12 +60,11 @@ if [ ! -d .venv ]; then
   read -r -p "Enter para cerrar…"; exit 1
 fi
 
-# 1) Liberar puertos de arranques anteriores que quedaran colgados.
-for port in 8000 8188; do
-  p=$(lsof -ti tcp:$port 2>/dev/null)
-  [ -n "$p" ] && { echo "→ liberando puerto $port (sobra de un arranque anterior)"; kill -9 $p 2>/dev/null; }
-done
-sleep 1
+# 1) Comprobar disponibilidad de puertos: si están en uso (arranque colgado),
+#    cerrarlos y esperar a que queden libres ANTES de abrir de nuevo.
+echo "→ comprobando puertos…"
+free_port 8000   # app PressForge
+free_port 8188   # ComfyUI
 
 # 2) Ollama (guion local gratis) — arrancar solo si no responde ya.
 if ! curl -s -o /dev/null http://localhost:11434/api/tags 2>/dev/null; then
