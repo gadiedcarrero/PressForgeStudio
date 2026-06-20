@@ -18,10 +18,19 @@ import httpx
 from ..config import get_settings
 from .base import ImageBlockedError
 
-# Refuerzos de calidad y negativos típicos de SDXL (el prompt de escena ya viene
-# detallado desde el guionista; aquí solo empujamos calidad/realismo).
-_QUALITY = ("masterpiece, best quality, highly detailed, sharp focus, "
-            "cinematic lighting, photorealistic, film still, 8k")
+# Refuerzo de calidad NEUTRO (sin sesgar a realismo, para que el ESTILO elegido
+# —anime, 3D, pintura…— mande). El look concreto lo pone _style_suffix().
+_QUALITY = "masterpiece, best quality, highly detailed, sharp focus, 8k"
+
+
+def _style_suffix() -> str:
+    """Aplica el mismo 'Estilo visual' elegido en la UI que usa OpenAI, para que
+    el provider local respete cinematic/anime/3D/pintura/vintage/etc."""
+    from ..secrets_store import get_secret
+    from .openai_image import STYLES, DEFAULT_STYLE
+
+    key = (get_secret("image_style") or DEFAULT_STYLE).strip()
+    return STYLES.get(key, STYLES[DEFAULT_STYLE])
 _NEGATIVE = ("lowres, bad anatomy, bad hands, extra fingers, missing fingers, "
              "deformed, mutated, blurry, watermark, text, signature, logo, "
              "cartoon, 3d render, cgi, disfigured, extra limbs, cloned face, "
@@ -152,7 +161,7 @@ class ComfyUIImageProvider:
     # ─── Interfaz ImageProvider ───
     def generate(self, prompt: str, out_path: Path, reference: Path | None = None) -> Path:
         seed = uuid.uuid4().int % (2 ** 32)
-        full = prompt.strip() + ", " + _QUALITY
+        full = prompt.strip() + ", " + _style_suffix() + ", " + _QUALITY
         try:
             if reference and Path(reference).is_file():
                 ref_name = self._upload(Path(reference))
