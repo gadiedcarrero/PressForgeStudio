@@ -43,10 +43,35 @@ class ComfyUIImageProvider:
         s = get_settings()
         self.base = s.comfyui_base_url.rstrip("/")
         self.ckpt = s.comfyui_checkpoint
+        self.lightning = (s.comfyui_lightning_lora or "").strip()
         self.steps = s.comfyui_steps
         self.cfg = s.comfyui_cfg
         self.iid_weight = s.instantid_weight
+        self.iid_end = s.instantid_end_at
+        # Lightning necesita su sampler/scheduler; SDXL normal usa otros.
+        if self.lightning:
+            self.sampler, self.scheduler = "euler", "sgm_uniform"
+        else:
+            self.sampler, self.scheduler = "dpmpp_2m", "karras"
         self._client = httpx.Client(timeout=900.0)  # generar en Mac puede tardar
+
+    def _base_nodes(self) -> tuple[dict, list, list, list]:
+        """Nodos comunes (checkpoint + LoRA Lightning opcional). Devuelve el dict
+        de nodos y las referencias [model, clip, vae] a encadenar."""
+        nodes = {"4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.ckpt}}}
+        model, clip, vae = ["4", 0], ["4", 1], ["4", 2]
+        if self.lightning:
+            nodes["10"] = {"class_type": "LoraLoader", "inputs": {
+                "lora_name": self.lightning, "strength_model": 1.0, "strength_clip": 1.0,
+                "model": ["4", 0], "clip": ["4", 1]}}
+            model, clip = ["10", 0], ["10", 1]
+        return nodes, model, clip, vae
+
+    def _sampler(self, seed: int, model, positive, negative) -> dict:
+        return {"class_type": "KSampler", "inputs": {
+            "seed": seed, "steps": self.steps, "cfg": self.cfg,
+            "sampler_name": self.sampler, "scheduler": self.scheduler, "denoise": 1.0,
+            "model": model, "positive": positive, "negative": negative, "latent_image": ["5", 0]}}
 
     # ─── API de ComfyUI ───
     def _post_prompt(self, workflow: dict) -> str:
@@ -93,40 +118,36 @@ class ComfyUIImageProvider:
 
     # ─── Workflows (formato API de ComfyUI: id → {class_type, inputs}) ───
     def _txt2img(self, prompt: str, seed: int) -> dict:
-        return {
-            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.ckpt}},
-            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "7": {"class_type": "CLIPTextEncode", "inputs": {"text": _NEGATIVE, "clip": ["4", 1]}},
+        nodes, model, clip, vae = self._base_nodes()
+        nodes.update({
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": clip}},
+            "7": {"class_type": "CLIPTextEncode", "inputs": {"text": _NEGATIVE, "clip": clip}},
             "5": {"class_type": "EmptyLatentImage", "inputs": {"width": _W, "height": _H, "batch_size": 1}},
-            "3": {"class_type": "KSampler", "inputs": {
-                "seed": seed, "steps": self.steps, "cfg": self.cfg,
-                "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1.0,
-                "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}},
-            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+            "3": self._sampler(seed, model, ["6", 0], ["7", 0]),
+            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": vae}},
             "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "pf"}},
-        }
+        })
+        return nodes
 
     def _instantid(self, prompt: str, ref_name: str, seed: int) -> dict:
-        return {
-            "4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self.ckpt}},
+        nodes, model, clip, vae = self._base_nodes()
+        nodes.update({
             "11": {"class_type": "InstantIDModelLoader", "inputs": {"instantid_file": "ip-adapter.bin"}},
             "38": {"class_type": "InstantIDFaceAnalysis", "inputs": {"provider": "CPU"}},
             "16": {"class_type": "ControlNetLoader", "inputs": {"control_net_name": "instantid_controlnet.safetensors"}},
             "13": {"class_type": "LoadImage", "inputs": {"image": ref_name}},
-            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["4", 1]}},
-            "7": {"class_type": "CLIPTextEncode", "inputs": {"text": _NEGATIVE, "clip": ["4", 1]}},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": clip}},
+            "7": {"class_type": "CLIPTextEncode", "inputs": {"text": _NEGATIVE, "clip": clip}},
             "60": {"class_type": "ApplyInstantID", "inputs": {
                 "instantid": ["11", 0], "insightface": ["38", 0], "control_net": ["16", 0],
-                "image": ["13", 0], "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0],
-                "weight": self.iid_weight, "start_at": 0.0, "end_at": 1.0}},
+                "image": ["13", 0], "model": model, "positive": ["6", 0], "negative": ["7", 0],
+                "weight": self.iid_weight, "start_at": 0.0, "end_at": self.iid_end}},
             "5": {"class_type": "EmptyLatentImage", "inputs": {"width": _W, "height": _H, "batch_size": 1}},
-            "3": {"class_type": "KSampler", "inputs": {
-                "seed": seed, "steps": self.steps, "cfg": self.cfg,
-                "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1.0,
-                "model": ["60", 0], "positive": ["60", 1], "negative": ["60", 2], "latent_image": ["5", 0]}},
-            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["4", 2]}},
+            "3": self._sampler(seed, ["60", 0], ["60", 1], ["60", 2]),
+            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": vae}},
             "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "pf"}},
-        }
+        })
+        return nodes
 
     # ─── Interfaz ImageProvider ───
     def generate(self, prompt: str, out_path: Path, reference: Path | None = None) -> Path:

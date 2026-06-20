@@ -72,9 +72,15 @@ class Settings(BaseSettings):
     # misma cara del personaje entre escenas cuando hay imagen de referencia.
     comfyui_base_url: str = "http://127.0.0.1:8188"
     comfyui_checkpoint: str = "RealVisXL_V5.0_fp16.safetensors"
-    comfyui_steps: int = 30
-    comfyui_cfg: float = 5.0
-    instantid_weight: float = 0.8  # 0-1: ↑ fija más la cara, ↓ respeta más la escena/época
+    # Lightning LoRA: acelera ~3-4× (8 pasos en vez de 30). Déjalo vacío para
+    # calidad máxima a 30 pasos (más lento). Con LoRA, steps/cfg bajan solos.
+    comfyui_lightning_lora: str = "sdxl_lightning_8step_lora.safetensors"
+    comfyui_steps: int = 8       # con Lightning: 8 · sin Lightning sube a ~28
+    comfyui_cfg: float = 2.0     # con Lightning: ~2 · sin Lightning ~5
+    # InstantID: peso ↑ fija más la cara (close-up); ↓ deja respirar el encuadre.
+    # end_at: deja de aplicar la cara antes del final → planos más abiertos/variados.
+    instantid_weight: float = 0.65
+    instantid_end_at: float = 0.7
 
     # --- Render ---
     fps: int = 30
