@@ -1510,6 +1510,10 @@ function playVoice(){
   let url;
   if (p === 'openai') {
     url = '/api/voice-sample/' + encodeURIComponent($('voiceSel').value || 'onyx') + '?v=' + Date.now();
+  } else if (p === 'kokoro') {
+    const v = $('voiceSel').value || 'em_alex';
+    $('voiceNote').textContent = 'Generando muestra…';
+    url = '/api/voice-preview/kokoro?voice=' + encodeURIComponent(v) + '&v=' + Date.now();
   } else {
     const vid = $('voiceSel').value;
     if (!vid) return;

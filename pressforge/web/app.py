@@ -247,6 +247,24 @@ def voice_preview_elevenlabs(voice_id: str = ""):
     return FileResponse(out, media_type="audio/mpeg")
 
 
+@app.get("/api/voice-preview/kokoro")
+def voice_preview_kokoro(voice: str = ""):
+    """Genera (y cachea) una muestra de una voz LOCAL de Kokoro para escucharla."""
+    from ..providers.kokoro_voice import KokoroVoiceProvider
+
+    v = re.sub(r"[^a-zA-Z0-9_]", "", (voice or "em_alex").strip()) or "em_alex"
+    cache = Path("voice_previews")
+    cache.mkdir(parents=True, exist_ok=True)
+    out = cache / f"kokoro_{v}.mp3"
+    if not out.exists():
+        try:
+            KokoroVoiceProvider().synthesize(
+                "Hola. Esta es una muestra de mi voz para tus reels.", out, voice=v)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"error": str(exc)}, status_code=500)
+    return FileResponse(out, media_type="audio/mpeg")
+
+
 @app.get("/api/voices/library")
 def voices_library(language: str = "es", search: str = "", use_case: str = "", accent: str = "", page: int = 0):
     """Explorar la biblioteca de voces de ElevenLabs (requiere plan de pago para usarlas)."""
