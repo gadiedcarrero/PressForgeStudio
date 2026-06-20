@@ -153,19 +153,14 @@
 
             <label class="block text-sm mb-1 text-zinc-400">Formato</label>
             <select id="format" title="Formato del reel" onchange="onFormatChange()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="still">Imagen fija (Ken Burns) — económico</option>
+              <option value="still|local">Imagen fija (Ken Burns) · 🖥️ Local — GRATIS</option>
+              <option value="still|openai">Imagen fija (Ken Burns) · ☁️ Nube OpenAI — pago</option>
+              <option value="animated|local">Video animado (fal) · imágenes 🖥️ Local</option>
+              <option value="animated|openai">Video animado (fal) · imágenes ☁️ Nube OpenAI</option>
               <option value="talking">Video: presentador 3D que habla (fal) — premium</option>
-              <option value="animated">Video animado completo: cada escena con movimiento (fal) — premium+</option>
-              <option value="dialogue">Diálogo: cada personaje habla con su voz (fal) — premium+</option>
+              <option value="dialogue">Diálogo: cada personaje habla con su voz (Veo) — premium+</option>
             </select>
-            <p class="text-[11px] text-zinc-600 mb-2">El <b>Formato</b> decide si se mueve; el <b>Estilo visual</b> (abajo) decide cómo se ve. Para muñequita 3D que se mueve: Formato Video + Estilo "3D Pixar".</p>
-
-            <label class="block text-sm mb-1 text-zinc-400">Imágenes</label>
-            <select id="imageProvider" title="Dónde se generan las imágenes de cada escena" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="local">🖥️ Local — GRATIS (ComfyUI en tu Mac · ábrelo antes)</option>
-              <option value="openai">☁️ Nube — OpenAI (de pago · sin abrir nada)</option>
-            </select>
-            <p class="text-[11px] text-zinc-600 mb-2">Local cuesta <b>$0</b> pero necesita ComfyUI abierto (run_comfyui.command). Nube cuesta dinero pero no requiere ComfyUI.</p>
+            <p class="text-[11px] text-zinc-600 mb-2"><b>Local</b> = imágenes GRATIS en tu Mac (abre antes ComfyUI con run_comfyui.command). <b>Nube</b> = OpenAI, de pago, sin abrir nada. El <b>Estilo visual</b> (abajo) decide cómo se ven.</p>
             <div id="presenterWrap" class="hidden mb-2">
               <input id="presenter" placeholder="Presentador (opcional): ej. mujer joven 3D estilo Pixar, elegante" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               <select id="videoModel" title="Modelo de video" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -715,7 +710,7 @@ function onDialogueToggle(){
   $('dialogueDurNote').classList.toggle('hidden', !d);
   $('voiceSection').classList.toggle('hidden', d);
   // el formato se fuerza a 'dialogue' al generar; mostramos el motor si está en diálogo
-  $('dialogueEngineWrap').classList.toggle('hidden', !(d && $('format').value === 'dialogue'));
+  $('dialogueEngineWrap').classList.toggle('hidden', !(d && fmtParts().fmt === 'dialogue'));
   if (!d) populateVoiceSel();
   if (SCRIPTS.length) renderScripts();  // refresca las tarjetas (voz por personaje según motor)
 }
@@ -723,11 +718,18 @@ function onDialogueEngine(){
   if (SCRIPTS.length) renderScripts();  // mostrar/ocultar voz por personaje según motor
 }
 function dialogueMode(){
-  return $('dialogueChk').checked && $('format').value === 'dialogue';
+  return $('dialogueChk').checked && fmtParts().fmt === 'dialogue';
+}
+
+// El menú Formato codifica formato + origen de imágenes: "still|local", "still|openai",
+// "animated|local"… (talking/dialogue no llevan sufijo). Esto lo separa.
+function fmtParts(){
+  const parts = ($('format').value || 'still').split('|');
+  return { fmt: parts[0], img: parts[1] || '' };
 }
 
 function onFormatChange(){
-  const f = $('format').value;
+  const f = fmtParts().fmt;
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
   $('animatedNote').classList.toggle('hidden', f !== 'animated' && f !== 'dialogue');
   $('dialogueEngineWrap').classList.toggle('hidden', f !== 'dialogue');
@@ -742,7 +744,7 @@ let CURRENT_JOB = null;  // job en curso (para poder cancelarlo)
 
 async function produce(sid) {
   const script = collectScript(sid);
-  const fmt = $('format').value;
+  const { fmt, img } = fmtParts();   // formato + origen de imágenes (local/openai)
   const videoModel = fmt === 'animated' ? 'kling-i2v' : (fmt === 'dialogue' ? $('dialogueEngine').value : $('videoModel').value);
   $('prod').classList.remove('hidden');
   $('prodResult').classList.add('hidden');
@@ -755,7 +757,7 @@ async function produce(sid) {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ id: sid, script, music: $('music').value, brand_id: $('brandSel').value,
       format: fmt, presenter: $('presenter').value, video_model: videoModel,
-      image_provider: ($('imageProvider')||{}).value || '' })
+      image_provider: img })
   });
   const j = await r.json();
   if (j.error) { $('prodEvents').textContent = 'ERROR: ' + j.error; return; }
@@ -1373,8 +1375,10 @@ async function loadImageStyle(){
   try {
     const j = await (await fetch('/api/image-config')).json();
     if (j.style) $('imageStyle').value = j.style;
-    // arranca el selector de imágenes en el provider por defecto del .env
-    if (j.provider && $('imageProvider')) $('imageProvider').value = (j.provider === 'openai' ? 'openai' : 'local');
+    // arranca el Formato en la variante de imagen por defecto del .env (local/nube)
+    if (j.provider === 'openai' && $('format').value === 'still|local') {
+      $('format').value = 'still|openai'; onFormatChange();
+    }
   } catch(e){}
   renderStyleGrid();
 }
