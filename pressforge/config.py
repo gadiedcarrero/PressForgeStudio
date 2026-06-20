@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     # --- Subtítulos locales (faster-whisper, GRATIS; SUBTITLE_PROVIDER=whisper-local) ---
     local_whisper_model: str = "base"  # base/small/medium · base = rápido y suficiente
 
+    # --- Voz local (Kokoro, GRATIS; VOICE_PROVIDER=kokoro) ---
+    kokoro_voice: str = "em_alex"   # es: ef_dora (♀) / em_alex (♂) / em_santa (♂)
+    kokoro_speed: float = 1.0
+
     # --- Render ---
     fps: int = 30
     video_width: int = 1080

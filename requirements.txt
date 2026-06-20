@@ -8,3 +8,5 @@ uvicorn[standard]>=0.29
 python-multipart>=0.0.9
 cryptography>=42.0
 faster-whisper>=1.0
+kokoro-onnx>=0.4
+soundfile>=0.12

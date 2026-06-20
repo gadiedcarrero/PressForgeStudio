@@ -20,6 +20,7 @@ from .providers.comfyui_image import ComfyUIImageProvider
 from .providers.elevenlabs_voice import ElevenLabsVoiceProvider
 from .providers.ffmpeg_render import FFmpegRenderProvider
 from .providers.local_music import LocalLibraryMusicProvider
+from .providers.kokoro_voice import KokoroVoiceProvider
 from .providers.local_whisper_subtitle import LocalWhisperSubtitleProvider
 from .providers.openai_image import OpenAIImageProvider
 from .providers.ollama_script import OllamaScriptProvider
@@ -30,7 +31,8 @@ from .providers.wikipedia_research import WikipediaResearch
 
 _SCRIPT = {"openai": OpenAIScriptProvider, "ollama": OllamaScriptProvider}
 _IMAGE = {"openai": OpenAIImageProvider, "local": ComfyUIImageProvider, "comfyui": ComfyUIImageProvider}
-_VOICE = {"openai": OpenAIVoiceProvider, "elevenlabs": ElevenLabsVoiceProvider}
+_VOICE = {"openai": OpenAIVoiceProvider, "elevenlabs": ElevenLabsVoiceProvider,
+          "kokoro": KokoroVoiceProvider, "local": KokoroVoiceProvider}
 _SUBTITLE = {"whisper": WhisperSubtitleProvider,
              "whisper-local": LocalWhisperSubtitleProvider, "local": LocalWhisperSubtitleProvider}
 _RENDER = {"ffmpeg": FFmpegRenderProvider}

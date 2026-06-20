@@ -193,8 +193,9 @@
             <div id="voiceSection">
             <label class="block text-sm mb-1 text-zinc-400">Voz</label>
             <select id="voiceProvider" title="Proveedor de voz" onchange="onCreateVoiceProvider()" class="w-full mb-2 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="openai">OpenAI — económica</option>
-              <option value="elevenlabs">ElevenLabs — premium</option>
+              <option value="kokoro">🖥️ Local — GRATIS (Kokoro en tu Mac)</option>
+              <option value="openai">OpenAI — económica (pago)</option>
+              <option value="elevenlabs">ElevenLabs — premium (pago)</option>
             </select>
             <div id="voiceMainWrap" class="flex gap-1.5 mb-1">
               <select id="voiceSel" title="Voz" onchange="saveVoiceSel()" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"></select>
@@ -1344,6 +1345,14 @@ async function populateVoiceSel(){
   $('voiceModelWrap').classList.toggle('hidden', p !== 'elevenlabs');  // modelo solo ElevenLabs
   $('voiceSpeedWrap').classList.toggle('hidden', p !== 'elevenlabs');  // velocidad solo ElevenLabs
   $('voiceBrowseBtn').classList.toggle('hidden', p !== 'elevenlabs');  // explorar biblioteca solo ElevenLabs
+  if (p === 'kokoro'){
+    sel.innerHTML = [['ef_dora','Dora (♀ español)'],['em_alex','Alex (♂ español)'],['em_santa','Santa (♂ español)']]
+      .map(([v,n])=>`<option value="${v}">${n}</option>`).join('');
+    sel.value = VOICE_CFG.kokoro_voice || 'em_alex';
+    $('voiceNote').textContent = 'Voz local gratis (Kokoro). Calidad buena; menor que ElevenLabs.';
+    saveVoiceSel();
+    return;
+  }
   if (p === 'openai'){
     sel.innerHTML = OPENAI_VOICES.map(v=>`<option>${v}</option>`).join('');
     sel.value = VOICE_CFG.openai_voice || 'onyx';
@@ -1363,7 +1372,8 @@ async function populateVoiceSel(){
 async function saveVoiceSel(){
   const p = $('voiceProvider').value;
   const body = { provider: p };
-  if (p === 'openai'){ body.openai_voice = $('voiceSel').value; VOICE_CFG.openai_voice = $('voiceSel').value; }
+  if (p === 'kokoro'){ body.kokoro_voice = $('voiceSel').value; VOICE_CFG.kokoro_voice = $('voiceSel').value; }
+  else if (p === 'openai'){ body.openai_voice = $('voiceSel').value; VOICE_CFG.openai_voice = $('voiceSel').value; }
   else { body.elevenlabs_voice_id = $('voiceSel').value; body.elevenlabs_model = $('voiceModel').value; body.elevenlabs_speed = $('voiceSpeed').value; VOICE_CFG.elevenlabs_voice_id = $('voiceSel').value; VOICE_CFG.elevenlabs_model = $('voiceModel').value; VOICE_CFG.elevenlabs_speed = $('voiceSpeed').value; }
   try { await fetch('/api/voice-config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); } catch(e){}
 }

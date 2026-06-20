@@ -170,7 +170,7 @@ def save_keys(payload: dict = Body(...)):
     return {"ok": True, "keys": status()}
 
 
-_VOICE_PROVIDERS = ("openai", "elevenlabs")
+_VOICE_PROVIDERS = ("openai", "elevenlabs", "kokoro")
 
 
 @app.get("/api/image-config")
@@ -214,6 +214,7 @@ def get_voice_config():
         "elevenlabs_model": get_secret("elevenlabs_model") or s.elevenlabs_model,
         "elevenlabs_speed": get_secret("elevenlabs_speed") or "1.0",
         "elevenlabs_ready": bool(eleven_key()),
+        "kokoro_voice": get_secret("kokoro_voice") or s.kokoro_voice,
     }
 
 
@@ -287,6 +288,8 @@ def set_voice_config(payload: dict = Body(...)):
         set_secret("elevenlabs_model", payload["elevenlabs_model"].strip())
     if (payload.get("elevenlabs_speed") or "").strip():
         set_secret("elevenlabs_speed", payload["elevenlabs_speed"].strip())
+    if (payload.get("kokoro_voice") or "").strip():
+        set_secret("kokoro_voice", payload["kokoro_voice"].strip())
     return get_voice_config()
 
 
