@@ -703,7 +703,7 @@ def cancel_job(job_id: str):
 
 
 # ─── Skybot (sección privada): nave → imagen + 2 videos con plantilla fija ───
-def _run_skybot(job_id: str, description: str) -> None:
+def _run_skybot(job_id: str, description: str, opts: dict) -> None:
     def on_event(msg: str) -> None:
         with _lock:
             if _jobs[job_id].get("cancel"):
@@ -712,7 +712,7 @@ def _run_skybot(job_id: str, description: str) -> None:
 
     try:
         from ..skybot import produce_skybot
-        result = produce_skybot(description, on_event=on_event)
+        result = produce_skybot(description, on_event=on_event, **opts)
         with _lock:
             _jobs[job_id].update(status="done", **result)
     except _JobCancelled:
@@ -729,10 +729,17 @@ def skybot_generate(payload: dict = Body(...)):
     desc = (payload.get("description") or "").strip()
     if not desc:
         return JSONResponse({"error": "Describe la nave primero."}, status_code=400)
+    opts = {
+        "name": (payload.get("name") or "").strip(),
+        "narration_es": (payload.get("narration_es") or "").strip(),
+        "narration_en": (payload.get("narration_en") or "").strip(),
+        "voice_es": (payload.get("voice_es") or "").strip(),
+        "voice_en": (payload.get("voice_en") or "").strip(),
+    }
     job_id = uuid.uuid4().hex[:12]
     with _lock:
         _jobs[job_id] = {"status": "running", "events": [], "title": "Skybot"}
-    threading.Thread(target=_run_skybot, args=(job_id, desc), daemon=True).start()
+    threading.Thread(target=_run_skybot, args=(job_id, desc, opts), daemon=True).start()
     return {"job_id": job_id}
 
 

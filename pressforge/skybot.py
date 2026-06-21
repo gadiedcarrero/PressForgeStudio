@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Callable
 
 from .config import output_path
+from .ffmpeg_utils import ffprobe_duration, run_ffmpeg
 from .registry import get_image_provider
 
 _STYLE = "cinematic"  # look fijo sci-fi/cinematográfico para todas las naves
@@ -29,8 +30,80 @@ def _slug(text: str, maxlen: int = 40) -> str:
     return (text[:maxlen] or "nave").strip("-")
 
 
-def produce_skybot(description: str, on_event: Callable[[str], None] | None = None) -> dict:
-    """Genera las 3 piezas de Skybot para una nave. Devuelve rutas web /output/."""
+# Fuente para el título (primera que exista; Mac y Windows).
+_FONTS = [
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+    "/System/Library/Fonts/Helvetica.ttc",
+    "/Library/Fonts/Arial.ttf",
+    "C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/arial.ttf",
+]
+
+
+def _font() -> str:
+    for f in _FONTS:
+        if Path(f).exists():
+            return f
+    return ""
+
+
+def _title_filter(title: str, total: float, width: int = 512) -> str:
+    """drawtext que muestra el NOMBRE de la nave casi al final, con fundido. El
+    tamaño se adapta al largo del nombre para que SIEMPRE quepa en el ancho."""
+    font = _font()
+    safe = re.sub(r"[':\\%]", "", title).strip()
+    if not font or not safe:
+        return ""
+    start = max(0.0, total - 2.6)  # aparece ~2.6 s antes del final
+    fontsize = max(24, min(48, int(width * 1.45 / max(len(safe), 1))))
+    esc = font.replace(":", r"\:").replace(" ", r"\ ")
+    return (
+        f"drawtext=fontfile={esc}:text='{safe}':fontsize={fontsize}:fontcolor=white:"
+        f"box=1:boxcolor=black@0.5:boxborderw=12:borderw=2:bordercolor=black@0.8:"
+        f"x=(w-text_w)/2:y=h*0.80:"
+        f"enable='gte(t,{start:.2f})':"
+        f"alpha='if(lt(t,{start:.2f}),0,min(1,(t-{start:.2f})/0.7))'"
+    )
+
+
+def _finish_reveal(silent: Path, out: Path, title: str = "",
+                   text: str = "", voice_id: str = "") -> None:
+    """Reveal final: narración (ElevenLabs, opcional) + título de la nave casi al
+    final. Si hay narración, el video se extiende (congela el último frame) para
+    cubrir el audio; si no, mantiene su duración."""
+    if text.strip() and voice_id.strip():
+        from .providers.elevenlabs_voice import ElevenLabsVoiceProvider
+        audio = out.with_suffix(".mp3")
+        ElevenLabsVoiceProvider().synthesize(text.strip(), audio, voice=voice_id)
+        dur = ffprobe_duration(audio)
+        vf = f"tpad=stop_mode=clone:stop_duration={dur:.3f},fps=25"
+        tf = _title_filter(title, dur)
+        if tf:
+            vf += "," + tf
+        run_ffmpeg([
+            "-i", str(silent), "-i", str(audio),
+            "-filter_complex", f"[0:v]{vf}[v]", "-map", "[v]", "-map", "1:a",
+            "-t", f"{dur:.3f}", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k", str(out),
+        ])
+        audio.unlink(missing_ok=True)
+    else:  # sin narración: solo el título sobre el reveal mudo
+        dur = ffprobe_duration(silent)
+        vf = "fps=25"
+        tf = _title_filter(title, dur)
+        if tf:
+            vf += "," + tf
+        run_ffmpeg(["-i", str(silent), "-vf", vf, "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p", str(out)])
+
+
+def produce_skybot(description: str, on_event: Callable[[str], None] | None = None, *,
+                   name: str = "", narration_es: str = "", narration_en: str = "",
+                   voice_es: str = "", voice_en: str = "") -> dict:
+    """Genera las 3 piezas de Skybot para una nave. Devuelve rutas web /output/.
+
+    Si se da narración + voz (ES/EN), el video de presentación (reveal) se entrega
+    también con audio narrado por ElevenLabs en ese idioma."""
     desc = description.strip()
     if not desc:
         raise ValueError("Describe la nave primero.")
@@ -82,22 +155,40 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
         f"dramatic cinematic reveal, the ship facing the camera",
         door, style=_STYLE,
     )
-    reveal_mp4 = workdir / "reveal.mp4"
+    silent = workdir / "_reveal_silent.mp4"
     image_to_video(
-        door, reveal_mp4,
+        door, silent,
         prompt="the giant hangar bay doors slide open and the spaceship slowly flies "
                "forward out of the hangar toward the camera, cinematic reveal, smooth motion",
         duration="6", loop=False, on_event=on_event,
     )
 
-    ev("✓ Skybot listo")
-    return {
+    title = (name or "").strip()
+    result = {
         "dir": base,
         "description": desc,
+        "name": title,
         "image": f"/output/skybot/{base}/hangar.png",
         "loop": f"/output/skybot/{base}/space_loop.mp4",
-        "reveal": f"/output/skybot/{base}/reveal.mp4",
     }
+
+    # ── 4. Reveal final con título + narración (ElevenLabs) español / inglés ──
+    have_es = narration_es.strip() and voice_es.strip()
+    have_en = narration_en.strip() and voice_en.strip()
+    if have_es:
+        ev("· Reveal en español (voz ElevenLabs + título)…")
+        _finish_reveal(silent, workdir / "reveal_es.mp4", title, narration_es, voice_es.strip())
+        result["reveal_es"] = f"/output/skybot/{base}/reveal_es.mp4"
+    if have_en:
+        ev("· Reveal en inglés (voz ElevenLabs + título)…")
+        _finish_reveal(silent, workdir / "reveal_en.mp4", title, narration_en, voice_en.strip())
+        result["reveal_en"] = f"/output/skybot/{base}/reveal_en.mp4"
+    if not have_es and not have_en:  # sin narración: reveal mudo con el título
+        _finish_reveal(silent, workdir / "reveal.mp4", title)
+        result["reveal"] = f"/output/skybot/{base}/reveal.mp4"
+
+    ev("✓ Skybot listo")
+    return result
 
 
 def list_skybot() -> list[dict]:
@@ -111,10 +202,16 @@ def list_skybot() -> list[dict]:
                 pf = d / "_prompt.txt"
                 if pf.exists():
                     desc = pf.read_text(encoding="utf-8")
+
+                def _w(fn: str):
+                    return f"/output/skybot/{d.name}/{fn}" if (d / fn).exists() else None
+
                 out.append({
                     "dir": d.name, "description": desc,
                     "image": f"/output/skybot/{d.name}/hangar.png",
-                    "loop": f"/output/skybot/{d.name}/space_loop.mp4" if (d / "space_loop.mp4").exists() else None,
-                    "reveal": f"/output/skybot/{d.name}/reveal.mp4" if (d / "reveal.mp4").exists() else None,
+                    "loop": _w("space_loop.mp4"),
+                    "reveal": _w("reveal.mp4"),
+                    "reveal_es": _w("reveal_es.mp4"),
+                    "reveal_en": _w("reveal_en.mp4"),
                 })
     return out
