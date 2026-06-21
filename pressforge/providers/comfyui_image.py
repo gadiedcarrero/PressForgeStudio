@@ -23,6 +23,10 @@ from .base import ImageBlockedError
 _QUALITY = "masterpiece, best quality, highly detailed, sharp focus, 8k"
 
 
+# Estilos cuyo modelo deforma caras con el acelerador Lightning → pasos completos.
+_NO_LIGHTNING_STYLES = {"anime"}
+
+
 def _style_key() -> str:
     from ..secrets_store import get_secret
     from .openai_image import DEFAULT_STYLE
@@ -66,11 +70,6 @@ class ComfyUIImageProvider:
         self.cfg = s.comfyui_cfg
         self.iid_weight = s.instantid_weight
         self.iid_end = s.instantid_end_at
-        # Lightning necesita su sampler/scheduler; SDXL normal usa otros.
-        if self.lightning:
-            self.sampler, self.scheduler = "euler", "sgm_uniform"
-        else:
-            self.sampler, self.scheduler = "dpmpp_2m", "karras"
         self._client = httpx.Client(timeout=900.0)  # generar en Mac puede tardar
 
     def _checkpoint(self) -> str:
@@ -78,12 +77,23 @@ class ComfyUIImageProvider:
         el resto → RealVisXL (fotográfico)."""
         return self._style_ckpts.get(_style_key(), self.ckpt)
 
+    def _use_lightning(self) -> bool:
+        # Lightning acelera, pero deforma caras en algunos modelos (Animagine):
+        # esos estilos van a pasos completos.
+        return bool(self.lightning) and _style_key() not in _NO_LIGHTNING_STYLES
+
+    def _sampling(self) -> tuple[int, float, str, str]:
+        """(steps, cfg, sampler, scheduler) según si usa Lightning o calidad full."""
+        if self._use_lightning():
+            return self.steps, self.cfg, "euler", "sgm_uniform"
+        return 28, 5.0, "dpmpp_2m", "karras"
+
     def _base_nodes(self) -> tuple[dict, list, list, list]:
         """Nodos comunes (checkpoint + LoRA Lightning opcional). Devuelve el dict
         de nodos y las referencias [model, clip, vae] a encadenar."""
         nodes = {"4": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": self._checkpoint()}}}
         model, clip, vae = ["4", 0], ["4", 1], ["4", 2]
-        if self.lightning:
+        if self._use_lightning():
             nodes["10"] = {"class_type": "LoraLoader", "inputs": {
                 "lora_name": self.lightning, "strength_model": 1.0, "strength_clip": 1.0,
                 "model": ["4", 0], "clip": ["4", 1]}}
@@ -91,9 +101,10 @@ class ComfyUIImageProvider:
         return nodes, model, clip, vae
 
     def _sampler(self, seed: int, model, positive, negative) -> dict:
+        steps, cfg, sampler, scheduler = self._sampling()
         return {"class_type": "KSampler", "inputs": {
-            "seed": seed, "steps": self.steps, "cfg": self.cfg,
-            "sampler_name": self.sampler, "scheduler": self.scheduler, "denoise": 1.0,
+            "seed": seed, "steps": steps, "cfg": cfg,
+            "sampler_name": sampler, "scheduler": scheduler, "denoise": 1.0,
             "model": model, "positive": positive, "negative": negative, "latent_image": ["5", 0]}}
 
     # ─── API de ComfyUI ───
