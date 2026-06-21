@@ -702,6 +702,46 @@ def cancel_job(job_id: str):
         return {"status": job.get("status"), "cancelling": bool(job.get("cancel"))}
 
 
+# ─── Skybot (sección privada): nave → imagen + 2 videos con plantilla fija ───
+def _run_skybot(job_id: str, description: str) -> None:
+    def on_event(msg: str) -> None:
+        with _lock:
+            if _jobs[job_id].get("cancel"):
+                raise _JobCancelled()
+            _jobs[job_id]["events"].append(msg)
+
+    try:
+        from ..skybot import produce_skybot
+        result = produce_skybot(description, on_event=on_event)
+        with _lock:
+            _jobs[job_id].update(status="done", **result)
+    except _JobCancelled:
+        with _lock:
+            _jobs[job_id]["events"].append("✗ Cancelado por el usuario")
+            _jobs[job_id].update(status="cancelled")
+    except Exception as exc:  # noqa: BLE001
+        with _lock:
+            _jobs[job_id].update(status="error", error=str(exc))
+
+
+@app.post("/api/skybot")
+def skybot_generate(payload: dict = Body(...)):
+    desc = (payload.get("description") or "").strip()
+    if not desc:
+        return JSONResponse({"error": "Describe la nave primero."}, status_code=400)
+    job_id = uuid.uuid4().hex[:12]
+    with _lock:
+        _jobs[job_id] = {"status": "running", "events": [], "title": "Skybot"}
+    threading.Thread(target=_run_skybot, args=(job_id, desc), daemon=True).start()
+    return {"job_id": job_id}
+
+
+@app.get("/api/skybot")
+def skybot_list():
+    from ..skybot import list_skybot
+    return {"ships": list_skybot()}
+
+
 @app.get("/api/voice-sample/{voice}")
 def voice_sample(voice: str):
     """Muestra de audio de una voz (se genera la primera vez que se pide)."""

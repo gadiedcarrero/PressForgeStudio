@@ -55,6 +55,10 @@
       class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-zinc-400 mb-1 transition">
       Ajustes
     </button>
+    <button type="button" data-view="skybot"
+      class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-indigo-300 mb-1 transition">
+      🚀 Skybot
+    </button>
 
     <div class="mt-auto border-t border-zinc-800/80 pt-2">
       <button type="button" onclick="logout()" class="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/40 transition">Cerrar sesión</button>
@@ -376,6 +380,36 @@
 
     </section>
 
+    <!-- ─── Skybot (privada) ─── -->
+    <section id="view-skybot" class="hidden">
+      <h1 class="text-2xl font-bold tracking-tight mb-1">🚀 Skybot</h1>
+      <p class="text-sm text-zinc-500 mb-5">Describe una <b>nave</b> y la IA genera 3 piezas con la MISMA plantilla (solo cambia tu descripción): imagen en el hangar, video en loop volando por el espacio, y video cinematográfico de las puertas abriéndose. Todo <b>local y gratis</b> (requiere ComfyUI abierto).</p>
+
+      <div class="max-w-2xl bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mb-6">
+        <label class="block text-sm mb-1 text-zinc-400">Descripción de la nave</label>
+        <textarea id="skyDesc" rows="3" placeholder="ej: una nave caza plateada y angular, con motores azules brillantes y alas afiladas, estilo futurista"
+          class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+        <button id="skyBtn" type="button" onclick="generateSkybot()"
+          class="w-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 hover:opacity-90 rounded-lg px-5 py-2.5 font-semibold text-sm">Generar nave (imagen + 2 videos)</button>
+        <p class="text-[11px] text-zinc-600 mt-2">⏱️ Tarda varios minutos (3 imágenes + 2 videos en tu Mac). Deja la ventana abierta.</p>
+      </div>
+
+      <!-- Progreso / resultado -->
+      <div id="skyProd" class="hidden max-w-3xl bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mb-6">
+        <div class="flex items-center gap-2 mb-2">
+          <div id="skyDot" class="h-2 w-2 rounded-full bg-indigo-400 animate-pulse"></div>
+          <span id="skyLabel" class="text-sm text-zinc-300">Generando…</span>
+        </div>
+        <pre id="skyEvents" class="text-xs text-zinc-500 bg-zinc-950 rounded-lg p-3 max-h-40 overflow-auto whitespace-pre-wrap"></pre>
+        <div id="skyResult" class="hidden grid sm:grid-cols-3 gap-3 mt-4"></div>
+      </div>
+
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-400 mb-3">Naves generadas</h2>
+      <div id="skyGallery" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <p class="text-zinc-600 text-sm col-span-full">Aún no has generado naves.</p>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -430,12 +464,13 @@ function injectIcons() {
 document.querySelectorAll('.nav-item').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
   b.classList.add('active');
-  ['create','library','music','agenda','brands','settings'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
+  ['create','library','music','agenda','brands','settings','skybot'].forEach(v => $('view-' + v).classList.toggle('hidden', v !== b.dataset.view));
   if (b.dataset.view === 'library') loadReels();
   if (b.dataset.view === 'music') loadMusic();
   if (b.dataset.view === 'agenda') loadSchedule();
   if (b.dataset.view === 'brands') loadBrands();
   if (b.dataset.view === 'settings') loadKeys();
+  if (b.dataset.view === 'skybot') loadSkybot();
 }));
 
 // ─── Modos ───
@@ -816,6 +851,64 @@ async function pollJob(jobId) {
     $('prodLabel').textContent = '✗ Error';
     $('prodEvents').textContent += '\n\nERROR: ' + (j.error || 'desconocido');
   }
+}
+
+// ─── Skybot ───
+let SKY_JOB = null;
+async function generateSkybot(){
+  const desc = $('skyDesc').value.trim();
+  if(!desc){ $('skyDesc').focus(); return; }
+  $('skyProd').classList.remove('hidden');
+  $('skyResult').classList.add('hidden'); $('skyResult').innerHTML='';
+  $('skyDot').className='h-2 w-2 rounded-full bg-indigo-400 animate-pulse';
+  $('skyLabel').textContent='Generando…';
+  $('skyEvents').textContent='Enviando…';
+  $('skyBtn').disabled=true;
+  $('skyProd').scrollIntoView({behavior:'smooth',block:'center'});
+  const r = await fetch('/api/skybot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:desc})});
+  const j = await r.json();
+  if(j.error){ $('skyEvents').textContent='ERROR: '+j.error; $('skyBtn').disabled=false; return; }
+  SKY_JOB=j.job_id; pollSkybot(j.job_id);
+}
+async function pollSkybot(id){
+  const j = await (await fetch('/api/jobs/'+id)).json();
+  $('skyEvents').textContent=(j.events||[]).join('\n');
+  $('skyEvents').scrollTop=$('skyEvents').scrollHeight;
+  if(j.status==='running'){ setTimeout(()=>pollSkybot(id),2000); return; }
+  $('skyBtn').disabled=false;
+  if(j.status==='done'){
+    $('skyDot').className='h-2 w-2 rounded-full bg-green-400';
+    $('skyLabel').textContent='✓ Nave lista';
+    $('skyResult').classList.remove('hidden');
+    const v='?v='+Date.now();
+    $('skyResult').innerHTML=`
+      <div><p class="text-[11px] text-zinc-500 mb-1">🖼️ Hangar</p><img src="${j.image}${v}" class="w-full rounded-lg bg-black"></div>
+      <div><p class="text-[11px] text-zinc-500 mb-1">🎬 Loop espacio</p><video src="${j.loop}${v}" controls loop autoplay muted playsinline class="w-full rounded-lg bg-black"></video></div>
+      <div><p class="text-[11px] text-zinc-500 mb-1">🎬 Reveal puertas</p><video src="${j.reveal}${v}" controls playsinline class="w-full rounded-lg bg-black"></video></div>`;
+  } else {
+    $('skyDot').className='h-2 w-2 rounded-full bg-red-400';
+    $('skyLabel').textContent='✗ '+(j.status==='cancelled'?'Cancelado':'Error');
+    if(j.error) $('skyEvents').textContent+='\n\nERROR: '+j.error;
+  }
+}
+async function loadSkybot(){
+  try{
+    const ships=((await (await fetch('/api/skybot')).json()).ships)||[];
+    const g=$('skyGallery');
+    if(!ships.length){ g.innerHTML='<p class="text-zinc-600 text-sm col-span-full">Aún no has generado naves.</p>'; return; }
+    g.innerHTML=ships.map(s=>`
+      <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
+        <img src="${s.image}" class="w-full aspect-video object-cover bg-black">
+        <div class="p-3">
+          <p class="text-[11px] text-zinc-400 mb-2">${esc((s.description||s.dir).slice(0,120))}</p>
+          <div class="flex gap-2 flex-wrap">
+            ${s.loop?`<a href="${s.loop}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🎬 Loop</a>`:''}
+            ${s.reveal?`<a href="${s.reveal}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🎬 Reveal</a>`:''}
+            <a href="${s.image}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🖼️ Imagen</a>
+          </div>
+        </div>
+      </div>`).join('');
+  }catch(e){}
 }
 
 // ─── Música ───

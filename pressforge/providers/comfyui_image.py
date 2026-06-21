@@ -33,11 +33,11 @@ def _style_key() -> str:
     return (get_secret("image_style") or DEFAULT_STYLE).strip()
 
 
-def _style_suffix() -> str:
-    """Aplica el mismo 'Estilo visual' elegido en la UI que usa OpenAI, para que
-    el provider local respete cinematic/anime/3D/pintura/vintage/etc."""
+def _style_suffix(key: str | None = None) -> str:
+    """Texto del 'Estilo visual'. Si se pasa `key`, fuerza ese estilo (lo usa
+    Skybot para un look cinematográfico fijo); si no, usa el elegido en la UI."""
     from .openai_image import STYLES, DEFAULT_STYLE
-    return STYLES.get(_style_key(), STYLES[DEFAULT_STYLE])
+    return STYLES.get(key or _style_key(), STYLES[DEFAULT_STYLE])
 _NEGATIVE = ("lowres, bad anatomy, bad hands, extra fingers, missing fingers, "
              "deformed, mutated, blurry, watermark, text, signature, logo, "
              "cartoon, 3d render, cgi, disfigured, extra limbs, cloned face, "
@@ -70,17 +70,21 @@ class ComfyUIImageProvider:
         self.cfg = s.comfyui_cfg
         self.iid_weight = s.instantid_weight
         self.iid_end = s.instantid_end_at
+        self._style_ov: str | None = None  # override de estilo por llamada (Skybot)
         self._client = httpx.Client(timeout=900.0)  # generar en Mac puede tardar
+
+    def _skey(self) -> str:
+        return self._style_ov or _style_key()
 
     def _checkpoint(self) -> str:
         """Modelo según el estilo: anime → Animagine, 3d → RealCartoon-XL;
         el resto → RealVisXL (fotográfico)."""
-        return self._style_ckpts.get(_style_key(), self.ckpt)
+        return self._style_ckpts.get(self._skey(), self.ckpt)
 
     def _use_lightning(self) -> bool:
         # Lightning acelera, pero deforma caras en algunos modelos (Animagine):
         # esos estilos van a pasos completos.
-        return bool(self.lightning) and _style_key() not in _NO_LIGHTNING_STYLES
+        return bool(self.lightning) and self._skey() not in _NO_LIGHTNING_STYLES
 
     def _sampling(self) -> tuple[int, float, str, str]:
         """(steps, cfg, sampler, scheduler) según si usa Lightning o calidad full."""
@@ -184,10 +188,12 @@ class ComfyUIImageProvider:
         return nodes
 
     # ─── Interfaz ImageProvider ───
-    def generate(self, prompt: str, out_path: Path, reference: Path | None = None) -> Path:
+    def generate(self, prompt: str, out_path: Path, reference: Path | None = None,
+                 style: str | None = None) -> Path:
         seed = uuid.uuid4().int % (2 ** 32)
+        self._style_ov = style  # fuerza un estilo (Skybot) o None = el de la UI
         # El ESTILO va al PRINCIPIO (SDXL pondera más los primeros tokens).
-        full = f"{_style_suffix()}, {prompt.strip()}, {_QUALITY}"
+        full = f"{_style_suffix(style)}, {prompt.strip()}, {_QUALITY}"
         try:
             if reference and Path(reference).is_file():
                 ref_name = self._upload(Path(reference))

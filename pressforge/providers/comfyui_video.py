@@ -115,17 +115,20 @@ def _boomerang_fill(src: Path, dst: Path, seconds: float) -> None:
 
 
 def image_to_video(image, out_path, *, prompt: str, duration="5",
-                   model: str | None = None, on_event=None) -> Path:
-    """Anima una imagen con LTX local y rellena hasta `duration` segundos.
+                   model: str | None = None, loop: bool = True, on_event=None) -> Path:
+    """Anima una imagen con LTX local.
 
-    Firma compatible con providers.fal_video.image_to_video (el pipeline elige
-    uno u otro según el motor de video)."""
+    loop=True  → bucle boomerang (ida y vuelta) hasta `duration` (para loops).
+    loop=False → clip de una sola dirección (para reveals/acciones que no rebobinan).
+    Firma compatible con providers.fal_video.image_to_video."""
     out_path = Path(out_path)
-    target = _parse_seconds(duration)
     if on_event:
-        on_event("      (video local LTX: ~1 min/escena en tu Mac…)")
+        on_event("      (video local LTX: ~1 min en tu Mac…)")
     raw = out_path.with_name(out_path.stem + "_raw.mp4")
     _LTXClient().generate(Path(image), raw, prompt)
-    _boomerang_fill(raw, out_path, target)
+    if loop:
+        _boomerang_fill(raw, out_path, _parse_seconds(duration))
+    else:  # una sola dirección: re-encode el clip tal cual
+        run_ffmpeg(["-i", str(raw), "-c:v", "libx264", "-pix_fmt", "yuv420p", str(out_path)])
     raw.unlink(missing_ok=True)
     return out_path
