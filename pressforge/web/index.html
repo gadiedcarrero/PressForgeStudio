@@ -403,13 +403,21 @@
               <label class="block text-[12px] mb-1 text-zinc-400">🇪🇸 Texto en español</label>
               <textarea id="skyTextEs" rows="3" placeholder="lo que dice en español…" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
               <label class="block text-[12px] mb-1 text-zinc-400">Voz español</label>
-              <select id="skyVoiceEs" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"><option value="">— cargando voces —</option></select>
+              <div class="flex gap-1.5">
+                <select id="skyVoiceEs" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"><option value="">— cargando voces —</option></select>
+                <button type="button" onclick="playCharVoice('skyVoiceEs', this)" title="Escuchar voz" class="shrink-0 grid place-items-center w-9 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800 text-zinc-300"><span data-ic="play" class="w-4 h-4"></span></button>
+              </div>
+              <button type="button" onclick="openVoiceBrowser('skyVoiceEs')" class="text-[11px] text-indigo-300 hover:underline mt-1">Explorar biblioteca de voces →</button>
             </div>
             <div>
               <label class="block text-[12px] mb-1 text-zinc-400">🇬🇧 Texto en inglés</label>
               <textarea id="skyTextEn" rows="3" placeholder="what it says in english…" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
               <label class="block text-[12px] mb-1 text-zinc-400">Voz inglés</label>
-              <select id="skyVoiceEn" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"><option value="">— cargando voces —</option></select>
+              <div class="flex gap-1.5">
+                <select id="skyVoiceEn" class="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"><option value="">— cargando voces —</option></select>
+                <button type="button" onclick="playCharVoice('skyVoiceEn', this)" title="Escuchar voz" class="shrink-0 grid place-items-center w-9 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-800 text-zinc-300"><span data-ic="play" class="w-4 h-4"></span></button>
+              </div>
+              <button type="button" onclick="openVoiceBrowser('skyVoiceEn')" class="text-[11px] text-indigo-300 hover:underline mt-1">Explorar biblioteca de voces →</button>
             </div>
           </div>
           <p id="skyVoiceNote" class="text-[11px] text-amber-400/80 mt-2 hidden">Pon tu ElevenLabs API Key en Ajustes para usar voces.</p>
