@@ -23,10 +23,6 @@ from .base import ImageBlockedError
 _QUALITY = "masterpiece, best quality, highly detailed, sharp focus, 8k"
 
 
-# Estilos que NO salen bien en el modelo fotográfico → usan el modelo anime.
-_ANIME_STYLES = {"anime"}
-
-
 def _style_key() -> str:
     from ..secrets_store import get_secret
     from .openai_image import DEFAULT_STYLE
@@ -59,7 +55,12 @@ class ComfyUIImageProvider:
         s = get_settings()
         self.base = s.comfyui_base_url.rstrip("/")
         self.ckpt = s.comfyui_checkpoint
-        self.anime_ckpt = (s.comfyui_anime_checkpoint or "").strip()
+        # Estilos no realistas → modelo especializado (el resto usa RealVisXL).
+        self._style_ckpts = {}
+        if (s.comfyui_anime_checkpoint or "").strip():
+            self._style_ckpts["anime"] = s.comfyui_anime_checkpoint.strip()
+        if (s.comfyui_3d_checkpoint or "").strip():
+            self._style_ckpts["3d"] = s.comfyui_3d_checkpoint.strip()
         self.lightning = (s.comfyui_lightning_lora or "").strip()
         self.steps = s.comfyui_steps
         self.cfg = s.comfyui_cfg
@@ -73,10 +74,9 @@ class ComfyUIImageProvider:
         self._client = httpx.Client(timeout=900.0)  # generar en Mac puede tardar
 
     def _checkpoint(self) -> str:
-        """Modelo según el estilo: anime → Animagine; el resto → RealVisXL."""
-        if _style_key() in _ANIME_STYLES and self.anime_ckpt:
-            return self.anime_ckpt
-        return self.ckpt
+        """Modelo según el estilo: anime → Animagine, 3d → RealCartoon-XL;
+        el resto → RealVisXL (fotográfico)."""
+        return self._style_ckpts.get(_style_key(), self.ckpt)
 
     def _base_nodes(self) -> tuple[dict, list, list, list]:
         """Nodos comunes (checkpoint + LoRA Lightning opcional). Devuelve el dict
