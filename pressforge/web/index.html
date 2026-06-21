@@ -386,8 +386,8 @@
       <p class="text-sm text-zinc-500 mb-5">Describe una <b>nave</b> y la IA genera 3 piezas con la MISMA plantilla (solo cambia tu descripción): imagen en el hangar, video en loop volando por el espacio, y video cinematográfico de las puertas abriéndose. Todo <b>local y gratis</b> (requiere ComfyUI abierto).</p>
 
       <div class="max-w-2xl bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 mb-6">
-        <label class="block text-sm mb-1 text-zinc-400">Nombre de la nave <span class="text-zinc-600">(aparece como título casi al final del reveal)</span></label>
-        <input id="skyName" placeholder="ej: HALCÓN ESTELAR X-1"
+        <label class="block text-sm mb-1 text-zinc-400">Nombre de la nave <span class="text-zinc-600">(para organizar tus descargas)</span></label>
+        <input id="skyName" placeholder="ej: Leviatán"
           class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
 
         <label class="block text-sm mb-1 text-zinc-400">Descripción de la nave</label>
@@ -421,6 +421,9 @@
             </div>
           </div>
           <p id="skyVoiceNote" class="text-[11px] text-amber-400/80 mt-2 hidden">Pon tu ElevenLabs API Key en Ajustes para usar voces.</p>
+
+          <label class="block text-[12px] mb-1 mt-3 text-zinc-400">🎵 Música de fondo <span class="text-zinc-600">(de tu biblioteca)</span></label>
+          <select id="skyMusic" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"><option value="">— sin música —</option></select>
         </div>
 
         <button id="skyBtn" type="button" onclick="generateSkybot()"
@@ -912,7 +915,8 @@ async function generateSkybot(){
   $('skyProd').scrollIntoView({behavior:'smooth',block:'center'});
   const body = { description:desc, name:$('skyName').value,
     narration_es:$('skyTextEs').value, narration_en:$('skyTextEn').value,
-    voice_es:$('skyVoiceEs').value, voice_en:$('skyVoiceEn').value };
+    voice_es:$('skyVoiceEs').value, voice_en:$('skyVoiceEn').value,
+    music:$('skyMusic').value };
   const r = await fetch('/api/skybot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j = await r.json();
   if(j.error){ $('skyEvents').textContent='ERROR: '+j.error; $('skyBtn').disabled=false; return; }
@@ -930,38 +934,59 @@ async function pollSkybot(id){
     $('skyResult').classList.remove('hidden');
     const v='?v='+Date.now();
     const vid=(lbl,src)=>src?`<div><p class="text-[11px] text-zinc-500 mb-1">${lbl}</p><video src="${src}${v}" controls playsinline class="w-full rounded-lg bg-black"></video></div>`:'';
-    $('skyResult').innerHTML=`
-      <div><p class="text-[11px] text-zinc-500 mb-1">🖼️ Hangar</p><img src="${j.image}${v}" class="w-full rounded-lg bg-black"></div>
+    const imgs=(j.images||[j.image]).map((s,i)=>`<div><p class="text-[11px] text-zinc-500 mb-1">🖼️ Hangar ${i+1}</p><img src="${s}${v}" class="w-full rounded-lg bg-black"></div>`).join('');
+    $('skyResult').innerHTML=imgs+`
       <div><p class="text-[11px] text-zinc-500 mb-1">🎬 Loop espacio</p><video src="${j.loop}${v}" controls loop autoplay muted playsinline class="w-full rounded-lg bg-black"></video></div>
       ${vid('🎬 Reveal 🇪🇸 (voz español)', j.reveal_es)}
       ${vid('🎬 Reveal 🇬🇧 (voz inglés)', j.reveal_en)}
-      ${vid('🎬 Reveal puertas', j.reveal)}`;
+      ${vid('🎬 Reveal', j.reveal)}`;
   } else {
     $('skyDot').className='h-2 w-2 rounded-full bg-red-400';
     $('skyLabel').textContent='✗ '+(j.status==='cancelled'?'Cancelado':'Error');
     if(j.error) $('skyEvents').textContent+='\n\nERROR: '+j.error;
   }
 }
+async function skyLoadMusic(){
+  try{
+    const tr=((await (await fetch('/api/music')).json()).tracks)||[];
+    $('skyMusic').innerHTML='<option value="">— sin música —</option>'+tr.map(t=>`<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
+  }catch(e){}
+}
+function dl(href,label){ return `<a href="${href}" download class="text-[11px] px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700">⬇ ${label}</a>`; }
 async function loadSkybot(){
-  skyLoadVoices();
+  skyLoadVoices(); skyLoadMusic();
   try{
     const ships=((await (await fetch('/api/skybot')).json()).ships)||[];
     const g=$('skyGallery');
-    if(!ships.length){ g.innerHTML='<p class="text-zinc-600 text-sm col-span-full">Aún no has generado naves.</p>'; return; }
-    g.innerHTML=ships.map(s=>`
+    g.className='space-y-3';
+    if(!ships.length){ g.innerHTML='<p class="text-zinc-600 text-sm">Aún no has generado naves.</p>'; return; }
+    g.innerHTML=ships.map((s,idx)=>{
+      const imgs=(s.images||[]).map((src,i)=>`
+        <div><img src="${src}" class="w-full rounded-lg bg-black mb-1">
+          <div class="text-center">${dl(src,'Imagen '+(i+1))}</div></div>`).join('');
+      const vids=[['loop','🎬 Loop espacio',s.loop],['reveal_es','🎬 Reveal 🇪🇸',s.reveal_es],
+                  ['reveal_en','🎬 Reveal 🇬🇧',s.reveal_en],['reveal','🎬 Reveal',s.reveal]]
+        .filter(x=>x[2]).map(([k,lbl,src])=>`
+          <div><p class="text-[11px] text-zinc-500 mb-1">${lbl}</p>
+            <video src="${src}" controls ${k==='loop'?'loop muted':''} playsinline class="w-full rounded-lg bg-black mb-1"></video>
+            <div class="text-center">${dl(src,'Descargar')}</div></div>`).join('');
+      const ttl=esc(s.name || (s.description||s.dir).slice(0,60));
+      return `
       <div class="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden">
-        <img src="${s.image}" class="w-full aspect-video object-cover bg-black">
-        <div class="p-3">
-          <p class="text-[11px] text-zinc-400 mb-2">${esc((s.description||s.dir).slice(0,120))}</p>
-          <div class="flex gap-2 flex-wrap">
-            ${s.loop?`<a href="${s.loop}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🎬 Loop</a>`:''}
-            ${s.reveal_es?`<a href="${s.reveal_es}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🎬 Reveal 🇪🇸</a>`:''}
-            ${s.reveal_en?`<a href="${s.reveal_en}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🎬 Reveal 🇬🇧</a>`:''}
-            ${s.reveal?`<a href="${s.reveal}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🎬 Reveal</a>`:''}
-            <a href="${s.image}" target="_blank" class="text-[11px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700">🖼️ Imagen</a>
-          </div>
+        <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.chev').classList.toggle('rotate-180')"
+          class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-800/40">
+          <span class="flex items-center gap-3 min-w-0">
+            <img src="${(s.images||[])[0]||''}" class="w-12 h-12 rounded object-cover bg-black shrink-0">
+            <span class="min-w-0"><span class="font-medium text-sm block truncate">🚀 ${ttl}</span>
+              <span class="text-[11px] text-zinc-500">${(s.images||[]).length} imagen(es) · ${[s.loop,s.reveal_es,s.reveal_en,s.reveal].filter(Boolean).length} video(s)</span></span>
+          </span>
+          <span class="chev shrink-0 transition-transform">▾</span>
+        </button>
+        <div class="${idx===0?'':'hidden'} border-t border-zinc-800 p-4">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">${imgs}${vids}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }catch(e){}
 }
 

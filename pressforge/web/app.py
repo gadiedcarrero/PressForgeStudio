@@ -735,6 +735,7 @@ def skybot_generate(payload: dict = Body(...)):
         "narration_en": (payload.get("narration_en") or "").strip(),
         "voice_es": (payload.get("voice_es") or "").strip(),
         "voice_en": (payload.get("voice_en") or "").strip(),
+        "music": (payload.get("music") or "").strip(),
     }
     job_id = uuid.uuid4().hex[:12]
     with _lock:
