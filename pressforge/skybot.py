@@ -32,6 +32,49 @@ def _slug(text: str, maxlen: int = 40) -> str:
     return (text[:maxlen] or "nave").strip("-")
 
 
+# ─── motor de imagen (consistencia de la nave) ───
+def _openai_edit(reference: Path, scene: str, out: Path) -> None:
+    """gpt-image-1: recrea la MISMA nave de la referencia en una escena nueva
+    (la clave de la consistencia entre piezas)."""
+    import base64
+    from .providers._openai_client import client
+    s = get_settings()
+    prompt = (
+        "Keep the EXACT same spaceship as in the reference image: identical design, "
+        "hull shape, proportions, colors, markings and details. Do not redesign it. "
+        f"Now show that same spaceship {scene}. Cinematic sci-fi, dramatic lighting, "
+        "9:16 vertical, no text, no watermark."
+    )
+    with open(reference, "rb") as f:
+        r = client().images.edit(model=s.image_model, image=f, prompt=prompt,
+                                 size="1024x1536", quality=s.image_quality, n=1)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(base64.b64decode(r.data[0].b64_json))
+
+
+def _scene_image(local_provider, desc: str, scene: str, out: Path,
+                 engine: str, reference: Path | None) -> Path:
+    """Genera la imagen de una escena de la nave según el motor elegido.
+    Con referencia + OpenAI → la MISMA nave en cada escena (consistente)."""
+    if engine == "openai" and reference and reference.is_file():
+        _openai_edit(reference, scene, out)
+    else:
+        # Local (ComfyUI): consistencia limitada sin IP-Adapter (fase 2).
+        local_provider.generate(f"{desc}, a {_SCIFI}, {scene}", out, style=_STYLE)
+    return out
+
+
+def _animate(image: Path, out: Path, motion: str, engine: str, loop: bool, on_event) -> Path:
+    """Anima una imagen base según el motor de video (local LTX o fal Kling/Veo)."""
+    if engine == "fal":
+        from .providers.fal_video import image_to_video as fal_i2v
+        fal_i2v(image, out, prompt=motion, duration="5", model="kling-i2v", on_event=on_event)
+    else:
+        from .providers.comfyui_video import image_to_video as ltx_i2v
+        ltx_i2v(image, out, prompt=motion, duration="6", loop=loop, on_event=on_event)
+    return out
+
+
 # ─── helpers de video ───
 def _seamless_loop(raw: Path, out: Path, cross: float = 0.8) -> None:
     """Convierte un clip en LOOP perfecto: funde el principio sobre el final, así
@@ -135,17 +178,23 @@ def _build_reveal(intro: list[Path], angles: list[Path], out: Path,
 
 def produce_skybot(description: str, on_event: Callable[[str], None] | None = None, *,
                    name: str = "", narration_es: str = "", narration_en: str = "",
-                   voice_es: str = "", voice_en: str = "", music: str = "") -> dict:
-    """Genera las piezas de Skybot para una nave. Devuelve rutas web /output/."""
+                   voice_es: str = "", voice_en: str = "", music: str = "",
+                   image_engine: str = "local", video_engine: str = "local",
+                   reference: str = "") -> dict:
+    """Genera las piezas de Skybot para una nave. Devuelve rutas web /output/.
+
+    image_engine: 'local' (ComfyUI) u 'openai' (gpt-image-1; con `reference`
+      mantiene la MISMA nave entre escenas → consistencia).
+    video_engine: 'local' (LTX) o 'fal' (Kling/Veo, de pago).
+    reference: ruta a la imagen de la nave que ancla la consistencia."""
     desc = description.strip()
     if not desc:
         raise ValueError("Describe la nave primero.")
+    ref = Path(reference) if reference and Path(reference).is_file() else None
 
     def ev(msg: str) -> None:
         if on_event:
             on_event(msg)
-
-    from .providers.comfyui_video import image_to_video
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     workdir = output_path() / "skybot" / f"{stamp}-{_slug(name or desc)}"
@@ -156,16 +205,16 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     img = get_image_provider("local")
     base = workdir.name
     music_p = _music_path(music)
+    # Si subiste referencia, guárdala como 1ª imagen (es la nave exacta).
+    if ref:
+        import shutil
+        shutil.copy(ref, workdir / "referencia.png")
 
-    def gen(prompt: str, fn: str) -> Path:
-        p = workdir / fn
-        img.generate(f"{desc}, a {_SCIFI}, {prompt}", p, style=_STYLE)
-        return p
+    def gen(scene: str, fn: str) -> Path:
+        return _scene_image(img, desc, scene, workdir / fn, image_engine, ref)
 
     def clip(image: Path, motion: str, fn: str, loop=False) -> Path:
-        c = workdir / fn
-        image_to_video(image, c, prompt=motion, duration="6", loop=loop, on_event=on_event)
-        return c
+        return _animate(image, workdir / fn, motion, video_engine, loop, on_event)
 
     # ── 1. Imágenes de la nave en el hangar (2 variantes para elegir) ──
     ev("1/4 · Imágenes de la nave en el hangar…")
@@ -179,10 +228,8 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     space = gen("flying through deep space among floating asteroids and meteorites, "
                 "stars and colorful nebula background, dynamic cinematic angle", "_space.png")
     raw_loop = workdir / "_loop_raw.mp4"
-    image_to_video(space, raw_loop,
-                   prompt="the spaceship flies forward through the asteroid field, meteorites "
-                          "drifting past, engine glow, smooth cinematic motion",
-                   duration="6", loop=False, on_event=on_event)
+    clip(space, "the spaceship flies forward through the asteroid field, meteorites "
+                "drifting past, engine glow, smooth cinematic motion", "_loop_raw.mp4")
     _seamless_loop(raw_loop, workdir / "space_loop.mp4")
     raw_loop.unlink(missing_ok=True)
 

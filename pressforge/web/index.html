@@ -394,6 +394,36 @@
         <textarea id="skyDesc" rows="3" placeholder="ej: una nave caza plateada y angular, con motores azules brillantes y alas afiladas, estilo futurista"
           class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
 
+        <!-- Motor + consistencia -->
+        <div class="border-t border-zinc-800 pt-4 mb-3">
+          <p class="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Motor y consistencia de la nave</p>
+          <p class="text-[11px] text-zinc-600 mb-3">Para que sea la MISMA nave en todas las piezas, sube una imagen de referencia y usa imágenes <b>OpenAI</b> (la recrea en cada escena).</p>
+
+          <div class="grid sm:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label class="block text-[12px] mb-1 text-zinc-400">Imágenes</label>
+              <select id="skyImgEngine" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="openai">☁️ OpenAI — consistente (pago)</option>
+                <option value="local">🖥️ Local — gratis (consistencia limitada)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[12px] mb-1 text-zinc-400">Video</label>
+              <select id="skyVidEngine" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="local">🖥️ Local LTX — gratis</option>
+                <option value="fal">🎬 Veo/Kling (fal) — pago, cinematográfico</option>
+              </select>
+            </div>
+          </div>
+
+          <label class="block text-[12px] mb-1 text-zinc-400">Imagen de referencia de la nave <span class="text-zinc-600">(opcional, ancla la consistencia)</span></label>
+          <div class="flex items-center gap-3">
+            <input type="file" id="skyRefFile" accept="image/*" onchange="skyUploadRef()" class="text-[12px] text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-zinc-800 file:text-zinc-200 file:text-[12px]" />
+            <img id="skyRefImg" class="hidden w-14 h-14 rounded object-cover bg-black border border-zinc-800" />
+            <span id="skyRefNote" class="text-[11px] text-zinc-500"></span>
+          </div>
+        </div>
+
         <div class="border-t border-zinc-800 pt-4 mb-2">
           <p class="text-[11px] uppercase tracking-wider text-zinc-500 mb-1">Narración del reveal (voz ElevenLabs · opcional)</p>
           <p class="text-[11px] text-zinc-600 mb-3">El video de presentación llevará esta voz. Deja vacío para reveal sin audio. Se generan 2 versiones: español e inglés.</p>
@@ -892,6 +922,20 @@ async function pollJob(jobId) {
 
 // ─── Skybot ───
 let SKY_JOB = null;
+let SKY_REF = '';   // ruta de la imagen de referencia subida
+async function skyUploadRef(){
+  const f = $('skyRefFile').files[0];
+  if(!f){ return; }
+  $('skyRefNote').textContent='Subiendo…';
+  const fd = new FormData(); fd.append('image', f);
+  try{
+    const j = await (await fetch('/api/skybot/upload',{method:'POST',body:fd})).json();
+    if(j.error){ $('skyRefNote').textContent='✗ '+j.error; return; }
+    SKY_REF = j.reference;
+    $('skyRefImg').src = j.url; $('skyRefImg').classList.remove('hidden');
+    $('skyRefNote').textContent='✓ referencia lista';
+  }catch(e){ $('skyRefNote').textContent='✗ error al subir'; }
+}
 async function skyLoadVoices(){
   let j; try { j = await (await fetch('/api/voices/elevenlabs')).json(); } catch(e){ j={voices:[],ready:false}; }
   const es=$('skyVoiceEs'), en=$('skyVoiceEn');
@@ -916,7 +960,8 @@ async function generateSkybot(){
   const body = { description:desc, name:$('skyName').value,
     narration_es:$('skyTextEs').value, narration_en:$('skyTextEn').value,
     voice_es:$('skyVoiceEs').value, voice_en:$('skyVoiceEn').value,
-    music:$('skyMusic').value };
+    music:$('skyMusic').value,
+    image_engine:$('skyImgEngine').value, video_engine:$('skyVidEngine').value, reference:SKY_REF };
   const r = await fetch('/api/skybot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j = await r.json();
   if(j.error){ $('skyEvents').textContent='ERROR: '+j.error; $('skyBtn').disabled=false; return; }

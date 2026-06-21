@@ -729,6 +729,16 @@ def skybot_generate(payload: dict = Body(...)):
     desc = (payload.get("description") or "").strip()
     if not desc:
         return JSONResponse({"error": "Describe la nave primero."}, status_code=400)
+    # La referencia debe ser un archivo dentro de la carpeta de refs (seguridad).
+    ref = (payload.get("reference") or "").strip()
+    if ref:
+        from ..config import output_path as _op
+        refs_dir = (_op() / "skybot" / "_refs").resolve()
+        try:
+            if refs_dir not in Path(ref).resolve().parents:
+                ref = ""
+        except Exception:  # noqa: BLE001
+            ref = ""
     opts = {
         "name": (payload.get("name") or "").strip(),
         "narration_es": (payload.get("narration_es") or "").strip(),
@@ -736,6 +746,9 @@ def skybot_generate(payload: dict = Body(...)):
         "voice_es": (payload.get("voice_es") or "").strip(),
         "voice_en": (payload.get("voice_en") or "").strip(),
         "music": (payload.get("music") or "").strip(),
+        "image_engine": (payload.get("image_engine") or "local").strip(),
+        "video_engine": (payload.get("video_engine") or "local").strip(),
+        "reference": ref,
     }
     job_id = uuid.uuid4().hex[:12]
     with _lock:
@@ -748,6 +761,19 @@ def skybot_generate(payload: dict = Body(...)):
 def skybot_list():
     from ..skybot import list_skybot
     return {"ships": list_skybot()}
+
+
+@app.post("/api/skybot/upload")
+async def skybot_upload(image: UploadFile = File(...)):
+    """Sube la imagen de referencia de la nave (ancla la consistencia)."""
+    refs = output_path() / "skybot" / "_refs"
+    refs.mkdir(parents=True, exist_ok=True)
+    ext = (Path(image.filename or "ref.png").suffix or ".png").lower()
+    if ext not in (".png", ".jpg", ".jpeg", ".webp"):
+        return JSONResponse({"error": "Usa PNG, JPG o WEBP."}, status_code=400)
+    dest = refs / f"{uuid.uuid4().hex}{ext}"
+    dest.write_bytes(await image.read())
+    return {"reference": str(dest), "url": f"/output/skybot/_refs/{dest.name}"}
 
 
 @app.get("/api/voice-sample/{voice}")
