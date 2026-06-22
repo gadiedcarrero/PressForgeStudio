@@ -651,9 +651,7 @@ def produce_dialogue_reel(
         try:
             v = char_voice.get(sc.speaker) or voice or None
             if engine in ("veo3", "seedance2", "seedance2-ref"):
-                # El motor genera el video CON su audio (sabe hablar). Luego
-                # transcribimos los TIEMPOS del habla y generamos la voz de ElevenLabs
-                # ajustada → voz consistente y sincronizada.
+                seedance = engine in ("seedance2", "seedance2-ref")
                 others = [c for c in chars_in if c != sc.speaker]
                 others_txt = (f" {', '.join(others)} listens silently with mouth closed, "
                               f"reacting with gestures." if others else "")
@@ -666,25 +664,33 @@ def produce_dialogue_reel(
                 simple_prompt = (
                     f"{sc.speaker} speaks a line in {lang_name}, talking to another person. "
                     f"3D animated movie style, expressive face, natural lip movement.")
+                # ── 1) generar el clip CON audio según el motor ──
                 if engine == "seedance2-ref":
-                    # Personajes con IMAGEN DE REFERENCIA (subida o máster generado)
-                    # → Seedance los mantiene consistentes. Se citan como @ImageN.
-                    pairs = []
-                    for c in chars_in:
-                        rp = char_upload.get(c) or char_ref.get(c)
-                        if rp and Path(rp).is_file():
-                            pairs.append((rp, c))
+                    # Personajes con IMAGEN DE REFERENCIA (subida o máster generado),
+                    # citados como @ImageN → Seedance los mantiene consistentes.
+                    pairs = [(rp, c) for c in chars_in
+                             if (rp := char_upload.get(c) or char_ref.get(c)) and Path(rp).is_file()]
                     if pairs:
                         who = "; ".join(f"@Image{i + 1} is {nm}" for i, (_, nm) in enumerate(pairs))
-                        ref_prompt = (
-                            f"{who}. Keep each character EXACTLY like their reference image "
-                            f"(same face, hair, outfit). {veo_prompt}")
+                        ref_prompt = (f"{who}. Keep each character EXACTLY like their reference "
+                                      f"image (same face, hair, outfit). {veo_prompt}")
                         seedance_ref2video([p for p, _ in pairs], clip, prompt=ref_prompt,
                                            duration=dur, audio=True, on_event=on_event)
-                    else:  # sin referencias → Seedance i2v normal
-                        seedance_dialogue(img, clip, prompt=veo_prompt, duration=dur,
-                                          audio=True, on_event=on_event)
-                    clip_dur = ffprobe_duration(clip)
+                    else:
+                        seedance_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                else:
+                    dialogue_fn = veo3_dialogue if engine == "veo3" else seedance_dialogue
+                    try:
+                        dialogue_fn(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                    except Exception:  # noqa: BLE001
+                        if on_event:
+                            on_event("    · reintento con prompt simple…")
+                        dialogue_fn(img, clip, prompt=simple_prompt, duration=dur, audio=True, on_event=on_event)
+                clip_dur = ffprobe_duration(clip)
+                # ── 2) audio: Seedance usa SU VOZ NATIVA; Veo 3 monta ElevenLabs sincronizado ──
+                if seedance:
+                    extract_audio(clip, line_audio)  # la voz que ya generó Seedance
+                else:
                     veo_audio = workdir / "audio" / f"veo_{ui:02d}.mp3"
                     extract_audio(clip, veo_audio)
                     try:
@@ -698,40 +704,8 @@ def produce_dialogue_reel(
                         offset, speech_dur = 0.0, clip_dur
                     raw = workdir / "audio" / f"raw_{ui:02d}.mp3"
                     vp.synthesize(sc.narration, raw, voice=v)
-                    aligned_voice(raw, line_audio, offset_s=offset, speech_dur=speech_dur, total_dur=clip_dur)
-                    unit.duration = clip_dur
-                    unit.clip_path = clip
-                    audio_parts.append(line_audio)
-                    render_scenes.append(unit)
-                    if on_event:
-                        on_event(f"    ✓ escena {ui + 1}/{n}")
-                    continue
-                # veo3 / seedance2 (i2v normal)
-                dialogue_fn = veo3_dialogue if engine == "veo3" else seedance_dialogue
-                try:
-                    dialogue_fn(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
-                except Exception:  # noqa: BLE001
-                    if on_event:
-                        on_event("    · reintento con prompt simple…")
-                    dialogue_fn(img, clip, prompt=simple_prompt, duration=dur, audio=True, on_event=on_event)
-                clip_dur = ffprobe_duration(clip)
-                # tiempos del habla de Veo
-                veo_audio = workdir / "audio" / f"veo_{ui:02d}.mp3"
-                extract_audio(clip, veo_audio)
-                try:
-                    words = get_subtitle_provider(subtitle_provider).transcribe(veo_audio, language=story.language)
-                except Exception:  # noqa: BLE001
-                    words = []
-                if words:
-                    offset = max(0.0, words[0].start)
-                    speech_dur = max(0.3, words[-1].end - words[0].start)
-                else:
-                    offset, speech_dur = 0.0, clip_dur
-                # voz consistente (ElevenLabs) ajustada a esos tiempos
-                raw = workdir / "audio" / f"raw_{ui:02d}.mp3"
-                vp.synthesize(sc.narration, raw, voice=v)
-                aligned_voice(raw, line_audio, offset_s=offset,
-                              speech_dur=speech_dur, total_dur=clip_dur)
+                    aligned_voice(raw, line_audio, offset_s=offset,
+                                  speech_dur=speech_dur, total_dur=clip_dur)
                 unit.duration = clip_dur
             else:  # omnihuman: el audio (ElevenLabs) guía el lip-sync directamente
                 vp.synthesize(sc.narration, line_audio, voice=v)
