@@ -20,7 +20,7 @@ from typing import Callable
 
 from .config import get_settings, output_path
 from .ffmpeg_utils import ffprobe_duration, run_ffmpeg
-from .registry import get_image_provider
+from .registry import get_image_provider, get_script_provider
 
 _STYLE = "cinematic"
 _SCIFI = "highly detailed sci-fi spaceship, intricate panels, dramatic lighting, cinematic, 8k"
@@ -177,6 +177,54 @@ def _build_reveal(intro: list[Path], angles: list[Path], out: Path,
             merged.replace(out)
 
 
+def _reveal_shots(narration: str, desc: str, n: int) -> list[str]:
+    """Saca un 'guion' de la narración (como modo Historia): una escena visual de
+    la NAVE por cada cosa que se dice, para cubrir todo el audio sin repetir."""
+    ship = f"the {desc} spaceship"
+    fallback = [
+        f"{ship} inside a massive hangar with bay doors opening, smoke and dramatic light beams",
+        f"{ship} slowly emerging from the smoky dark hangar, moving toward the camera",
+        f"{ship} flying out into deep space, stars and colorful nebula behind",
+        f"close-up of {ship}'s engines igniting with a bright blue glow",
+        f"{ship} banking in a dramatic cinematic orbit, low heroic angle",
+        f"{ship} flying fast through a dense asteroid field, meteorites drifting past",
+        f"side tracking shot of {ship} cruising through deep space",
+        f"heroic front view of {ship} approaching the camera, lens flare",
+    ]
+    if narration.strip():
+        try:
+            story = get_script_provider().refine(narration, scenes=n)
+            shots = [f"{ship}; {s.image_prompt}" for s in story.scenes if s.image_prompt.strip()]
+            if len(shots) >= 2:
+                while len(shots) < n:
+                    shots.append(fallback[len(shots) % len(fallback)])
+                return shots[:n]
+        except Exception:  # noqa: BLE001 — si el guion falla, usa la secuencia fija
+            pass
+    return (fallback * ((n // len(fallback)) + 1))[:n]
+
+
+def _reveal_from_clips(clips: list, out: Path, audio, music) -> None:
+    """Concatena los clips de escena y les pone la voz (o música) cubriendo todo."""
+    seq = out.with_name(out.stem + "_seq.mp4")
+    _concat([c for c in clips if c and Path(c).is_file()], seq)
+    if audio:
+        audio_mp3, target = audio
+        run_ffmpeg(["-stream_loop", "-1", "-i", str(seq), "-i", str(audio_mp3),
+                    "-t", f"{target:.3f}", "-map", "0:v", "-map", "1:a",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", str(out)])
+        audio_mp3.unlink(missing_ok=True)
+    elif music:
+        target = ffprobe_duration(seq)
+        run_ffmpeg(["-i", str(seq), "-stream_loop", "-1", "-i", str(music), "-t", f"{target:.3f}",
+                    "-filter_complex", f"[1:a]volume={get_settings().music_volume}[a]",
+                    "-map", "0:v", "-map", "[a]", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", str(out)])
+    else:
+        seq.replace(out)
+    seq.unlink(missing_ok=True)
+
+
 def produce_skybot(description: str, on_event: Callable[[str], None] | None = None, *,
                    name: str = "", narration_es: str = "", narration_en: str = "",
                    voice_es: str = "", voice_en: str = "", music: str = "",
@@ -217,16 +265,15 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     def clip(image: Path, motion: str, fn: str, loop=False) -> Path:
         return _animate(image, workdir / fn, motion, video_engine, loop, on_event)
 
-    # Seedance 2.0 reference-to-video: usa la nave de referencia (@Image1) → misma
-    # nave en todos los videos. Si NO subiste imagen, la app genera una maestra
-    # desde la descripción y la usa de referencia.
-    sd_ref = (video_engine == "seedance2-ref")
-    if sd_ref and ref is None:
+    # CONSISTENCIA: si no subiste imagen, genera una nave MAESTRA desde la
+    # descripción y úsala de referencia en TODO (hangar, loop, reveal) → misma nave.
+    if ref is None:
         ev("· Imagen maestra de la nave (desde tu descripción)…")
         master = workdir / "ship_master.png"
         _scene_image(img, desc, "full hero shot, the entire spaceship clearly visible, "
                      "three-quarter angle, neutral dark studio background", master, image_engine, None)
         ref = master  # gen() y ref_clip() la usan (closures de late-binding)
+    sd_ref = (video_engine == "seedance2-ref")
 
     def ref_clip(prompt: str, fn: str, dur: str) -> Path:
         from .providers.fal_video import seedance_ref2video
@@ -235,53 +282,25 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
                            aspect_ratio="9:16", on_event=on_event)
         return out
 
+    def scene_clip(shot: str, fn: str) -> Path:
+        """Un clip de una escena (nave consistente vía referencia)."""
+        if sd_ref:
+            return ref_clip(f"@Image1 {shot}, cinematic", fn, "5s")
+        si = gen(shot, "_" + fn.replace(".mp4", ".png"))
+        return clip(si, shot + ", cinematic camera motion, smooth", fn)
+
     # ── 1. Imágenes de la nave en el hangar (2 variantes para elegir) ──
     ev("1/4 · Imágenes de la nave en el hangar…")
-    images = []
-    for i in (1, 2):
-        images.append(gen("parked inside a futuristic spaceship hangar bay, industrial "
-                          "lighting, wide cinematic shot", f"hangar_{i}.png"))
+    images = [gen("parked inside a futuristic spaceship hangar bay, industrial lighting, "
+                  "wide cinematic shot", f"hangar_{i}.png") for i in (1, 2)]
 
     # ── 2. Loop perfecto: la nave volando en el espacio ──
     ev("2/4 · Loop espacio (sin costuras)…")
     raw_loop = workdir / "_loop_raw.mp4"
-    if sd_ref:
-        ref_clip("@Image1 the same spaceship flying forward through a dense asteroid field, "
-                 "meteorites drifting past, engine glow, smooth cinematic motion, deep space, nebula",
-                 "_loop_raw.mp4", "6s")
-    else:
-        space = gen("flying through deep space among floating asteroids and meteorites, "
-                    "stars and colorful nebula background, dynamic cinematic angle", "_space.png")
-        clip(space, "the spaceship flies forward through the asteroid field, meteorites "
-                    "drifting past, engine glow, smooth cinematic motion", "_loop_raw.mp4")
+    scene_clip("flying forward through a dense asteroid field, meteorites drifting past, "
+               "engine glow, deep space, nebula", "_loop_raw.mp4")
     _seamless_loop(raw_loop, workdir / "space_loop.mp4")
     raw_loop.unlink(missing_ok=True)
-
-    # ── 3. Reveal (puertas+humo+salida · ángulos extra) ──
-    ev("3/4 · Secuencia de presentación (puertas → humo → la nave sale)…")
-    if sd_ref:  # multishot en UNA generación, nave consistente
-        seq = ref_clip(
-            "Cinematic multi-shot sci-fi sequence. Shot 1: a massive futuristic hangar with "
-            "huge bay doors slowly opening, only thick smoke and darkness inside, dramatic "
-            "light beams. Shot 2: @Image1 the same spaceship slowly emerges from the smoke and "
-            "darkness, moving forward toward the camera. Shot 3: @Image1 from a dramatic slow "
-            "orbit angle, flying in deep space with stars and nebula.", "_reveal_seq.mp4", "12s")
-        intro, angles = [seq], [seq]
-    else:
-        door_img = gen("inside a massive futuristic hangar with huge closed bay doors, "
-                       "thick smoke and darkness, dramatic volumetric light at the edges", "_door.png")
-        intro = [
-            clip(door_img, "the giant hangar bay doors slowly slide open revealing only thick "
-                           "smoke and darkness inside, dramatic light beams, cinematic", "_c0.mp4"),
-            clip(door_img, "the spaceship slowly emerges from the smoke and darkness of the hangar, "
-                           "moving forward toward the camera, cinematic reveal", "_c1.mp4"),
-        ]
-        a1 = gen("flying in space, slow cinematic orbit, low dramatic angle, stars behind", "_a1.png")
-        a2 = gen("flying in space, side profile tracking shot, engine glow, nebula behind", "_a2.png")
-        angles = [
-            clip(a1, "slow cinematic orbit around the spaceship, smooth camera motion", "_a1.mp4"),
-            clip(a2, "smooth tracking shot following the spaceship from the side, cinematic", "_a2.mp4"),
-        ]
 
     title = (name or "").strip()
     result = {
@@ -291,21 +310,29 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
         "loop": f"/output/skybot/{base}/space_loop.mp4",
     }
 
-    # ── 4. Reveal con voz (ES/EN) + música ──
+    # ── 3. Reveal: AUDIO primero → escenas (guion) que CUBREN todo el audio ──
     have_es = narration_es.strip() and voice_es.strip()
     have_en = narration_en.strip() and voice_en.strip()
+    audio_es = _make_audio(workdir, "es", narration_es, voice_es, music_p) if have_es else None
+    audio_en = _make_audio(workdir, "en", narration_en, voice_en, music_p) if have_en else None
+    target = max([a[1] for a in (audio_es, audio_en) if a] + [6.0])
+    narr = narration_es.strip() or narration_en.strip()
+    clip_len = 5.0 if (sd_ref or video_engine == "fal") else 2.3
+    n_sc = max(2, min(9, int(target / clip_len) + 1))
+    shots = _reveal_shots(narr, desc, n_sc)
+    ev(f"3/4 · {len(shots)} escenas de presentación (cubren la narración)…")
+    seq_clips = [scene_clip(sh, f"_rv{i}.mp4") for i, sh in enumerate(shots)]
+
     if have_es:
-        ev("· Reveal español (voz ElevenLabs + música)…")
-        _build_reveal(intro, angles, workdir / "reveal_es.mp4",
-                      _make_audio(workdir, "es", narration_es, voice_es, music_p), music_p)
+        ev("· Montando reveal español…")
+        _reveal_from_clips(seq_clips, workdir / "reveal_es.mp4", audio_es, music_p)
         result["reveal_es"] = f"/output/skybot/{base}/reveal_es.mp4"
     if have_en:
-        ev("· Reveal inglés (voz ElevenLabs + música)…")
-        _build_reveal(intro, angles, workdir / "reveal_en.mp4",
-                      _make_audio(workdir, "en", narration_en, voice_en, music_p), music_p)
+        ev("· Montando reveal inglés…")
+        _reveal_from_clips(seq_clips, workdir / "reveal_en.mp4", audio_en, music_p)
         result["reveal_en"] = f"/output/skybot/{base}/reveal_en.mp4"
     if not have_es and not have_en:
-        _build_reveal(intro, angles, workdir / "reveal.mp4", None, music_p)
+        _reveal_from_clips(seq_clips, workdir / "reveal.mp4", None, music_p)
         result["reveal"] = f"/output/skybot/{base}/reveal.mp4"
 
     ev("✓ Skybot listo")

@@ -1007,10 +1007,11 @@ async function pollSkybot(id){
     $('skyLabel').textContent='✓ Nave lista';
     $('skyResult').classList.remove('hidden');
     const v='?v='+Date.now();
-    const vid=(lbl,src)=>src?`<div><p class="text-[11px] text-zinc-500 mb-1">${lbl}</p><video src="${src}${v}" controls playsinline class="w-full rounded-lg bg-black"></video></div>`:'';
-    const imgs=(j.images||[j.image]).map((s,i)=>`<div><p class="text-[11px] text-zinc-500 mb-1">🖼️ Hangar ${i+1}</p><img src="${s}${v}" class="w-full rounded-lg bg-black"></div>`).join('');
+    const dlc=(href)=>`<div class="text-center mt-1">${dl(href,'Descargar')}</div>`;
+    const vid=(lbl,src)=>src?`<div><p class="text-[11px] text-zinc-500 mb-1">${lbl}</p><video src="${src}${v}" controls playsinline class="w-full rounded-lg bg-black"></video>${dlc(src)}</div>`:'';
+    const imgs=(j.images||[j.image]).map((s,i)=>`<div><p class="text-[11px] text-zinc-500 mb-1">🖼️ Hangar ${i+1}</p><img src="${s}${v}" class="w-full rounded-lg bg-black">${dlc(s)}</div>`).join('');
     $('skyResult').innerHTML=imgs+`
-      <div><p class="text-[11px] text-zinc-500 mb-1">🎬 Loop espacio</p><video src="${j.loop}${v}" controls loop autoplay muted playsinline class="w-full rounded-lg bg-black"></video></div>
+      <div><p class="text-[11px] text-zinc-500 mb-1">🎬 Loop espacio</p><video src="${j.loop}${v}" controls loop autoplay muted playsinline class="w-full rounded-lg bg-black"></video>${dlc(j.loop)}</div>
       ${vid('🎬 Reveal 🇪🇸 (voz español)', j.reveal_es)}
       ${vid('🎬 Reveal 🇬🇧 (voz inglés)', j.reveal_en)}
       ${vid('🎬 Reveal', j.reveal)}`;
