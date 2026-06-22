@@ -33,35 +33,57 @@ def _slug(text: str, maxlen: int = 40) -> str:
 
 
 # ─── motor de imagen (consistencia de la nave) ───
-def _openai_edit(reference: Path, scene: str, out: Path) -> None:
-    """gpt-image-1: recrea la MISMA nave de la referencia en una escena nueva
-    (la clave de la consistencia entre piezas)."""
+# Etiqueta de cada vista para explicarle a los motores qué es cada imagen.
+_VIEW_LABEL = {
+    "front": "the FRONT view", "left": "the LEFT side view",
+    "top": "the TOP-DOWN view", "perspective": "a 3/4 PERSPECTIVE view",
+}
+
+
+def _view_prefix(refs: list) -> str:
+    """Explica a Seedance/OpenAI qué es cada imagen de referencia (@ImageN)."""
+    if not refs:
+        return ""
+    parts = [f"@Image{i + 1} is {_VIEW_LABEL.get(v, 'a reference view')}"
+             for i, (v, _) in enumerate(refs)]
+    return ("; ".join(parts) + " — these are ALL the SAME spaceship from different "
+            "angles. Keep that EXACT ship (identical design, colors, markings). ")
+
+
+def _openai_edit(refs: list, scene: str, out: Path) -> None:
+    """gpt-image-1: recrea la MISMA nave (1 o varias vistas de referencia)."""
     import base64
     from .providers._openai_client import client
     s = get_settings()
+    multi = (" The reference images show the SAME spaceship from different angles."
+             if len(refs) > 1 else "")
     prompt = (
-        "Keep the EXACT same spaceship as in the reference image: identical design, "
-        "hull shape, proportions, colors, markings and details. Do not redesign it. "
+        "Keep the EXACT same spaceship as in the reference image(s): identical design, "
+        f"hull shape, proportions, colors, markings and details.{multi} Do not redesign it. "
         f"Now show that same spaceship {scene}. Cinematic sci-fi, dramatic lighting, "
         "9:16 vertical, no text, no watermark."
     )
-    with open(reference, "rb") as f:
-        r = client().images.edit(model=s.image_model, image=f, prompt=prompt,
-                                 size="1024x1536", quality=s.image_quality, n=1)
+    files = [open(p, "rb") for _, p in refs]
+    try:
+        r = client().images.edit(model=s.image_model, image=(files if len(files) > 1 else files[0]),
+                                 prompt=prompt, size="1024x1536", quality=s.image_quality, n=1)
+    finally:
+        for f in files:
+            f.close()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(base64.b64decode(r.data[0].b64_json))
 
 
 def _scene_image(local_provider, desc: str, scene: str, out: Path,
-                 engine: str, reference: Path | None) -> Path:
-    """Genera la imagen de una escena de la nave según el motor elegido.
-    Con referencia + OpenAI → la MISMA nave en cada escena (consistente)."""
-    if engine == "openai" and reference and reference.is_file():
-        _openai_edit(reference, scene, out)
-    elif reference and reference.is_file():
-        # Local + IP-Adapter: mantiene la MISMA nave de la referencia (gratis).
+                 engine: str, refs: list) -> Path:
+    """Genera la imagen de una escena de la nave manteniendo la MISMA nave (con
+    1 o varias vistas de referencia). OpenAI → edit; local → IP-Adapter."""
+    paths = [p for _, p in refs]
+    if engine == "openai" and refs:
+        _openai_edit(refs, scene, out)
+    elif refs:
         local_provider.generate(f"{desc}, a {_SCIFI}, {scene}", out,
-                                reference=reference, style=_STYLE, subject=True)
+                                reference=paths, style=_STYLE, subject=True)
     else:
         local_provider.generate(f"{desc}, a {_SCIFI}, {scene}", out, style=_STYLE)
     return out
@@ -232,7 +254,7 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
                    name: str = "", narration_es: str = "", narration_en: str = "",
                    voice_es: str = "", voice_en: str = "", music: str = "",
                    image_engine: str = "local", video_engine: str = "local",
-                   reference: str = "") -> dict:
+                   reference: str = "", references: list | None = None) -> dict:
     """Genera las piezas de Skybot para una nave. Devuelve rutas web /output/.
 
     image_engine: 'local' (ComfyUI) u 'openai' (gpt-image-1; con `reference`
@@ -242,7 +264,15 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     desc = description.strip()
     if not desc:
         raise ValueError("Describe la nave primero.")
-    ref = Path(reference) if reference and Path(reference).is_file() else None
+    # refs: lista ordenada de (vista, ruta) con las vistas que SÍ subiste
+    # (front/left/top/perspective). Compatibilidad: `reference` = una sola.
+    refs: list = []
+    for r in (references or []):
+        p = Path(r.get("path", ""))
+        if r.get("path") and p.is_file():
+            refs.append((r.get("view", "perspective"), p))
+    if not refs and reference and Path(reference).is_file():
+        refs = [("perspective", Path(reference))]
 
     def ev(msg: str) -> None:
         if on_event:
@@ -257,38 +287,41 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     img = get_image_provider("local")
     base = workdir.name
     music_p = _music_path(music)
-    # Si subiste referencia, guárdala como 1ª imagen (es la nave exacta).
-    if ref:
+    # Si subiste vistas de referencia, guárdalas (son la nave exacta).
+    if refs:
         import shutil
-        shutil.copy(ref, workdir / "referencia.png")
+        for v, p in refs:
+            shutil.copy(p, workdir / f"referencia_{v}.png")
 
     def gen(scene: str, fn: str) -> Path:
-        return _scene_image(img, desc, scene, workdir / fn, image_engine, ref)
+        return _scene_image(img, desc, scene, workdir / fn, image_engine, refs)
 
     def clip(image: Path, motion: str, fn: str, loop=False) -> Path:
         return _animate(image, workdir / fn, motion, video_engine, loop, on_event)
 
-    # CONSISTENCIA: si no subiste imagen, genera una nave MAESTRA desde la
+    # CONSISTENCIA: si no subiste ninguna vista, genera una nave MAESTRA desde la
     # descripción y úsala de referencia en TODO (hangar, loop, reveal) → misma nave.
-    if ref is None:
+    if not refs:
         ev("· Imagen maestra de la nave (desde tu descripción)…")
         master = workdir / "ship_master.png"
         _scene_image(img, desc, "full hero shot, the entire spaceship clearly visible, "
-                     "three-quarter angle, neutral dark studio background", master, image_engine, None)
-        ref = master  # gen() y ref_clip() la usan (closures de late-binding)
+                     "three-quarter angle, neutral dark studio background", master, image_engine, [])
+        refs = [("perspective", master)]  # gen()/ref_clip() la usan (late-binding)
+    ref_paths = [p for _, p in refs]
+    vpfx = _view_prefix(refs)  # explica las vistas a Seedance/OpenAI
     sd_ref = (video_engine == "seedance2-ref")
 
-    def ref_clip(prompt: str, fn: str, dur: str) -> Path:
+    def ref_clip(shot: str, fn: str, dur: str) -> Path:
         from .providers.fal_video import seedance_ref2video
         out = workdir / fn
-        seedance_ref2video([ref], out, prompt=prompt, duration=dur, audio=False,
-                           aspect_ratio="9:16", on_event=on_event)
+        seedance_ref2video(ref_paths, out, prompt=f"{vpfx}Show that spaceship: {shot}",
+                           duration=dur, audio=False, aspect_ratio="9:16", on_event=on_event)
         return out
 
     def scene_clip(shot: str, fn: str) -> Path:
         """Un clip de una escena (nave consistente vía referencia)."""
         if sd_ref:
-            return ref_clip(f"@Image1 {shot}, cinematic", fn, "5s")
+            return ref_clip(f"{shot}, cinematic", fn, "5s")
         si = gen(shot, "_" + fn.replace(".mp4", ".png"))
         return clip(si, shot + ", cinematic camera motion, smooth", fn)
 

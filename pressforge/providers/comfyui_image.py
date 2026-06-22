@@ -188,18 +188,30 @@ class ComfyUIImageProvider:
         })
         return nodes
 
-    def _ipadapter(self, prompt: str, ref_name: str, seed: int) -> dict:
-        """IP-Adapter: mantiene el SUJETO de la referencia (nave/objeto) en la
-        escena nueva. Para consistencia de objetos en local (gratis), no caras."""
+    def _ipadapter(self, prompt: str, ref_names: list, seed: int) -> dict:
+        """IP-Adapter: mantiene el SUJETO (nave/objeto) de la(s) referencia(s) en
+        la escena nueva. Si das VARIOS ángulos, los combina (average) → mejor
+        consistencia 3D. Gratis en local; para objetos, no caras."""
         nodes, model, clip, vae = self._base_nodes()
+        # Carga cada referencia y, si hay varias, las une en un batch.
+        img_ref = None
+        for i, name in enumerate(ref_names):
+            lid = f"30{i}"
+            nodes[lid] = {"class_type": "LoadImage", "inputs": {"image": name}}
+            if img_ref is None:
+                img_ref = [lid, 0]
+            else:
+                bid = f"31{i}"
+                nodes[bid] = {"class_type": "ImageBatch", "inputs": {"image1": img_ref, "image2": [lid, 0]}}
+                img_ref = [bid, 0]
         nodes.update({
-            "13": {"class_type": "LoadImage", "inputs": {"image": ref_name}},
             "20": {"class_type": "IPAdapterUnifiedLoader",
                    "inputs": {"model": model, "preset": "PLUS (high strength)"}},
-            "21": {"class_type": "IPAdapter", "inputs": {
-                "model": ["20", 0], "ipadapter": ["20", 1], "image": ["13", 0],
-                "weight": self.ipa_weight, "start_at": 0.0, "end_at": 1.0,
-                "weight_type": "standard"}},
+            "21": {"class_type": "IPAdapterAdvanced", "inputs": {
+                "model": ["20", 0], "ipadapter": ["20", 1], "image": img_ref,
+                "weight": self.ipa_weight, "weight_type": "linear",
+                "combine_embeds": "average", "start_at": 0.0, "end_at": 1.0,
+                "embeds_scaling": "V only"}},
             "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": clip}},
             "7": {"class_type": "CLIPTextEncode", "inputs": {"text": _NEGATIVE, "clip": clip}},
             "5": {"class_type": "EmptyLatentImage", "inputs": {"width": _W, "height": _H, "batch_size": 1}},
@@ -216,12 +228,15 @@ class ComfyUIImageProvider:
         self._style_ov = style  # fuerza un estilo (Skybot) o None = el de la UI
         # El ESTILO va al PRINCIPIO (SDXL pondera más los primeros tokens).
         full = f"{_style_suffix(style)}, {prompt.strip()}, {_QUALITY}"
+        # reference puede ser una ruta o una LISTA de rutas (multi-ángulo).
+        refs = reference if isinstance(reference, (list, tuple)) else ([reference] if reference else [])
+        refs = [Path(r) for r in refs if r and Path(r).is_file()]
         try:
-            if reference and Path(reference).is_file():
-                ref_name = self._upload(Path(reference))
+            if refs:
+                names = [self._upload(r) for r in refs]
                 # subject=True → IP-Adapter (objetos/naves); si no → InstantID (caras).
-                workflow = (self._ipadapter(full, ref_name, seed) if subject
-                            else self._instantid(full, ref_name, seed))
+                workflow = (self._ipadapter(full, names, seed) if subject
+                            else self._instantid(full, names[0], seed))
             else:
                 workflow = self._txt2img(full, seed)
             prompt_id = self._post_prompt(workflow)

@@ -729,16 +729,24 @@ def skybot_generate(payload: dict = Body(...)):
     desc = (payload.get("description") or "").strip()
     if not desc:
         return JSONResponse({"error": "Describe la nave primero."}, status_code=400)
-    # La referencia debe ser un archivo dentro de la carpeta de refs (seguridad).
-    ref = (payload.get("reference") or "").strip()
-    if ref:
-        from ..config import output_path as _op
-        refs_dir = (_op() / "skybot" / "_refs").resolve()
+    # Las referencias deben ser archivos dentro de la carpeta de refs (seguridad).
+    from ..config import output_path as _op
+    refs_dir = (_op() / "skybot" / "_refs").resolve()
+
+    def _safe(p: str) -> str:
         try:
-            if refs_dir not in Path(ref).resolve().parents:
-                ref = ""
+            return p if refs_dir in Path(p).resolve().parents else ""
         except Exception:  # noqa: BLE001
-            ref = ""
+            return ""
+
+    ref = _safe((payload.get("reference") or "").strip())
+    # references: vistas etiquetadas [{view: front|left|top|perspective, path}]
+    references = []
+    for r in (payload.get("references") or []):
+        path = _safe((r.get("path") or "").strip())
+        view = (r.get("view") or "perspective").strip()
+        if path and view in ("front", "left", "top", "perspective"):
+            references.append({"view": view, "path": path})
     opts = {
         "name": (payload.get("name") or "").strip(),
         "narration_es": (payload.get("narration_es") or "").strip(),
@@ -749,6 +757,7 @@ def skybot_generate(payload: dict = Body(...)):
         "image_engine": (payload.get("image_engine") or "local").strip(),
         "video_engine": (payload.get("video_engine") or "local").strip(),
         "reference": ref,
+        "references": references,
     }
     job_id = uuid.uuid4().hex[:12]
     with _lock:
