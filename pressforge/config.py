@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     # end_at: deja de aplicar la cara antes del final → planos más abiertos/variados.
     instantid_weight: float = 0.65
     instantid_end_at: float = 0.7
+    # IP-Adapter: consistencia de OBJETOS/naves (no caras) desde una imagen de
+    # referencia, gratis en local. 0-1: ↑ se parece más a la referencia.
+    ipadapter_weight: float = 0.8
 
     # --- Video LOCAL (animación gratis con LTX-Video en ComfyUI) ---
     comfyui_video_model: str = "ltxv-2b-0.9.8-distilled.safetensors"

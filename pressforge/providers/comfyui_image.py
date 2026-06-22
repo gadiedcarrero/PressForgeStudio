@@ -70,6 +70,7 @@ class ComfyUIImageProvider:
         self.cfg = s.comfyui_cfg
         self.iid_weight = s.instantid_weight
         self.iid_end = s.instantid_end_at
+        self.ipa_weight = s.ipadapter_weight
         self._style_ov: str | None = None  # override de estilo por llamada (Skybot)
         self._client = httpx.Client(timeout=900.0)  # generar en Mac puede tardar
 
@@ -187,9 +188,30 @@ class ComfyUIImageProvider:
         })
         return nodes
 
+    def _ipadapter(self, prompt: str, ref_name: str, seed: int) -> dict:
+        """IP-Adapter: mantiene el SUJETO de la referencia (nave/objeto) en la
+        escena nueva. Para consistencia de objetos en local (gratis), no caras."""
+        nodes, model, clip, vae = self._base_nodes()
+        nodes.update({
+            "13": {"class_type": "LoadImage", "inputs": {"image": ref_name}},
+            "20": {"class_type": "IPAdapterUnifiedLoader",
+                   "inputs": {"model": model, "preset": "PLUS (high strength)"}},
+            "21": {"class_type": "IPAdapter", "inputs": {
+                "model": ["20", 0], "ipadapter": ["20", 1], "image": ["13", 0],
+                "weight": self.ipa_weight, "start_at": 0.0, "end_at": 1.0,
+                "weight_type": "standard"}},
+            "6": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": clip}},
+            "7": {"class_type": "CLIPTextEncode", "inputs": {"text": _NEGATIVE, "clip": clip}},
+            "5": {"class_type": "EmptyLatentImage", "inputs": {"width": _W, "height": _H, "batch_size": 1}},
+            "3": self._sampler(seed, ["21", 0], ["6", 0], ["7", 0]),
+            "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": vae}},
+            "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "pf"}},
+        })
+        return nodes
+
     # ─── Interfaz ImageProvider ───
     def generate(self, prompt: str, out_path: Path, reference: Path | None = None,
-                 style: str | None = None) -> Path:
+                 style: str | None = None, subject: bool = False) -> Path:
         seed = uuid.uuid4().int % (2 ** 32)
         self._style_ov = style  # fuerza un estilo (Skybot) o None = el de la UI
         # El ESTILO va al PRINCIPIO (SDXL pondera más los primeros tokens).
@@ -197,7 +219,9 @@ class ComfyUIImageProvider:
         try:
             if reference and Path(reference).is_file():
                 ref_name = self._upload(Path(reference))
-                workflow = self._instantid(full, ref_name, seed)
+                # subject=True → IP-Adapter (objetos/naves); si no → InstantID (caras).
+                workflow = (self._ipadapter(full, ref_name, seed) if subject
+                            else self._instantid(full, ref_name, seed))
             else:
                 workflow = self._txt2img(full, seed)
             prompt_id = self._post_prompt(workflow)

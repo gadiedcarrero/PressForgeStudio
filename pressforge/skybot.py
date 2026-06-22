@@ -58,8 +58,11 @@ def _scene_image(local_provider, desc: str, scene: str, out: Path,
     Con referencia + OpenAI → la MISMA nave en cada escena (consistente)."""
     if engine == "openai" and reference and reference.is_file():
         _openai_edit(reference, scene, out)
+    elif reference and reference.is_file():
+        # Local + IP-Adapter: mantiene la MISMA nave de la referencia (gratis).
+        local_provider.generate(f"{desc}, a {_SCIFI}, {scene}", out,
+                                reference=reference, style=_STYLE, subject=True)
     else:
-        # Local (ComfyUI): consistencia limitada sin IP-Adapter (fase 2).
         local_provider.generate(f"{desc}, a {_SCIFI}, {scene}", out, style=_STYLE)
     return out
 
