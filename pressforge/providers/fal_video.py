@@ -33,9 +33,13 @@ MODELS = {
 }
 DEFAULT_MODEL = "kling-avatar"
 
-# Modelos imagen → video CON MOVIMIENTO (sin audio); para escenas animadas.
+# Modelos imagen → video CON MOVIMIENTO; para escenas animadas / Skybot.
 I2V_MODELS = {
     "kling-i2v": "fal-ai/kling-video/v2.1/standard/image-to-video",
+    # Seedance (ByteDance): suele dar mejor movimiento/coherencia que Kling.
+    "seedance": "fal-ai/bytedance/seedance/v1/pro/image-to-video",        # 1.0 Pro
+    "seedance-lite": "fal-ai/bytedance/seedance/v1/lite/image-to-video",  # 1.0 Lite (más barato)
+    "seedance2": "bytedance/seedance-2.0/image-to-video",                 # 2.0 (lo último)
 }
 DEFAULT_I2V = "kling-i2v"
 

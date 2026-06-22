@@ -166,7 +166,9 @@
               <option value="still|local">Imagen fija (Ken Burns) · 🖥️ Local — GRATIS</option>
               <option value="still|openai">Imagen fija (Ken Burns) · ☁️ Nube OpenAI — pago</option>
               <option value="animated|local|ltx">Video animado · 🖥️ TODO Local (LTX) — GRATIS (lento)</option>
-              <option value="animated|local|fal">Video animado · fal Kling (imágenes local) — premium pago</option>
+              <option value="animated|local|seedance2">Video animado · 🎬 Seedance 2.0 (fal) — pago, lo mejor</option>
+              <option value="animated|local|seedance">Video animado · 🎬 Seedance 1.0 Pro (fal) — pago</option>
+              <option value="animated|local|kling-i2v">Video animado · 🎬 Kling (fal) — pago</option>
               <option value="talking">Video: presentador 3D que habla (fal) — premium</option>
               <option value="dialogue">Diálogo: cada personaje habla con su voz (Veo) — premium+</option>
             </select>
@@ -411,7 +413,10 @@
               <label class="block text-[12px] mb-1 text-zinc-400">Video</label>
               <select id="skyVidEngine" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="local">🖥️ Local LTX — gratis</option>
-                <option value="fal">🎬 Veo/Kling (fal) — pago, cinematográfico</option>
+                <option value="seedance2">🎬 Seedance 2.0 (fal) — pago, lo mejor</option>
+                <option value="seedance">🎬 Seedance 1.0 Pro (fal) — pago</option>
+                <option value="seedance-lite">🎬 Seedance 1.0 Lite (fal) — pago, barato</option>
+                <option value="kling-i2v">🎬 Kling (fal) — pago</option>
               </select>
             </div>
           </div>
@@ -861,7 +866,7 @@ let CURRENT_JOB = null;  // job en curso (para poder cancelarlo)
 async function produce(sid) {
   const script = collectScript(sid);
   const { fmt, img, vid } = fmtParts();   // formato + origen de imágenes + motor de video
-  const videoModel = fmt === 'animated' ? (vid === 'ltx' ? 'ltx-local' : 'kling-i2v')
+  const videoModel = fmt === 'animated' ? (vid === 'ltx' ? 'ltx-local' : vid)
     : (fmt === 'dialogue' ? $('dialogueEngine').value : $('videoModel').value);
   $('prod').classList.remove('hidden');
   $('prodResult').classList.add('hidden');

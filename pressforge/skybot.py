@@ -65,10 +65,11 @@ def _scene_image(local_provider, desc: str, scene: str, out: Path,
 
 
 def _animate(image: Path, out: Path, motion: str, engine: str, loop: bool, on_event) -> Path:
-    """Anima una imagen base según el motor de video (local LTX o fal Kling/Veo)."""
-    if engine == "fal":
+    """Anima una imagen base según el motor: 'local' (LTX) o un modelo de fal
+    (kling-i2v / seedance / seedance2 …)."""
+    if engine and engine != "local":
         from .providers.fal_video import image_to_video as fal_i2v
-        fal_i2v(image, out, prompt=motion, duration="5", model="kling-i2v", on_event=on_event)
+        fal_i2v(image, out, prompt=motion, duration="5", model=engine, on_event=on_event)
     else:
         from .providers.comfyui_video import image_to_video as ltx_i2v
         ltx_i2v(image, out, prompt=motion, duration="6", loop=loop, on_event=on_event)
