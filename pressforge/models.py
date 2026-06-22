@@ -148,6 +148,7 @@ class Character:
     description: str
     voice: str = ""  # voz (id ElevenLabs / nombre OpenAI) para sus líneas en modo diálogo
     voice_style: str = ""  # descripción de voz fija (para Veo 3, consistencia entre clips)
+    reference: str = ""  # ruta a imagen de referencia (Seedance reference-to-video)
 
 
 @dataclass
@@ -203,7 +204,7 @@ def story_to_dict(story: "Story") -> dict:
         "music_mood": story.music_mood,
         "language": story.language,
         "characters": [{"name": c.name, "description": c.description, "voice": c.voice,
-                        "voice_style": c.voice_style} for c in story.characters],
+                        "voice_style": c.voice_style, "reference": c.reference} for c in story.characters],
         "source_title": story.source_title,
         "source_url": story.source_url,
         "source_date": story.source_date,
@@ -225,7 +226,8 @@ def story_from_dict(d: dict) -> "Story":
     ]
     characters = [
         Character(name=c.get("name", ""), description=c.get("description", ""),
-                  voice=c.get("voice", "") or "", voice_style=c.get("voice_style", "") or "")
+                  voice=c.get("voice", "") or "", voice_style=c.get("voice_style", "") or "",
+                  reference=c.get("reference", "") or "")
         for c in (d.get("characters") or []) if c.get("name")
     ]
     return Story(
