@@ -217,9 +217,16 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     def clip(image: Path, motion: str, fn: str, loop=False) -> Path:
         return _animate(image, workdir / fn, motion, video_engine, loop, on_event)
 
-    # Seedance 2.0 reference-to-video: usa TU nave de referencia (@Image1) →
-    # misma nave en todos los videos, en una sola pasada (multishot).
-    sd_ref = (video_engine == "seedance2-ref" and ref is not None)
+    # Seedance 2.0 reference-to-video: usa la nave de referencia (@Image1) → misma
+    # nave en todos los videos. Si NO subiste imagen, la app genera una maestra
+    # desde la descripción y la usa de referencia.
+    sd_ref = (video_engine == "seedance2-ref")
+    if sd_ref and ref is None:
+        ev("· Imagen maestra de la nave (desde tu descripción)…")
+        master = workdir / "ship_master.png"
+        _scene_image(img, desc, "full hero shot, the entire spaceship clearly visible, "
+                     "three-quarter angle, neutral dark studio background", master, image_engine, None)
+        ref = master  # gen() y ref_clip() la usan (closures de late-binding)
 
     def ref_clip(prompt: str, fn: str, dur: str) -> Path:
         from .providers.fal_video import seedance_ref2video
