@@ -235,6 +235,36 @@ def seedance_dialogue(image_path: Path, out_path: Path, *, prompt: str,
                       poll_timeout=poll_timeout, on_event=on_event)
 
 
+_SEEDANCE2_REF = "bytedance/seedance-2.0/reference-to-video"  # consistencia por refs
+
+
+def seedance_ref2video(image_paths: list, out_path: Path, *, prompt: str,
+                       duration: str = "10s", audio: bool = True,
+                       resolution: str = "720p", aspect_ratio: str = "9:16",
+                       poll_timeout: int = 900, on_event=None) -> Path:
+    """Seedance 2.0 reference-to-video: hasta 9 imágenes de referencia
+    (personajes/naves) que se MANTIENEN consistentes. En el `prompt` se citan como
+    @Image1, @Image2… `generate_audio` añade diálogo con lip-sync + música/efectos."""
+    import re as _re
+    key = resolve_key()
+    if not key:
+        raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
+    urls = [_upload(Path(p), key) for p in image_paths[:9] if p and Path(p).is_file()]
+    if not urls:
+        raise RuntimeError("Necesito al menos una imagen de referencia válida.")
+    dur = max(4, min(15, int(_re.sub(r"[^0-9]", "", str(duration)) or 10)))
+    payload = {
+        "prompt": prompt,
+        "image_urls": urls,
+        "duration": dur,
+        "resolution": resolution,
+        "aspect_ratio": aspect_ratio,
+        "generate_audio": audio,
+    }
+    return _run_model(_SEEDANCE2_REF, payload, out_path,
+                      poll_timeout=poll_timeout, on_event=on_event)
+
+
 def lipsync(video_path: Path, audio_path: Path, out_path: Path, *,
             model: str = DEFAULT_LIPSYNC, poll_timeout: int = 600, on_event=None) -> Path:
     """Sincroniza la boca del rostro principal de un VIDEO ya animado con el audio

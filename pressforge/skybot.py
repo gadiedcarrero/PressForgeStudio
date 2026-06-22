@@ -217,6 +217,17 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     def clip(image: Path, motion: str, fn: str, loop=False) -> Path:
         return _animate(image, workdir / fn, motion, video_engine, loop, on_event)
 
+    # Seedance 2.0 reference-to-video: usa TU nave de referencia (@Image1) →
+    # misma nave en todos los videos, en una sola pasada (multishot).
+    sd_ref = (video_engine == "seedance2-ref" and ref is not None)
+
+    def ref_clip(prompt: str, fn: str, dur: str) -> Path:
+        from .providers.fal_video import seedance_ref2video
+        out = workdir / fn
+        seedance_ref2video([ref], out, prompt=prompt, duration=dur, audio=False,
+                           aspect_ratio="9:16", on_event=on_event)
+        return out
+
     # ── 1. Imágenes de la nave en el hangar (2 variantes para elegir) ──
     ev("1/4 · Imágenes de la nave en el hangar…")
     images = []
@@ -226,30 +237,44 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
 
     # ── 2. Loop perfecto: la nave volando en el espacio ──
     ev("2/4 · Loop espacio (sin costuras)…")
-    space = gen("flying through deep space among floating asteroids and meteorites, "
-                "stars and colorful nebula background, dynamic cinematic angle", "_space.png")
     raw_loop = workdir / "_loop_raw.mp4"
-    clip(space, "the spaceship flies forward through the asteroid field, meteorites "
-                "drifting past, engine glow, smooth cinematic motion", "_loop_raw.mp4")
+    if sd_ref:
+        ref_clip("@Image1 the same spaceship flying forward through a dense asteroid field, "
+                 "meteorites drifting past, engine glow, smooth cinematic motion, deep space, nebula",
+                 "_loop_raw.mp4", "6s")
+    else:
+        space = gen("flying through deep space among floating asteroids and meteorites, "
+                    "stars and colorful nebula background, dynamic cinematic angle", "_space.png")
+        clip(space, "the spaceship flies forward through the asteroid field, meteorites "
+                    "drifting past, engine glow, smooth cinematic motion", "_loop_raw.mp4")
     _seamless_loop(raw_loop, workdir / "space_loop.mp4")
     raw_loop.unlink(missing_ok=True)
 
-    # ── 3. Secuencia del reveal (intro: puertas+humo+salida · ángulos extra) ──
+    # ── 3. Reveal (puertas+humo+salida · ángulos extra) ──
     ev("3/4 · Secuencia de presentación (puertas → humo → la nave sale)…")
-    door_img = gen("inside a massive futuristic hangar with huge closed bay doors, "
-                   "thick smoke and darkness, dramatic volumetric light at the edges", "_door.png")
-    intro = [
-        clip(door_img, "the giant hangar bay doors slowly slide open revealing only thick "
-                       "smoke and darkness inside, dramatic light beams, cinematic", "_c0.mp4"),
-        clip(door_img, "the spaceship slowly emerges from the smoke and darkness of the hangar, "
-                       "moving forward toward the camera, cinematic reveal", "_c1.mp4"),
-    ]
-    a1 = gen("flying in space, slow cinematic orbit, low dramatic angle, stars behind", "_a1.png")
-    a2 = gen("flying in space, side profile tracking shot, engine glow, nebula behind", "_a2.png")
-    angles = [
-        clip(a1, "slow cinematic orbit around the spaceship, smooth camera motion", "_a1.mp4"),
-        clip(a2, "smooth tracking shot following the spaceship from the side, cinematic", "_a2.mp4"),
-    ]
+    if sd_ref:  # multishot en UNA generación, nave consistente
+        seq = ref_clip(
+            "Cinematic multi-shot sci-fi sequence. Shot 1: a massive futuristic hangar with "
+            "huge bay doors slowly opening, only thick smoke and darkness inside, dramatic "
+            "light beams. Shot 2: @Image1 the same spaceship slowly emerges from the smoke and "
+            "darkness, moving forward toward the camera. Shot 3: @Image1 from a dramatic slow "
+            "orbit angle, flying in deep space with stars and nebula.", "_reveal_seq.mp4", "12s")
+        intro, angles = [seq], [seq]
+    else:
+        door_img = gen("inside a massive futuristic hangar with huge closed bay doors, "
+                       "thick smoke and darkness, dramatic volumetric light at the edges", "_door.png")
+        intro = [
+            clip(door_img, "the giant hangar bay doors slowly slide open revealing only thick "
+                           "smoke and darkness inside, dramatic light beams, cinematic", "_c0.mp4"),
+            clip(door_img, "the spaceship slowly emerges from the smoke and darkness of the hangar, "
+                           "moving forward toward the camera, cinematic reveal", "_c1.mp4"),
+        ]
+        a1 = gen("flying in space, slow cinematic orbit, low dramatic angle, stars behind", "_a1.png")
+        a2 = gen("flying in space, side profile tracking shot, engine glow, nebula behind", "_a2.png")
+        angles = [
+            clip(a1, "slow cinematic orbit around the spaceship, smooth camera motion", "_a1.mp4"),
+            clip(a2, "smooth tracking shot following the spaceship from the side, cinematic", "_a2.mp4"),
+        ]
 
     title = (name or "").strip()
     result = {
