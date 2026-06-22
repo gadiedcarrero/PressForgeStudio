@@ -562,7 +562,7 @@ def produce_dialogue_reel(
       2+ personajes; las voces las pone Veo). Más caro.
     - 'omnihuman': la voz de cada personaje (ElevenLabs) + OmniHuman anima al que
       habla (ideal cuando habla UNO por escena; más barato)."""
-    from .providers.fal_video import talking_avatar, veo3_dialogue
+    from .providers.fal_video import seedance_dialogue, talking_avatar, veo3_dialogue
     from .providers.ffmpeg_render import aligned_voice, concat_audio, extract_audio
     from .providers.elevenlabs_voice import ElevenLabsVoiceProvider
 
@@ -614,7 +614,9 @@ def produce_dialogue_reel(
     # personaje → misma voz en todo el reel). Veo genera SOLO el video (sin audio),
     # moviendo los labios con la línea; luego se monta la voz de ElevenLabs encima.
     n = len(story.scenes)
-    label = "Veo 3 (video) + ElevenLabs" if engine == "veo3" else "OmniHuman + ElevenLabs"
+    _DLG_LABEL = {"veo3": "Veo 3 (video) + ElevenLabs",
+                  "seedance2": "Seedance 2.0 (video) + ElevenLabs"}
+    label = _DLG_LABEL.get(engine, "OmniHuman + ElevenLabs")
     step(f"[bold cyan]1-2/4[/] Imágenes + {label} por escena (fal, tarda)…",
          f"1-2/4 · Imágenes + {label} por escena (puede tardar)…")
 
@@ -643,10 +645,11 @@ def produce_dialogue_reel(
                      characters=chars_in, speaker=sc.speaker, image_path=img)
         try:
             v = char_voice.get(sc.speaker) or voice or None
-            if engine == "veo3":
-                # Veo genera el video CON su audio (sabe hablar). Luego: transcribimos
-                # los TIEMPOS del habla de Veo y generamos la voz de ElevenLabs ajustada
-                # a esos tiempos → voz consistente sincronizada con los labios de Veo.
+            if engine in ("veo3", "seedance2"):
+                # El motor (Veo 3 o Seedance 2.0) genera el video CON su audio (sabe
+                # hablar). Luego transcribimos los TIEMPOS del habla y generamos la voz
+                # de ElevenLabs ajustada a esos tiempos → voz consistente y sincronizada.
+                dialogue_fn = veo3_dialogue if engine == "veo3" else seedance_dialogue
                 others = [c for c in chars_in if c != sc.speaker]
                 others_txt = (f" {', '.join(others)} listens silently with mouth closed, "
                               f"reacting with gestures." if others else "")
@@ -662,11 +665,11 @@ def produce_dialogue_reel(
                     f"{sc.speaker} speaks a line in {lang_name}, talking to another person. "
                     f"3D animated movie style, expressive face, natural lip movement.")
                 try:
-                    veo3_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                    dialogue_fn(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
                 except Exception:  # noqa: BLE001
                     if on_event:
-                        on_event(f"    · Veo reintenta con prompt simple…")
-                    veo3_dialogue(img, clip, prompt=simple_prompt, duration=dur, audio=True, on_event=on_event)
+                        on_event("    · reintento con prompt simple…")
+                    dialogue_fn(img, clip, prompt=simple_prompt, duration=dur, audio=True, on_event=on_event)
                 clip_dur = ffprobe_duration(clip)
                 # tiempos del habla de Veo
                 veo_audio = workdir / "audio" / f"veo_{ui:02d}.mp3"

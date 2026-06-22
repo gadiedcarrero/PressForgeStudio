@@ -210,6 +210,31 @@ def veo3_dialogue(image_path: Path, out_path: Path, *, prompt: str,
                       poll_timeout=poll_timeout, on_event=on_event)
 
 
+_SEEDANCE2_I2V = "bytedance/seedance-2.0/image-to-video"  # i2v con audio + lip-sync
+
+
+def seedance_dialogue(image_path: Path, out_path: Path, *, prompt: str,
+                      duration: str = "8s", audio: bool = True,
+                      poll_timeout: int = 900, on_event=None) -> Path:
+    """Seedance 2.0 imagen→video con `generate_audio`: genera audio sincronizado
+    incluyendo lip-synced speech (habla). Misma idea que veo3_dialogue."""
+    import re as _re
+    key = resolve_key()
+    if not key:
+        raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
+    dur = max(4, min(15, int(_re.sub(r"[^0-9]", "", str(duration)) or 8)))
+    payload = {
+        "image_url": _upload(image_path, key),
+        "prompt": prompt,
+        "duration": dur,
+        "aspect_ratio": "9:16",
+        "resolution": "720p",
+        "generate_audio": audio,
+    }
+    return _run_model(_SEEDANCE2_I2V, payload, out_path,
+                      poll_timeout=poll_timeout, on_event=on_event)
+
+
 def lipsync(video_path: Path, audio_path: Path, out_path: Path, *,
             model: str = DEFAULT_LIPSYNC, poll_timeout: int = 600, on_event=None) -> Path:
     """Sincroniza la boca del rostro principal de un VIDEO ya animado con el audio
