@@ -102,6 +102,21 @@ def _req(url: str, *, key: str, data: bytes | None = None, method: str = "GET") 
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:  # fal devolvió un código de error
+        body = ""
+        try:
+            body = exc.read().decode("utf-8")[:300]
+        except Exception:  # noqa: BLE001
+            pass
+        if exc.code in (401, 403):
+            raise RuntimeError(
+                "fal rechazó la petición (403/401): tu fal API Key es inválida o no "
+                "tiene acceso/saldo para este modelo. Revísala en Ajustes → API Keys "
+                f"(saca una nueva en fal.ai/dashboard/keys). Detalle: {body}") from exc
+        if exc.code == 404:
+            raise RuntimeError(
+                f"fal: modelo no encontrado (404). El id puede haber cambiado. {body}") from exc
+        raise RuntimeError(f"fal error HTTP {exc.code}: {body}") from exc
     except urllib.error.URLError as exc:  # fallback TLS (reloj desfasado)
         if isinstance(getattr(exc, "reason", None), ssl.SSLError):
             ctx = ssl.create_default_context()
