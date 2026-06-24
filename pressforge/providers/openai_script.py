@@ -256,6 +256,49 @@ gestos del cuerpo (asiente, se cruza de brazos, usa el móvil…) — NUNCA con 
 abierta como si hablara (así solo se anima al que habla). `music_mood` acorde.""" + _CHARACTER_DOCTRINE
 
 
+_DIRECTOR_SYSTEM = """Eres un DIRECTOR de cine y prompt-engineer experto en \
+generación de video con IA (estilo Dreamina/Seedance). Escribes la dirección EN \
+INGLÉS (los diálogos en {language}).
+
+Tu trabajo: convertir un brief en un GUION DE RODAJE ultra-detallado y CONSISTENTE, \
+del que un modelo de video saca tomas que parecen de un cortometraje real. El \
+secreto de la calidad NO es el modelo: es el DETALLE y la CONSISTENCIA. Por eso:
+
+1. ENTIDADES (lo más importante): identifica a cada personaje, criatura, PROP \
+clave (un cuchillo, un dragón, un parasol…) y escenario, y dale una `description` \
+visual FIJA, hiper-detallada y reutilizable EN INGLÉS (forma, materiales, colores, \
+marcas, textura; para personas: cara, etnia, ojos, pelo, edad — SIN ropa, que \
+cambia). Esa misma descripción se repite en CADA toma donde aparece → así sale \
+idéntica siempre.
+
+VOZ (clave para el lip-sync oficial consistente): a cada personaje que habla, \
+dale un `voice_style` DETALLADO y DISTINTIVO EN INGLÉS — no "male voice", sino algo \
+como "sophisticated British accent, cold aristocratic, clipped, low measured" o "a \
+gravelly older male voice, slow and menacing". Esa MISMA descripción de voz se \
+repite IDÉNTICA en cada toma donde habla el personaje: así el modelo mantiene la \
+voz EXACTA entre tomas y hace lip-sync nativo (sin audio postizo). Cada personaje, \
+una voz claramente diferente.
+
+2. TOMAS con dirección COMPLETA. Para cada `shot`:
+   - `action`: qué se VE, concreto y atmosférico, referenciando entidades por nombre.
+   - `camera`: encuadre (wide/medium/close), lente (35/50/85mm), altura, ángulo, \
+movimiento (slow push in, dolly, tracking, static) y bloqueo de los sujetos.
+   - `entities`: qué entidades aparecen en la toma.
+   - `continuity`: mantén la DIRECCIÓN DE PANTALLA coherente (si la nave entra por \
+la izquierda, siempre por la izquierda; "geography never flips"); arrastra cambios \
+de vestuario/estado del plano anterior; planifica revelaciones (voz antes que cara, \
+revelar al personaje en su última línea, etc.).
+
+3. DIÁLOGO (si lo hay): `speaker` = quién habla (exacto), `line` = sus palabras \
+EXACTAS en {language}. El que habla mira a cámara con la boca hablando; el que \
+escucha, de perfil/tres cuartos con la boca CERRADA. Una toma por línea.
+
+4. `look` global: film stock/grano, paleta, contraste, mood, calidad — se repite en \
+todo. `aspect_ratio` coherente. `music_mood` acorde.
+
+No incluyas texto en pantalla. Sé específico y cinematográfico, nunca genérico."""
+
+
 class OpenAIScriptProvider:
     def __init__(self, client_obj=None, model: str | None = None) -> None:
         self.settings = get_settings()
@@ -366,6 +409,38 @@ class OpenAIScriptProvider:
         story = self._dialogue_to_story(draft)
         story.language = lang
         return story
+
+    def direct(self, brief: str, *, shots: int = 6, dialogue: bool = False,
+               language: str | None = None, extra: str | None = None):
+        """Modo Director: genera un guion de rodaje detallado (entidades + tomas con
+        dirección cinematográfica) estilo Dreamina-Octo. Devuelve un DirectorScript."""
+        from ..director import DirectorScript
+        lang = language or self.settings.language
+        mode = ("Es una escena de DIÁLOGO: reparte las líneas en tomas (una por línea), "
+                "con speaker y line verbatim." if dialogue else
+                "Es una pieza con narración/acción: tomas visuales que cubran el brief, "
+                "sin diálogo (deja speaker/line vacíos) salvo que el brief lo pida.")
+        user = (
+            f"BRIEF:\n\"\"\"\n{brief.strip()}\n\"\"\"\n\n{mode}\n"
+            f"Apunta a ~{shots} tomas (ajusta según el brief). Define TODAS las "
+            f"entidades (personajes, props, escenarios) con apariencia fija. "
+            f"Diálogos en {lang}.\n"
+        )
+        if extra:
+            user += f"Indicaciones extra: {extra}\n"
+        completion = self._client.beta.chat.completions.parse(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": _DIRECTOR_SYSTEM.format(language=lang)},
+                {"role": "user", "content": user},
+            ],
+            response_format=DirectorScript,
+            temperature=0.7,
+        )
+        draft = completion.choices[0].message.parsed
+        if draft is None:
+            raise RuntimeError("El modelo no devolvió un guion de director válido.")
+        return draft
 
     @staticmethod
     def _dialogue_to_story(draft: "DialogueDraft") -> Story:
