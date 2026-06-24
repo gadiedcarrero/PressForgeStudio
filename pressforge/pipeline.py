@@ -236,6 +236,7 @@ def generate_stories(
     dialogue: bool = False,
     language: str | None = None,
     script_provider: str | None = None,
+    director: bool = False,
 ) -> list[Story]:
     """Devuelve una o varias propuestas de guion según el modo, para que el
     usuario elija/edite antes de producir.
@@ -249,6 +250,16 @@ def generate_stories(
     tw = duration_target_words(duration)
     eff = scenes if (scenes and scenes > 0) else auto_scene_count(
         mode=mode, user_script=user_script, expected_words=tw, free=free)
+
+    # Modo Director: guion de rodaje cinematográfico (entidades + tomas) → Story.
+    if director:
+        from .director import director_to_story
+        brief = (user_script or niche or "").strip()
+        if not brief:
+            raise ValueError("El Modo Director necesita un brief o guion.")
+        ds = get_script_provider(script_provider).direct(
+            brief, shots=eff, dialogue=dialogue, language=language, extra=extra)
+        return [director_to_story(ds, language=language)]
 
     if mode == "mine":
         if not user_script or not user_script.strip():

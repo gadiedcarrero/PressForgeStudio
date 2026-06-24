@@ -448,6 +448,7 @@ def create_scripts(payload: dict = Body(...)):
                 mode=mode, niche=niche, scenes=scenes, extra=extra,
                 user_script=user_script, count=count, duration=duration,
                 dialogue=dialogue, language=lang, script_provider=script_provider,
+                director=bool(payload.get("director")),
             )
         except Exception as exc:  # noqa: BLE001
             return JSONResponse({"error": str(exc)}, status_code=400)

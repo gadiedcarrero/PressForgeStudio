@@ -118,3 +118,36 @@ def build_shot_prompt(script: DirectorScript, shot: DirectorShot, *,
         parts.append(f'[DIALOGUE] {shot.speaker} says, lip-synced: "{shot.line.strip()}"{voice}')
     parts.append("No on-screen text, no watermark, no captions.")
     return "\n".join(parts)
+
+
+def director_to_story(script: DirectorScript, *, language: str | None = None):
+    """Convierte un DirectorScript en un Story para reusar el pipeline existente.
+
+    Cada toma → escena: `narration` = la línea hablada (diálogo) y `image_prompt` =
+    el prompt rico ensamblado (entidades + cámara + continuidad). Las entidades de
+    tipo personaje → characters con su voice_style fijo."""
+    from .models import Character, Scene, Story
+
+    chars = [Character(name=e.name.strip(), description=e.description.strip(),
+                       voice_style=(e.voice_style or "").strip())
+             for e in script.entities
+             if _kind_tag(e.kind) == "CHARACTER" and e.name.strip() and e.description.strip()]
+    names = {c.name for c in chars}
+    has_dialogue = any(s.speaker.strip() and s.line.strip() for s in script.shots)
+    scenes = []
+    for i, sh in enumerate(script.shots):
+        spk = sh.speaker.strip() if sh.speaker.strip() in names else ""
+        scenes.append(Scene(
+            index=i,
+            narration=(sh.line.strip() if (spk and sh.line.strip()) else ""),
+            image_prompt=build_shot_prompt(script, sh, with_dialogue=has_dialogue),
+            characters=[n for n in (sh.entities or []) if n in names],
+            speaker=spk,
+        ))
+    return Story(
+        niche="Director", title=script.title or "Director",
+        hook=scenes[0].narration if scenes else "",
+        cta=scenes[-1].narration if scenes else "",
+        music_mood=script.music_mood or "", characters=chars, scenes=scenes,
+        language=language or "Spanish",
+    )

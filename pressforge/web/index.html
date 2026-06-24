@@ -171,6 +171,7 @@
               <option value="animated|local|kling-i2v">Video animado · 🎬 Kling (fal) — pago</option>
               <option value="talking">Video: presentador 3D que habla (fal) — premium</option>
               <option value="dialogue">Diálogo: cada personaje habla con su voz (Veo) — premium+</option>
+              <option value="director">🎬 Modo Director: entidades + cámara cinematográfica (Dreamina) · la IA genera todos los detalles · voz seleccionable</option>
             </select>
             <p class="text-[11px] text-zinc-600 mb-2"><b>Local</b> = imágenes GRATIS en tu Mac (abre antes ComfyUI con run_comfyui.command). <b>Nube</b> = OpenAI, de pago, sin abrir nada. El <b>Estilo visual</b> (abajo) decide cómo se ven.</p>
 
@@ -583,9 +584,12 @@ $('genBtn').addEventListener('click', async () => {
   // Histórico / Efemérides / Curiosidades: primero BUSCAR (sin IA), luego el usuario elige.
   if (MODE === 'historic' || MODE === 'onthisday' || MODE === 'reddit') return searchCandidates();
 
+  const _dir = fmtParts().director;
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
                     niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value,
-                    duration: $('duration').value, dialogue: (MODE === 'mine' && $('dialogueChk').checked),
+                    duration: $('duration').value,
+                    dialogue: (_dir || (MODE === 'mine' && $('dialogueChk').checked)),
+                    director: _dir,
                     language: $('language').value,
                     script_provider: ($('scriptProvider')||{}).value || '' };
   if (MODE === 'invent' && !payload.niche.trim()) { $('niche').focus(); return; }
@@ -852,7 +856,8 @@ function onDialogueEngine(){
   if (SCRIPTS.length) renderScripts();  // mostrar/ocultar voz por personaje según motor
 }
 function dialogueMode(){
-  return $('dialogueChk').checked && fmtParts().fmt === 'dialogue';
+  const p = fmtParts();
+  return p.fmt === 'dialogue' && (p.director || ($('dialogueChk').checked && MODE === 'mine'));
 }
 // Motor de diálogo actual y si requiere elegir voz (Seedance genera la suya).
 function dlgEngine(){ return dialogueMode() ? $('dialogueEngine').value : ''; }
@@ -861,18 +866,26 @@ function dlgUsesVoice(){ const e = dlgEngine(); return !!e && !e.startsWith('see
 // El menú Formato codifica formato + origen de imágenes: "still|local", "still|openai",
 // "animated|local"… (talking/dialogue no llevan sufijo). Esto lo separa.
 function fmtParts(){
-  const parts = ($('format').value || 'still').split('|');
-  return { fmt: parts[0], img: parts[1] || '', vid: parts[2] || '' };
+  const raw = $('format').value || 'still';
+  // 'director' se produce por el mismo camino que 'dialogue' (diálogo+Seedance),
+  // pero al generar se marca director=true para usar el guion de rodaje.
+  const parts = (raw === 'director' ? 'dialogue' : raw).split('|');
+  return { fmt: parts[0], img: parts[1] || '', vid: parts[2] || '', director: raw === 'director' };
 }
 
 function onFormatChange(){
-  const f = fmtParts().fmt;
+  const p = fmtParts(); const f = p.fmt; const dlg = f === 'dialogue';
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
-  $('animatedNote').classList.toggle('hidden', f !== 'animated' && f !== 'dialogue');
-  $('dialogueEngineWrap').classList.toggle('hidden', f !== 'dialogue');
-  $('voiceSection').classList.toggle('hidden', f === 'dialogue');
+  $('animatedNote').classList.toggle('hidden', f !== 'animated' && !dlg);
+  $('dialogueEngineWrap').classList.toggle('hidden', !dlg);
+  $('voiceSection').classList.toggle('hidden', dlg);
+  // En diálogo/director la duración e imágenes las marca el guion de rodaje.
+  $('field-duration').classList.toggle('hidden', dlg);
+  $('field-imgcount').classList.toggle('hidden', dlg);
+  $('dialogueDurNote').classList.toggle('hidden', !dlg);
   if (SCRIPTS.length) renderScripts();
-  if (f === 'dialogue') $('animatedNote').textContent = 'Diálogo: la VOZ la pone ElevenLabs (la misma en todo el reel, tú la eliges por personaje en la tarjeta) y el VIDEO lo pone Veo 3 / OmniHuman. Solo habla el del turno. Es lo más caro (~$0.9–1.2/escena) · empieza con un diálogo CORTO.';
+  if (p.director) $('animatedNote').textContent = '🎬 Modo Director: la IA arma un guion de rodaje (entidades fijas + cámara + continuidad estilo Dreamina). La VOZ la eliges abajo: Seedance = lip-sync nativo consistente (voz por el voice_style) · Veo = voz ElevenLabs. Mejor con Seedance.';
+  else if (dlg) $('animatedNote').textContent = 'Diálogo: la VOZ la pone ElevenLabs (la misma en todo el reel, tú la eliges por personaje en la tarjeta) y el VIDEO lo pone Veo 3 / OmniHuman. Solo habla el del turno. Es lo más caro (~$0.9–1.2/escena) · empieza con un diálogo CORTO.';
   else if (f === 'animated') $('animatedNote').textContent = 'Cada escena se anima con movimiento (Kling) y la voz va en off. ~$0.25 por escena. Requiere tu fal API Key. Prueba con guion corto.';
 }
 
