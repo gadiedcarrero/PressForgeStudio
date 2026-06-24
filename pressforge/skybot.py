@@ -254,7 +254,8 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
                    name: str = "", narration_es: str = "", narration_en: str = "",
                    voice_es: str = "", voice_en: str = "", music: str = "",
                    image_engine: str = "local", video_engine: str = "local",
-                   reference: str = "", references: list | None = None) -> dict:
+                   reference: str = "", references: list | None = None,
+                   director: bool = False) -> dict:
     """Genera las piezas de Skybot para una nave. Devuelve rutas web /output/.
 
     image_engine: 'local' (ComfyUI) u 'openai' (gpt-image-1; con `reference`
@@ -355,7 +356,21 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
     narr = narration_es.strip() or narration_en.strip()
     clip_len = 5.0 if (sd_ref or video_engine == "fal") else 2.3
     n_sc = max(2, min(9, int(target / clip_len) + 1))
-    shots = _reveal_shots(narr, desc, n_sc)
+    shots = None
+    if director:  # Modo Director: dirección cinematográfica por toma (Dreamina-Octo)
+        from .director import build_shot_prompt
+        ev("· Modo Director: guion de rodaje de la nave…")
+        brief = (f"Cinematic reveal of a spaceship. Main entity (keep IDENTICAL every "
+                 f"shot): the spaceship — {desc}. Build a hangar-to-space reveal that "
+                 f"covers this narration: {narr or 'a dramatic doors-open reveal then flight'}")
+        try:
+            ds = get_script_provider().direct(brief, shots=n_sc, dialogue=False,
+                                              extra="VERTICAL 9:16 format (use aspect_ratio '9:16 vertical').")
+            shots = [build_shot_prompt(ds, s, with_dialogue=False) for s in ds.shots] or None
+        except Exception:  # noqa: BLE001 — si falla, secuencia normal
+            shots = None
+    if not shots:
+        shots = _reveal_shots(narr, desc, n_sc)
     ev(f"3/4 · {len(shots)} escenas de presentación (cubren la narración)…")
     seq_clips = [scene_clip(sh, f"_rv{i}.mp4") for i, sh in enumerate(shots)]
 

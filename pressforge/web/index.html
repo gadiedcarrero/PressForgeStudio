@@ -424,6 +424,11 @@
             </div>
           </div>
 
+          <label class="flex items-center gap-2 mb-3 cursor-pointer">
+            <input type="checkbox" id="skyDirector" class="accent-indigo-500" />
+            <span class="text-[13px] text-zinc-300">🎬 Modo Director <span class="text-zinc-600">— dirección cinematográfica por toma (cámara, continuidad) estilo Dreamina. La IA genera todos los detalles. Mejor con Seedance.</span></span>
+          </label>
+
           <label class="block text-[12px] mb-1 text-zinc-400">Vistas de referencia de la nave <span class="text-zinc-600">(opcional · sube las que tengas para máxima consistencia · si no subes nada, la app la genera de tu descripción)</span></label>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="skyRefGrid"></div>
           <p class="text-[11px] text-zinc-600 mt-1">Cuantas más vistas des (frontal, lateral, superior, perspectiva), mejor reproduce la misma nave en todos los ángulos.</p>
@@ -1007,6 +1012,7 @@ async function generateSkybot(){
     voice_es:$('skyVoiceEs').value, voice_en:$('skyVoiceEn').value,
     music:$('skyMusic').value,
     image_engine:$('skyImgEngine').value, video_engine:$('skyVidEngine').value,
+    director: $('skyDirector').checked,
     references: SKY_VIEWS.map(([v])=>v).filter(v=>SKY_REFS[v]).map(v=>({view:v, path:SKY_REFS[v]})) };
   const r = await fetch('/api/skybot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j = await r.json();

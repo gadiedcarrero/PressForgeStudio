@@ -758,6 +758,7 @@ def skybot_generate(payload: dict = Body(...)):
         "video_engine": (payload.get("video_engine") or "local").strip(),
         "reference": ref,
         "references": references,
+        "director": bool(payload.get("director")),
     }
     job_id = uuid.uuid4().hex[:12]
     with _lock:
