@@ -661,8 +661,8 @@ def produce_dialogue_reel(
                      characters=chars_in, speaker=sc.speaker, image_path=img)
         try:
             v = char_voice.get(sc.speaker) or voice or None
-            if engine in ("veo3", "seedance2", "seedance2-ref"):
-                seedance = engine in ("seedance2", "seedance2-ref")
+            if engine in ("veo3", "seedance2", "seedance2-ref", "seedance25", "seedance25-ref"):
+                seedance = engine.startswith("seedance")
                 others = [c for c in chars_in if c != sc.speaker]
                 others_txt = (f" {', '.join(others)} listens silently with mouth closed, "
                               f"reacting with gestures." if others else "")
@@ -676,7 +676,7 @@ def produce_dialogue_reel(
                     f"{sc.speaker} speaks a line in {lang_name}, talking to another person. "
                     f"3D animated movie style, expressive face, natural lip movement.")
                 # ── 1) generar el clip CON audio según el motor ──
-                if engine == "seedance2-ref":
+                if engine in ("seedance2-ref", "seedance25-ref"):
                     # Personajes con IMAGEN DE REFERENCIA (subida o máster generado),
                     # citados como @ImageN → Seedance los mantiene consistentes.
                     pairs = [(rp, c) for c in chars_in
@@ -686,17 +686,20 @@ def produce_dialogue_reel(
                         ref_prompt = (f"{who}. Keep each character EXACTLY like their reference "
                                       f"image (same face, hair, outfit). {veo_prompt}")
                         seedance_ref2video([p for p, _ in pairs], clip, prompt=ref_prompt,
-                                           duration=dur, audio=True, on_event=on_event)
+                                           duration=dur, audio=True, model=engine, on_event=on_event)
                     else:
-                        seedance_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                        seedance_dialogue(img, clip, prompt=veo_prompt, duration=dur, audio=True,
+                                          model=engine, on_event=on_event)
                 else:
+                    # seedance2/seedance25 (i2v con audio) o veo3; con reintento simple.
+                    kw = {"model": engine} if seedance else {}
                     dialogue_fn = veo3_dialogue if engine == "veo3" else seedance_dialogue
                     try:
-                        dialogue_fn(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event)
+                        dialogue_fn(img, clip, prompt=veo_prompt, duration=dur, audio=True, on_event=on_event, **kw)
                     except Exception:  # noqa: BLE001
                         if on_event:
                             on_event("    · reintento con prompt simple…")
-                        dialogue_fn(img, clip, prompt=simple_prompt, duration=dur, audio=True, on_event=on_event)
+                        dialogue_fn(img, clip, prompt=simple_prompt, duration=dur, audio=True, on_event=on_event, **kw)
                 clip_dur = ffprobe_duration(clip)
                 # ── 2) audio: Seedance usa SU VOZ NATIVA; Veo 3 monta ElevenLabs sincronizado ──
                 if seedance:

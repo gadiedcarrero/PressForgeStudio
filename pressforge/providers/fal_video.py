@@ -39,7 +39,10 @@ I2V_MODELS = {
     # Seedance (ByteDance): suele dar mejor movimiento/coherencia que Kling.
     "seedance": "fal-ai/bytedance/seedance/v1/pro/image-to-video",        # 1.0 Pro
     "seedance-lite": "fal-ai/bytedance/seedance/v1/lite/image-to-video",  # 1.0 Lite (más barato)
-    "seedance2": "bytedance/seedance-2.0/image-to-video",                 # 2.0 (lo último)
+    "seedance2": "bytedance/seedance-2.0/image-to-video",                 # 2.0
+    # Seedance 2.5 (anunciado 23-jun-2026, early access ~julio): 30s, 4K, 50 refs.
+    # PLACEHOLDER — confirma/actualiza el id cuando fal lo publique.
+    "seedance25": "bytedance/seedance-2.5/image-to-video",
 }
 DEFAULT_I2V = "kling-i2v"
 
@@ -225,19 +228,28 @@ def veo3_dialogue(image_path: Path, out_path: Path, *, prompt: str,
                       poll_timeout=poll_timeout, on_event=on_event)
 
 
-_SEEDANCE2_I2V = "bytedance/seedance-2.0/image-to-video"  # i2v con audio + lip-sync
+# i2v con audio + lip-sync. Topes por versión (2.5: 30s; placeholder hasta julio).
+SEEDANCE_I2V_MODELS = {
+    "seedance2": {"id": "bytedance/seedance-2.0/image-to-video", "max_dur": 15},
+    "seedance25": {"id": "bytedance/seedance-2.5/image-to-video", "max_dur": 30},
+}
+DEFAULT_DIALOGUE_MODEL = "seedance2"
 
 
 def seedance_dialogue(image_path: Path, out_path: Path, *, prompt: str,
                       duration: str = "8s", audio: bool = True,
+                      model: str = DEFAULT_DIALOGUE_MODEL,
                       poll_timeout: int = 900, on_event=None) -> Path:
-    """Seedance 2.0 imagen→video con `generate_audio`: genera audio sincronizado
-    incluyendo lip-synced speech (habla). Misma idea que veo3_dialogue."""
+    """Seedance imagen→video con `generate_audio`: genera audio sincronizado
+    incluyendo lip-synced speech (habla). Misma idea que veo3_dialogue. El `model`
+    elige 2.0 (15s) o 2.5 (30s) → topes desde SEEDANCE_I2V_MODELS."""
     import re as _re
+    caps = SEEDANCE_I2V_MODELS.get(str(model).replace("-ref", ""),
+                                   SEEDANCE_I2V_MODELS[DEFAULT_DIALOGUE_MODEL])
     key = resolve_key()
     if not key:
         raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
-    dur = max(4, min(15, int(_re.sub(r"[^0-9]", "", str(duration)) or 8)))
+    dur = max(4, min(caps["max_dur"], int(_re.sub(r"[^0-9]", "", str(duration)) or 8)))
     payload = {
         "image_url": _upload(image_path, key),
         "prompt": prompt,
@@ -246,28 +258,43 @@ def seedance_dialogue(image_path: Path, out_path: Path, *, prompt: str,
         "resolution": "720p",
         "generate_audio": audio,
     }
-    return _run_model(_SEEDANCE2_I2V, payload, out_path,
+    return _run_model(caps["id"], payload, out_path,
                       poll_timeout=poll_timeout, on_event=on_event)
 
 
-_SEEDANCE2_REF = "bytedance/seedance-2.0/reference-to-video"  # consistencia por refs
+# Capacidades por versión de reference-to-video. Para activar Seedance 2.5 cuando
+# fal lo publique (~julio 2026): confirma el `id` real y, si hace falta, ajusta
+# max_refs/max_dur/resolutions. El resto del código ya lo respeta automáticamente.
+SEEDANCE_REF_MODELS = {
+    "seedance2-ref": {"id": "bytedance/seedance-2.0/reference-to-video",
+                      "max_refs": 9, "max_dur": 15},
+    # PLACEHOLDER — 2.5: 50 refs, 30s, hasta 4K. Cambia solo el id al salir.
+    "seedance25-ref": {"id": "bytedance/seedance-2.5/reference-to-video",
+                       "max_refs": 50, "max_dur": 30},
+}
+DEFAULT_REF_MODEL = "seedance2-ref"
 
 
 def seedance_ref2video(image_paths: list, out_path: Path, *, prompt: str,
                        duration: str = "10s", audio: bool = True,
                        resolution: str = "720p", aspect_ratio: str = "9:16",
+                       model: str = DEFAULT_REF_MODEL,
                        poll_timeout: int = 900, on_event=None) -> Path:
-    """Seedance 2.0 reference-to-video: hasta 9 imágenes de referencia
-    (personajes/naves) que se MANTIENEN consistentes. En el `prompt` se citan como
-    @Image1, @Image2… `generate_audio` añade diálogo con lip-sync + música/efectos."""
+    """Seedance reference-to-video: imágenes de referencia (personajes/naves) que se
+    MANTIENEN consistentes; se citan en el `prompt` como @Image1, @Image2…
+    `generate_audio` añade diálogo con lip-sync + música/efectos. Los topes (nº de
+    refs, duración) salen de SEEDANCE_REF_MODELS según el `model` → 2.0 (9 refs/15s)
+    o 2.5 (50 refs/30s/4K) sin cambiar el resto del código."""
     import re as _re
+    caps = SEEDANCE_REF_MODELS.get(model, SEEDANCE_REF_MODELS[DEFAULT_REF_MODEL])
     key = resolve_key()
     if not key:
         raise RuntimeError("Falta la API key de fal.ai (Ajustes → API Keys).")
-    urls = [_upload(Path(p), key) for p in image_paths[:9] if p and Path(p).is_file()]
+    urls = [_upload(Path(p), key) for p in image_paths[:caps["max_refs"]]
+            if p and Path(p).is_file()]
     if not urls:
         raise RuntimeError("Necesito al menos una imagen de referencia válida.")
-    dur = max(4, min(15, int(_re.sub(r"[^0-9]", "", str(duration)) or 10)))
+    dur = max(4, min(caps["max_dur"], int(_re.sub(r"[^0-9]", "", str(duration)) or 10)))
     payload = {
         "prompt": prompt,
         "image_urls": urls,
@@ -276,7 +303,7 @@ def seedance_ref2video(image_paths: list, out_path: Path, *, prompt: str,
         "aspect_ratio": aspect_ratio,
         "generate_audio": audio,
     }
-    return _run_model(_SEEDANCE2_REF, payload, out_path,
+    return _run_model(caps["id"], payload, out_path,
                       poll_timeout=poll_timeout, on_event=on_event)
 
 

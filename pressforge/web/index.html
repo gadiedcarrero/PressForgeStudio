@@ -193,6 +193,7 @@
               <label class="block text-sm mb-1 text-zinc-400">Motor del diálogo</label>
               <select id="dialogueEngine" onchange="onDialogueEngine()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="veo3">Veo 3 — mejor escena/animación (2+ personajes); voz de ElevenLabs, lip-sync aproximado (~$0.9-1.2/escena)</option>
+                <option value="seedance25-ref">🆕 Seedance 2.5 REF — hasta 50 refs · 30s · 4K · lip-sync nativo (julio 2026, al salir)</option>
                 <option value="seedance2-ref">⭐ Seedance 2.0 REF — personajes con TU imagen de referencia (consistencia máxima)</option>
                 <option value="seedance2">Seedance 2.0 — audio sincronizado + lip-sync nativo; voz de ElevenLabs encima (alternativa a Veo)</option>
                 <option value="omnihuman">OmniHuman — lip-sync exacto a tu voz; mejor para 1 que habla, más barato</option>
@@ -416,6 +417,7 @@
               <label class="block text-[12px] mb-1 text-zinc-400">Video</label>
               <select id="skyVidEngine" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="local">🖥️ Local LTX — gratis</option>
+                <option value="seedance25-ref">🆕 Seedance 2.5 REF — 50 vistas · 30s · 4K (julio 2026, al salir)</option>
                 <option value="seedance2-ref">⭐ Seedance 2.0 REF (usa tu imagen → MISMA nave) — pago</option>
                 <option value="seedance2">🎬 Seedance 2.0 (fal) — pago</option>
                 <option value="seedance">🎬 Seedance 1.0 Pro (fal) — pago</option>
@@ -731,7 +733,7 @@ function renderScripts() {
         </div>
         <button type="button" onclick="openVoiceBrowser('charvoice-${k}-${ci}')" class="text-[10px] text-indigo-300 hover:underline mt-0.5">Explorar más voces (biblioteca) →</button>` : ''}
         ${dialogueMode() && !dlgUsesVoice() ? `<p class="text-[10px] text-emerald-400/80 mt-1">🔊 Seedance genera la voz (no hace falta elegir).</p>` : ''}
-        ${dlgEngine() === 'seedance2-ref' ? `
+        ${(dlgEngine() === 'seedance2-ref' || dlgEngine() === 'seedance25-ref') ? `
         <label class="block text-[10px] text-indigo-300/90 mt-1.5 mb-0.5">📎 Imagen de referencia (Seedance REF · si no subes, la app la genera de la descripción):</label>
         <div class="flex items-center gap-1.5">
           <input type="file" id="charreffile-${k}-${ci}" accept="image/*" onchange="uploadCharRef('${k}','${ci}')" class="text-[10px] text-zinc-400 file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:bg-zinc-800 file:text-zinc-200 file:text-[10px]" />

@@ -310,13 +310,14 @@ def produce_skybot(description: str, on_event: Callable[[str], None] | None = No
         refs = [("perspective", master)]  # gen()/ref_clip() la usan (late-binding)
     ref_paths = [p for _, p in refs]
     vpfx = _view_prefix(refs)  # explica las vistas a Seedance/OpenAI
-    sd_ref = (video_engine == "seedance2-ref")
+    sd_ref = video_engine in ("seedance2-ref", "seedance25-ref")
 
     def ref_clip(shot: str, fn: str, dur: str) -> Path:
         from .providers.fal_video import seedance_ref2video
         out = workdir / fn
         seedance_ref2video(ref_paths, out, prompt=f"{vpfx}Show that spaceship: {shot}",
-                           duration=dur, audio=False, aspect_ratio="9:16", on_event=on_event)
+                           duration=dur, audio=False, aspect_ratio="9:16",
+                           model=video_engine, on_event=on_event)
         return out
 
     def scene_clip(shot: str, fn: str) -> Path:
