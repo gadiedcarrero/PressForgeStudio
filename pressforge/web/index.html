@@ -85,7 +85,7 @@
 
       <div class="grid lg:grid-cols-[3fr_2fr] gap-6 items-start">
         <!-- Formulario -->
-        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5">
+        <div class="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-5 lg:sticky lg:top-7 lg:self-start lg:max-h-[calc(100dvh_-_3.5rem)] lg:overflow-y-auto">
           <label class="block text-sm mb-1 text-zinc-400">Marca / canal</label>
           <select id="brandSel" title="Marca" onchange="onBrandChange()"
             class="w-full mb-4 bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -250,7 +250,7 @@
         </div>
 
         <!-- Guiones + producción -->
-        <div>
+        <div class="lg:sticky lg:top-7 lg:self-start lg:max-h-[calc(100dvh_-_3.5rem)] lg:overflow-y-auto lg:pr-1">
           <!-- Lista de noticias/eventos para elegir (Histórico / Efemérides) -->
           <div id="candidates" class="hidden mb-4">
             <div class="flex items-center justify-between gap-3 mb-2">
