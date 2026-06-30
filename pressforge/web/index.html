@@ -139,7 +139,7 @@
           <div id="field-imgcount" class="grid grid-cols-2 gap-3 mb-4">
             <div>
               <label class="block text-sm mb-1 text-zinc-400">Imágenes</label>
-              <select id="scenes" title="Número de imágenes/escenas"
+              <select id="scenes" title="Número de imágenes/escenas" onchange="estimateCost()"
                 class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 <option value="">Auto (según largo)</option>
                 <option value="6">6</option><option value="8">8</option>
@@ -198,6 +198,16 @@
                 <option value="seedance2">Seedance 2.0 — audio sincronizado + lip-sync nativo; voz de ElevenLabs encima (alternativa a Veo)</option>
                 <option value="omnihuman">OmniHuman — lip-sync exacto a tu voz; mejor para 1 que habla, más barato</option>
               </select>
+            </div>
+            <div id="directorEngineWrap" class="hidden mb-3">
+              <label class="block text-sm mb-1 text-zinc-400">Motor de video (Modo Director)</label>
+              <select id="directorEngine" onchange="estimateCost()" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="ltx">🖥️ Local LTX — GRATIS (abre ComfyUI · ideal para iterar)</option>
+                <option value="seedance-lite">🎬 Seedance Lite (fal) — barato (~$0.02/s)</option>
+                <option value="seedance">🎬 Seedance 1.0 Pro (fal) — pago</option>
+                <option value="seedance2">🎬 Seedance 2.0 (fal) — lo mejor, CARO (~$0.25/s)</option>
+              </select>
+              <p class="text-[11px] text-amber-400/80 mt-1">💡 Empieza en <b>Local (gratis)</b> para ver cómo queda; sube a Seedance solo para la versión final. 19 escenas en Seedance 2.0 ≈ $28.</p>
             </div>
 
             <div id="voiceSection">
@@ -267,6 +277,7 @@
             <div id="candList" class="space-y-2"></div>
           </div>
 
+          <div id="costEstimate" class="text-[12px] mb-3 px-3 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800"></div>
           <div id="scripts" class="space-y-4"></div>
 
           <!-- Panel de producción (progreso + resultado) -->
@@ -698,6 +709,7 @@ function toggleCard(i) {
 
 function renderScripts() {
   ACTIVE = 0;
+  estimateCost();
   $('emptyScripts').classList.toggle('hidden', SCRIPTS.length > 0);
   $('scripts').innerHTML = SCRIPTS.map((s, idx) => {
     const k = cssId(s.id);
@@ -858,6 +870,7 @@ function onDialogueToggle(){
 }
 function onDialogueEngine(){
   if (SCRIPTS.length) renderScripts();  // mostrar/ocultar voz por personaje según motor
+  estimateCost();
 }
 function dialogueMode(){
   const p = fmtParts();
@@ -873,10 +886,11 @@ function fmtParts(){
   let raw = $('format').value || 'still';
   const director = raw === 'director';
   if (director){
-    // Director NARRADO (voz en off + personajes que actúan) → camino ANIMADO+Seedance.
-    // Director DIÁLOGO (si marcas "Es un diálogo") → camino diálogo (lip-sync).
+    // Director NARRADO (voz en off + personajes que actúan) → camino ANIMADO con el
+    // motor que elijas (por defecto Local GRATIS). DIÁLOGO ("Es un diálogo") → lip-sync.
     const dlg = (MODE === 'mine' && $('dialogueChk').checked);
-    raw = dlg ? 'dialogue' : 'animated|local|seedance2';
+    const eng = ($('directorEngine')||{}).value || 'ltx';
+    raw = dlg ? 'dialogue' : ('animated|local|' + eng);
   }
   const parts = raw.split('|');
   return { fmt: parts[0], img: parts[1] || '', vid: parts[2] || '', director };
@@ -884,6 +898,8 @@ function fmtParts(){
 
 function onFormatChange(){
   const p = fmtParts(); const f = p.fmt; const dlg = f === 'dialogue';
+  // Selector de motor de Director: solo en Director NARRADO (no en diálogo).
+  $('directorEngineWrap').classList.toggle('hidden', !(p.director && !dlg));
   $('presenterWrap').classList.toggle('hidden', f !== 'talking');
   $('animatedNote').classList.toggle('hidden', f !== 'animated' && !dlg);
   $('dialogueEngineWrap').classList.toggle('hidden', !dlg);
@@ -893,9 +909,39 @@ function onFormatChange(){
   $('field-imgcount').classList.toggle('hidden', dlg);
   $('dialogueDurNote').classList.toggle('hidden', !dlg);
   if (SCRIPTS.length) renderScripts();
-  if (p.director) $('animatedNote').textContent = '🎬 Modo Director: la IA arma un guion de rodaje (entidades fijas + cámara + continuidad estilo Dreamina). La VOZ la eliges abajo: Seedance = lip-sync nativo consistente (voz por el voice_style) · Veo = voz ElevenLabs. Mejor con Seedance.';
+  if (p.director) $('animatedNote').textContent = '🎬 Modo Director: la IA arma un guion de rodaje (entidades fijas + cámara + continuidad estilo Dreamina). Narrado = voz en off + personajes que actúan. Elige el motor de video abajo (Local = gratis).';
   else if (dlg) $('animatedNote').textContent = 'Diálogo: la VOZ la pone ElevenLabs (la misma en todo el reel, tú la eliges por personaje en la tarjeta) y el VIDEO lo pone Veo 3 / OmniHuman. Solo habla el del turno. Es lo más caro (~$0.9–1.2/escena) · empieza con un diálogo CORTO.';
   else if (f === 'animated') $('animatedNote').textContent = 'Cada escena se anima con movimiento (Kling) y la voz va en off. ~$0.25 por escena. Requiere tu fal API Key. Prueba con guion corto.';
+  estimateCost();
+}
+
+// Estimador de costo: video por escena × nº de escenas + imágenes. Local = $0.
+const _VID_COST = { ltx:0, '':0, still:0, 'seedance-lite':0.13, seedance:0.6,
+  seedance2:1.5, seedance25:1.5, 'seedance2-ref':1.5, 'seedance25-ref':1.5,
+  'kling-i2v':0.35, veo3:1.0, omnihuman:0.84, 'kling-avatar':0.34, 'ltx-local':0 };
+function estimateCost(){
+  const el = $('costEstimate'); if(!el) return;
+  const { fmt, img, vid } = fmtParts();
+  const engine = fmt === 'animated' ? vid
+    : (fmt === 'dialogue' ? $('dialogueEngine').value
+    : (fmt === 'talking' ? $('videoModel').value : 'still'));
+  const perVid = _VID_COST[engine] ?? 0;
+  const perImg = (img === 'openai') ? 0.06 : 0;     // imágenes OpenAI ~$0.06 c/u
+  const per = perVid + perImg;
+  // nº de escenas: del guion ya generado, o del campo (si está en auto, desconocido)
+  const n = SCRIPTS.length ? (SCRIPTS[0].scenes||[]).length : (+$('scenes').value || 0);
+  let html;
+  if (per === 0){
+    html = '💚 <b>GRATIS</b> — todo local en tu Mac (sin coste de API)' + (n?` · ${n} escenas`:'');
+  } else if (n){
+    const total = (per * n);
+    html = `💸 Costo estimado: <b>~$${total.toFixed(2)}</b> · ${n} escenas × ~$${per.toFixed(2)} (${engine})`;
+  } else {
+    html = `💸 ~$${per.toFixed(2)} por escena (${engine}) · el total depende de cuántas escenas genere la IA`;
+  }
+  el.innerHTML = html + ' <span class="text-zinc-500">· estimación aproximada</span>';
+  el.classList.toggle('text-emerald-300', per === 0);
+  el.classList.toggle('text-amber-300', per > 0);
 }
 
 // ─── Producir reel ───
@@ -1829,6 +1875,7 @@ refreshBrands();
 loadMusic();
 loadCreateVoice();
 loadImageStyle();
+estimateCost();
 </script>
 </body>
 </html>
