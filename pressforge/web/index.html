@@ -587,10 +587,12 @@ $('genBtn').addEventListener('click', async () => {
   if (MODE === 'historic' || MODE === 'onthisday' || MODE === 'reddit') return searchCandidates();
 
   const _dir = fmtParts().director;
+  // Diálogo solo si marcaste "Es un diálogo" (Director es NARRADO por defecto).
+  const _dlg = (MODE === 'mine' && $('dialogueChk').checked);
   const payload = { mode: MODE, scenes: +$('scenes').value, count: +$('count').value,
                     niche: $('niche').value, extra: $('extra').value, user_script: $('userScript').value,
                     duration: $('duration').value,
-                    dialogue: (_dir || (MODE === 'mine' && $('dialogueChk').checked)),
+                    dialogue: _dlg,
                     director: _dir,
                     language: $('language').value,
                     script_provider: ($('scriptProvider')||{}).value || '' };
@@ -868,11 +870,16 @@ function dlgUsesVoice(){ const e = dlgEngine(); return !!e && !e.startsWith('see
 // El menú Formato codifica formato + origen de imágenes: "still|local", "still|openai",
 // "animated|local"… (talking/dialogue no llevan sufijo). Esto lo separa.
 function fmtParts(){
-  const raw = $('format').value || 'still';
-  // 'director' se produce por el mismo camino que 'dialogue' (diálogo+Seedance),
-  // pero al generar se marca director=true para usar el guion de rodaje.
-  const parts = (raw === 'director' ? 'dialogue' : raw).split('|');
-  return { fmt: parts[0], img: parts[1] || '', vid: parts[2] || '', director: raw === 'director' };
+  let raw = $('format').value || 'still';
+  const director = raw === 'director';
+  if (director){
+    // Director NARRADO (voz en off + personajes que actúan) → camino ANIMADO+Seedance.
+    // Director DIÁLOGO (si marcas "Es un diálogo") → camino diálogo (lip-sync).
+    const dlg = (MODE === 'mine' && $('dialogueChk').checked);
+    raw = dlg ? 'dialogue' : 'animated|local|seedance2';
+  }
+  const parts = raw.split('|');
+  return { fmt: parts[0], img: parts[1] || '', vid: parts[2] || '', director };
 }
 
 function onFormatChange(){

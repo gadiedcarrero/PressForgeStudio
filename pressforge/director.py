@@ -41,11 +41,16 @@ class DirectorShot(BaseModel):
                         "movimiento (dolly in, slow push, static, tracking), bloqueo.")
     entities: list[str] = Field(default_factory=list, description="Nombres (de la "
                                 "lista `entities`) que APARECEN en esta toma.")
-    speaker: str = Field(default="", description="En diálogo: nombre EXACTO del "
+    narration: str = Field(default="", description="MODO NARRADO (voz en off): el "
+                           "fragmento de narración que el NARRADOR dice sobre esta "
+                           "toma, mientras los personajes solo ACTÚAN (no hablan a "
+                           "cámara). Al unir los fragmentos en orden debe leerse "
+                           "fluido. Vacío si la toma es de DIÁLOGO.")
+    speaker: str = Field(default="", description="En DIÁLOGO: nombre EXACTO del "
                          "personaje que habla en esta toma (lip-sync + su voz). Vacío "
-                         "si es una toma sin diálogo.")
-    line: str = Field(default="", description="Diálogo: las palabras EXACTAS que dice "
-                      "el `speaker`, verbatim. Vacío si no hay diálogo.")
+                         "en modo narrado (voz en off).")
+    line: str = Field(default="", description="DIÁLOGO: las palabras EXACTAS que dice "
+                      "el `speaker`, verbatim. Vacío en modo narrado.")
     continuity: str = Field(default="", description="EN INGLÉS, opcional: notas de "
                             "continuidad para esta toma (dirección de pantalla, qué se "
                             "mantiene del plano anterior, revelaciones). Ej: 'keep "
@@ -116,6 +121,10 @@ def build_shot_prompt(script: DirectorScript, shot: DirectorShot, *,
                     if e.name.strip().lower() == shot.speaker.strip().lower()), None)
         voice = f" (voice: {spk.voice_style.strip()})" if spk and spk.voice_style.strip() else ""
         parts.append(f'[DIALOGUE] {shot.speaker} says, lip-synced: "{shot.line.strip()}"{voice}')
+    else:
+        # Modo narrado: voz en off; los personajes ACTÚAN, no hablan a cámara.
+        parts.append("[VOICEOVER] Off-screen narrator over the scene; characters act "
+                     "naturally and do NOT talk to camera (mouths not speaking).")
     parts.append("No on-screen text, no watermark, no captions.")
     return "\n".join(parts)
 
@@ -137,9 +146,14 @@ def director_to_story(script: DirectorScript, *, language: str | None = None):
     scenes = []
     for i, sh in enumerate(script.shots):
         spk = sh.speaker.strip() if sh.speaker.strip() in names else ""
+        if has_dialogue:
+            narr = sh.line.strip() if (spk and sh.line.strip()) else ""
+        else:  # narrado: voz en off; el personaje no habla a cámara
+            narr = sh.narration.strip() or sh.line.strip()
+            spk = ""
         scenes.append(Scene(
             index=i,
-            narration=(sh.line.strip() if (spk and sh.line.strip()) else ""),
+            narration=narr,
             image_prompt=build_shot_prompt(script, sh, with_dialogue=has_dialogue),
             characters=[n for n in (sh.entities or []) if n in names],
             speaker=spk,

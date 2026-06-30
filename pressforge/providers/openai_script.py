@@ -289,9 +289,16 @@ la izquierda, siempre por la izquierda; "geography never flips"); arrastra cambi
 de vestuario/estado del plano anterior; planifica revelaciones (voz antes que cara, \
 revelar al personaje en su última línea, etc.).
 
-3. DIÁLOGO (si lo hay): `speaker` = quién habla (exacto), `line` = sus palabras \
-EXACTAS en {language}. El que habla mira a cámara con la boca hablando; el que \
-escucha, de perfil/tres cuartos con la boca CERRADA. Una toma por línea.
+3. DOS MODOS (te lo indica el usuario):
+   • NARRADO (voz en off) — el caso por defecto de un reel/documental: hay UN \
+narrador que cuenta la historia en off; los personajes solo ACTÚAN, NO hablan a \
+cámara. En cada toma pon el fragmento del narrador en `narration` (en {language}; \
+al unir los fragmentos EN ORDEN deben leerse fluido y cubrir TODO el texto) y deja \
+`speaker` y `line` VACÍOS. NUNCA conviertas la narración en líneas dichas por un \
+personaje.
+   • DIÁLOGO — solo si el usuario lo pide: `speaker` = quién habla, `line` = sus \
+palabras EXACTAS en {language}, `narration` vacío. El que habla mira a cámara \
+hablando; el que escucha, de perfil con la boca CERRADA. Una toma por línea.
 
 4. `look` global: film stock/grano, paleta, contraste, mood, calidad — se repite en \
 todo. `aspect_ratio` coherente. `music_mood` acorde.
@@ -416,15 +423,18 @@ class OpenAIScriptProvider:
         dirección cinematográfica) estilo Dreamina-Octo. Devuelve un DirectorScript."""
         from ..director import DirectorScript
         lang = language or self.settings.language
-        mode = ("Es una escena de DIÁLOGO: reparte las líneas en tomas (una por línea), "
-                "con speaker y line verbatim." if dialogue else
-                "Es una pieza con narración/acción: tomas visuales que cubran el brief, "
-                "sin diálogo (deja speaker/line vacíos) salvo que el brief lo pida.")
+        mode = ("Modo DIÁLOGO: una toma por línea, con `speaker` y `line` verbatim; "
+                "deja `narration` vacío." if dialogue else
+                "Modo NARRADO (voz en off): divide la narración del BRIEF en tomas; en "
+                "cada toma pon en `narration` el fragmento que dice el narrador (al "
+                "unirlos EN ORDEN deben cubrir TODO el brief y leerse fluido) y en "
+                "`action` lo que los personajes ACTÚAN. Deja `speaker` y `line` VACÍOS: "
+                "NADIE habla a cámara. NO conviertas la narración en diálogo.")
         user = (
             f"BRIEF:\n\"\"\"\n{brief.strip()}\n\"\"\"\n\n{mode}\n"
             f"Apunta a ~{shots} tomas (ajusta según el brief). Define TODAS las "
             f"entidades (personajes, props, escenarios) con apariencia fija. "
-            f"Diálogos en {lang}.\n"
+            f"Texto/narración en {lang}.\n"
         )
         if extra:
             user += f"Indicaciones extra: {extra}\n"
